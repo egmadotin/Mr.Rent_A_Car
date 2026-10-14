@@ -23,25 +23,25 @@ User decisions already made (don't re-ask):
    - Re-import: `pnpm --filter @mrac/db exec tsx prisma/import-legacy-locations.ts` (reads `legacy/locations.json`).
 3. Integrations (Plaid, Plustek, Moovetrax, Yoti) are **not** wired up. Their fields exist and are entered by hand (ID verified + method + timestamp, licence #, GPS lat/lng/tracker).
 
-## How to run (everything heavy runs in Docker; the D: drive is nearly full)
+## How to run (Next.js in the Docker `dev` container; Postgres in `db`)
+
+D: has only ~1.2 GB free, so packages and build output must stay in Docker volumes. Running natively from D: with packages on another drive does NOT work (webpack resolves paths across drives wrongly: "Can't resolve './C:/…/next/dist/client/app-next-dev.js'").
 
 ```
 docker compose up -d                       # Postgres on localhost:5442 + dev container
-docker compose exec dev pnpm install
+docker compose exec dev pnpm install        # only when dependencies change
 docker compose exec dev pnpm db:migrate     # prisma migrate deploy
-docker compose exec dev pnpm db:seed        # reference data + fake TEST records
 docker compose exec -d dev sh -c "cd apps/web && pnpm dev > /tmp/next.log 2>&1"
-# http://localhost:3001 (public), http://localhost:3001/admin (ERP). Host port 3001: the user runs another project on 3000.
+docker compose exec dev sh -c "tail -f /tmp/next.log"   # follow the log (Ctrl+C stops following only)
+# http://localhost:3001 (public), http://localhost:3001/admin (ERP). Port 3001: the user runs another project on 3000.
 ```
 
+- Restart: `docker compose restart dev`, then the `pnpm dev` line again.
 - **Dev staff login**: `staff@mrac.test`. The password is in `packages/db/prisma/seed.ts` (it's a test value).
-- `node_modules`, the pnpm store, `.next` and the Postgres data all live in Docker volumes. Don't `pnpm install` on the host.
-- **Typecheck**: `docker compose exec -T dev sh -c "cd apps/web && npx tsc --noEmit"`.
-- **Lint**: `docker compose exec -T dev sh -c "cd apps/web && npx eslint app"`. Both are clean as of this handoff.
-- **Dev server gotchas**:
-  - It uses webpack (`next dev`, no turbopack): Turbopack doesn't see file changes on the Windows bind mount.
-  - First compile of each page takes 30–60 s.
-  - **After any Prisma schema change, restart the container** (`docker compose restart dev`, then start dev again). Otherwise the server keeps the old Prisma client, and new models are `undefined` at runtime.
+- Don't `pnpm install` on the host.
+- **Typecheck**: `docker compose exec -T dev sh -c "cd apps/web && npx --no-install tsc --noEmit"` (ignore TS6053 / `.next/types` noise).
+- **Lint**: `docker compose exec -T dev sh -c "cd apps/web && npx eslint app"`.
+- **Dev server**: webpack (`next dev -p 3001`; Turbopack doesn't see file changes on the Windows bind mount). First compile of each page takes 30–90 s on this machine. **After any Prisma schema change** restart the container and `pnpm dev`.
 - **Schema changes**: `docker compose exec -T dev sh -c "cd packages/db && npx prisma migrate dev --name X"`. CHECK and EXCLUDE constraints that Prisma can't express live in `packages/db/prisma/sql/constraints.sql`. Append any new ones to the migration's SQL by hand.
 
 ## Layout
@@ -92,9 +92,8 @@ Status:
 - Rentals: list DONE, **Start a Rental DONE** (commit `d99c4a3`). See "Rentals" at the bottom.
 
 Next steps, in order:
-1. **Rental view = `AgreementMain.aspx`**. Capture its field grid and action links read-only from the live ERP (open any existing agreement and do NOT save anything). Rewrite `rentals/[id]` to that layout, the same way `reservation-detail.tsx` was done. Keep our working actions (payments, end, reopen, void, exchange, bill split, tickets, claims, drivers, memo).
+1. ~~Rental view~~ DONE. ~~Rental edit~~ DONE (see Rentals section).
 2. **End Rental (check-in)**: capture the legacy check-in form fields and match them (odometer in, fuel in, date, location, charges recalc, payment).
-3. **Rental edit**: the legacy edit screen for an open agreement.
 4. **Public booking** step by step against mrrentacar.com, including the "Rental Options" step (`/rental-options/?vehicle-type=…&rate-id=…`) that we still skip; add `/book/options` using MiscCharge, and extend `customer.requestReservation`.
 5. **Templates**: AgreementsPrintSelect.aspx printouts (Bill Split Invoice, Bill to Invoice Test, Break Down, Closing Test(s), Customer Invoice, Open Contract, Open Contract-march 2017, Standard), plus Print Quote and Reservation Confirmation. Make them editable in Settings. Wire up `?print=` from Start a Rental and the disabled Print/Email links.
 6. Permissions: admins / permitted users can edit and delete anything.
@@ -227,4 +226,6 @@ User request: copy the real data from the old ERP (logo, all vehicles, vehicle-t
   - Shared UI `_components/booking-customer.tsx`: `CustomerFields` (per-form legacy layout + labels), `CustomerNotes`, `MatchList`, `PaymentInfoCard`, `customerValues`. Reserve form uses them.
   - `?print=<printout>` is passed to the rental page; printing waits for the templates step. Not built: Add More Information, Drivers / Add More Drivers, Add/Edit Other Charges >> button, Long Term Rental / Invoicing Period (hidden in RentCentric by default).
   - Rental page dates now show in the pickup location's time zone.
-- **Next**: rental view = `AgreementMain.aspx`, then End Rental (check-in), then the public booking flow, then templates + permissions.
+- **Rental view** (`rentals/[id]/_components/rental-detail.tsx`) = `AgreementMain.aspx`: "Rental# n" + Edit; fields Status (Closed (date)), Type, Pickup/Return Date, Opened By, Check-Out Channel, Company, Customer Balance | Vehicle, Pickup/Return Location, Referral, Closed By, Check-In Channel, Split Bill Balance; the 23 action links in RentCentric order (each opens its panel — the old tab sections, filtered with a `show` prop — or its dialog from `rental-dialogs.tsx`; Email/Inspection disabled until templates/inspections); Memo + Memo History (n) + Save; charge table with payments (legacy "Visa XXXX0583(P) Auth:…" / "Auth:…" wording) and Balance. `%` charges show as % everywhere (`_lib/charge-lines.ts`). Shared `DL` / `ActionLink` in `_components/legacy-view.tsx` (reservation view uses them too).
+- **Edit Rental** (`rentals/[id]/edit`) = `Checkout3.aspx?CustomerID=…&AgreementID=…`: the Start a Rental form in edit mode, opened on the Rental tab; adds Expected Return, Return Date / Odometer In / Fuel In (closed rentals), Fuel Charge, Upgrade Type (Flat/Daily) + Upgrade Amount, Damage (disabled until damage records exist); Vehicle ID and Deposit locked (vehicle changes via Vehicle Exchange); Save. API `rental.update` re-prices (`priceBooking` now takes `upgrade` and `fuelCharge`) and keeps tickets, admin, damages, prepaid fuel and adjustment lines. Not matched: the old unlabeled 1–16 slider under the vehicle description on the edit form.
+- **Next**: End Rental (check-in) form vs the legacy one, then the public booking flow, then templates + permissions.

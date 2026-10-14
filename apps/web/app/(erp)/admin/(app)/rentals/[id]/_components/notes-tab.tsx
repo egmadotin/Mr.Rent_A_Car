@@ -32,7 +32,8 @@ function MemoList({ items }: { items: RentalData["rental"]["memos"] }) {
 }
 
 /** Legacy "Memo" + "Memo History" and the separate "Notes" list, side by side. */
-export function NotesTab({ data }: { data: RentalData }) {
+export function NotesTab({ data, show }: { data: RentalData; show?: string }) {
+  const on = (k: string) => !show || show === k;
   const r = data.rental;
   const { api, run } = useRentalActions(r.id);
   const memos = r.memos.filter((m) => m.kind === "MEMO");
@@ -54,13 +55,17 @@ export function NotesTab({ data }: { data: RentalData }) {
   );
 
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      <Section title="Memo history" count={memos.length} flush action={add("MEMO")}>
-        <MemoList items={memos} />
-      </Section>
-      <Section title="Notes" count={notes.length} flush action={add("NOTE")}>
-        <MemoList items={notes} />
-      </Section>
+    <div className={show ? "space-y-4" : "grid gap-4 lg:grid-cols-2"}>
+      {on("memos") && (
+        <Section title="Memo history" count={memos.length} flush action={add("MEMO")}>
+          <MemoList items={memos} />
+        </Section>
+      )}
+      {on("notes") && (
+        <Section title="Notes" count={notes.length} flush action={add("NOTE")}>
+          <MemoList items={notes} />
+        </Section>
+      )}
     </div>
   );
 }

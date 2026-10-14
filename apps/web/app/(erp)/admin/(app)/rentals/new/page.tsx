@@ -1,5 +1,5 @@
 import { PageHeader } from "../../../../_components/page-header";
-import { customerValues } from "../../../../_components/booking-customer";
+import { customerValues } from "../../../../_components/booking-values";
 import { api, requireStaff, workingLocationId } from "../../../../_lib/session";
 import { StartRentalForm, type StartRentalInitial } from "./start-rental-form";
 

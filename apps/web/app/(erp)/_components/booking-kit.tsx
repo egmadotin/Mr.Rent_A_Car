@@ -8,6 +8,7 @@ import { Label } from "@mrac/ui/components/label";
 import { NativeSelect } from "@mrac/ui/components/native-select";
 import { BUSINESS_TZ, fromDateTimeLocal, money, toDateTimeLocal } from "@mrac/ui/lib/format";
 import { nowInput, todayAtInput } from "@mrac/ui/lib/tz";
+import { isPercentLine } from "../_lib/charge-lines";
 
 /**
  * Pieces shared by the Quote and Reservation forms (the same booking fields in RentCentric).
@@ -72,8 +73,6 @@ export function DiscountField({ bind, error, label = "Discount %", noBlank }: { 
 }
 
 type Preview = { lines: { name: string; units: unknown; kind: string; rate?: unknown; total: unknown; sortOrder?: number }[]; total: unknown; warnings: string[] };
-/** % lines from priceBooking: percentage taxes (sortOrder 60+) and percentage charges (MISC, 40–49). */
-const isPercent = (l: Preview["lines"][number]) => (l.kind === "TAX" && (l.sortOrder ?? 0) >= 60) || (l.kind === "MISC" && (l.sortOrder ?? 0) >= 40 && (l.sortOrder ?? 0) < 50);
 
 /** Live priced charge lines + total, as shown beside the booking forms. */
 export function ChargeSummary({ title, preview, emptyText }: { title: string; preview: Preview | null | undefined; emptyText: string }) {
@@ -102,7 +101,7 @@ export function ChargeSummary({ title, preview, emptyText }: { title: string; pr
                   <tr key={i} className="border-b border-border/50 last:border-0">
                     <td className="py-1 pr-2">{l.name}</td>
                     <td className="py-1 pr-2 text-right text-muted-foreground tabular-nums">{Number(l.units) || ""}</td>
-                    <td className="py-1 pr-2 text-right text-muted-foreground tabular-nums">{l.kind === "MILEAGE" || l.rate == null ? "" : isPercent(l) ? `${Number(l.rate)}%` : money(Number(l.rate))}</td>
+                    <td className="py-1 pr-2 text-right text-muted-foreground tabular-nums">{l.kind === "MILEAGE" || l.rate == null ? "" : isPercentLine(l) ? `${Number(l.rate)}%` : money(Number(l.rate))}</td>
                     <td className="py-1 text-right tabular-nums">{l.kind === "MILEAGE" ? "" : money(l.total as number)}</td>
                   </tr>
                 ))}

@@ -6,7 +6,7 @@ const D = (n: number | Prisma.Decimal) => new Prisma.Decimal(n);
 const ZERO = D(0);
 
 export type ChargeDraft = {
-  kind: "TIME" | "MILEAGE" | "DISCOUNT" | "PROTECTION" | "MISC" | "OTHER" | "TAX";
+  kind: "TIME" | "MILEAGE" | "UPGRADE" | "DISCOUNT" | "FUEL" | "PROTECTION" | "MISC" | "OTHER" | "TAX";
   name: string;
   units: Prisma.Decimal;
   rate: Prisma.Decimal;
@@ -41,6 +41,10 @@ export type PricingInput = {
   driverAge?: number | null;
   /** number of additional drivers — adds the "Additional Driver is added" charge × count */
   additionalDrivers?: number;
+  /** Edit Rental "Upgrade Type" (Flat | Daily) + "Upgrade Amount" */
+  upgrade?: { type: "FLAT" | "DAILY"; amount: number } | null;
+  /** Edit Rental "Fuel Charge" (manual amount) */
+  fuelCharge?: number | null;
 };
 
 /**
@@ -342,6 +346,12 @@ export async function priceBooking(tx: Tx, input: PricingInput) {
     const name = [o.detail, o.description].filter(Boolean).join(" — ") || "Other Charges";
     lines.push({ kind: "OTHER", name, units: D(1), rate: D(o.amount), total: D(o.amount), sortOrder: 30 + sort++ });
   }
+  // ── Edit Rental: Upgrade (Flat once, or Daily × rental days) and the manual Fuel Charge
+  if (input.upgrade?.amount) {
+    const u = input.upgrade.type === "DAILY" ? rentalDays : 1;
+    lines.push({ kind: "UPGRADE", name: "Upgrade", units: D(u), rate: D(input.upgrade.amount), total: D(input.upgrade.amount).mul(u), sortOrder: 5 });
+  }
+  if (input.fuelCharge) lines.push({ kind: "FUEL", name: "Fuel", units: D(1), rate: D(input.fuelCharge), total: D(input.fuelCharge), sortOrder: 8 });
   // percentage charges apply to everything above them (rental + protection + other charges), before tax.
   // Verified on mrrentacar.com: YYC Standard 3 days + SLC → Premium Location 9.75% of 220.49 = 21.50, total 254.09.
   const beforePercent = lines.reduce((a, l) => a.add(l.total), ZERO);

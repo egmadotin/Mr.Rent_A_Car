@@ -12,31 +12,16 @@ import { Textarea } from "@mrac/ui/components/textarea";
 import { COUNTRIES } from "@mrac/ui/lib/countries";
 import { date, money } from "@mrac/ui/lib/format";
 import { REGION_OPTIONS } from "@mrac/ui/lib/regions";
+import { CUSTOMER_FIELDS, customerValues, type CustomerField } from "./booking-values";
 import { FieldShell as F, PAYMENT_METHOD_OPTIONS } from "./form";
 
-/** The renter profile fields shared by the Reserve and Start a Rental "Customer" tabs (and `customerInput` on the API). */
-export const CUSTOMER_FIELDS = [
-  "firstName", "middleName", "lastName", "email", "phone", "localPhone", "companyPhone", "licenseNumber", "licenseExpiry",
-  "licenseProvince", "birthDate", "address1", "address2", "city", "province", "postal", "country", "insuranceCompany",
-  "insurancePolicyNumber", "insuranceExpiry", "insurancePhone", "insuranceFax",
-] as const;
-export type CustomerField = (typeof CUSTOMER_FIELDS)[number];
-const DATE_FIELDS = new Set<string>(["licenseExpiry", "birthDate", "insuranceExpiry"]);
+// server-safe customer helpers live in booking-values.ts; re-exported for the client forms
+export { CUSTOMER_FIELDS, customerValues, type CustomerField };
 
 const KIND: Partial<Record<CustomerField, "tel" | "email" | "date" | "region" | "country">> = {
   phone: "tel", localPhone: "tel", companyPhone: "tel", insurancePhone: "tel", insuranceFax: "tel", email: "email",
   licenseExpiry: "date", birthDate: "date", insuranceExpiry: "date", licenseProvince: "region", province: "region", country: "country",
 };
-
-/** Form values from a customer record (dates as yyyy-mm-dd, nulls as ""). */
-export function customerValues(c: Record<string, unknown>) {
-  return Object.fromEntries(
-    CUSTOMER_FIELDS.map((f) => {
-      const val = c[f];
-      return [f, val == null ? "" : DATE_FIELDS.has(f) ? new Date(val as string).toISOString().slice(0, 10) : String(val)];
-    }),
-  ) as Record<CustomerField, string>;
-}
 
 /** One cell of a Customer tab: [field, legacy label, required?], or a number = empty columns (keeps the legacy rows aligned). */
 export type CustomerLayout = ([CustomerField, string, boolean?] | number)[];

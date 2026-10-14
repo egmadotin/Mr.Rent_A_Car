@@ -8,9 +8,10 @@ import { Button } from "@mrac/ui/components/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@mrac/ui/components/table";
 import { dateTime, money } from "@mrac/ui/lib/format";
 import { cn } from "@mrac/ui/lib/utils";
-import { Field, FormDialog, SelectField } from "../../../../../_components/form";
+import { Field, FormDialog, PAYMENT_METHOD_OPTIONS, SelectField } from "../../../../../_components/form";
 import { Empty, Section } from "./section-kit";
 import { useRentalActions, type RentalData } from "./use-rental";
+import { isPercentLine } from "../../../../../_lib/charge-lines";
 
 type Line = RentalData["rental"]["chargeLines"][number];
 
@@ -26,7 +27,7 @@ export function ChargeTable({ data }: { data: RentalData }) {
     <TableRow key={l.id}>
       <TableCell>{l.name}</TableCell>
       <TableCell className="text-right tabular-nums">{Number(l.units) ? Number(l.units).toLocaleString() : ""}</TableCell>
-      <TableCell className="text-right tabular-nums">{l.kind === "TAX" && !isAmountTax(l) ? `${Number(l.rate)}%` : Number(l.rate) ? money(l.rate) : ""}</TableCell>
+      <TableCell className="text-right tabular-nums">{isPercentLine(l) ? `${Number(l.rate)}%` : Number(l.rate) ? money(l.rate) : ""}</TableCell>
       <TableCell className="text-right tabular-nums">{l.kind === "MILEAGE" && !Number(l.total) ? "" : money(l.total)}</TableCell>
     </TableRow>
   );
@@ -60,12 +61,12 @@ export function ChargeTable({ data }: { data: RentalData }) {
   for (const p of payments)
     rows.push(
       <TableRow key={p.id} className="text-muted-foreground">
-        <TableCell colSpan={3}>
-          {p.method}
-          {p.cardLast4 && ` XXXX${p.cardLast4}`}
-          {p.authorizationCode && ` · Auth ${p.authorizationCode}`}
+        <TableCell>
+          {PAYMENT_METHOD_OPTIONS.find((m) => m.value === p.method)?.label ?? p.method}
+          {p.cardLast4 && ` XXXX${p.cardLast4}(P) Auth:${p.authorizationCode ?? ""}`}
           {p.transactionType !== "PAYMENT" && ` · ${p.transactionType === "AUTHORIZATION" ? "Authorization (hold)" : "Refund"}`}
         </TableCell>
+        <TableCell colSpan={2} className="text-right">{!p.cardLast4 && p.authorizationCode ? `Auth:${p.authorizationCode}` : ""}</TableCell>
         <TableCell className="text-right tabular-nums">{money(p.transactionType === "REFUND" ? -Number(p.amount) : p.amount)}</TableCell>
       </TableRow>,
     );
@@ -102,7 +103,8 @@ const ADJUSTMENT_ITEMS: { value: string; label: string }[] = [
   { value: "DAMAGES", label: "Damages" },
 ];
 
-export function ChargesTab({ data }: { data: RentalData }) {
+export function ChargesTab({ data, show }: { data: RentalData; show?: string }) {
+  const on = (k: string) => !show || show === k;
   const r = data.rental;
   const trpc = useTRPC();
   const opts = useQuery(trpc.staff.rental.formOptions.queryOptions()).data;
@@ -110,68 +112,72 @@ export function ChargesTab({ data }: { data: RentalData }) {
   const items = [...ADJUSTMENT_ITEMS, ...(opts?.miscCharges ?? []).map((m) => ({ value: `MISC:${m.id}`, label: m.name }))];
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-      <Section title="Charges" flush>
-        <ChargeTable data={data} />
-      </Section>
+    <div className={show ? "space-y-4" : "grid gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]"}>
+      {on("charges") && (
+        <Section title="Charges" flush>
+          <ChargeTable data={data} />
+        </Section>
+      )}
 
-      <Section
-        title="Adjustments"
-        count={r.adjustments.length}
-        flush
-        action={
-          <FormDialog
-            title="Add adjustment"
-            description="Adjust one charge item. Use a negative amount to credit."
-            trigger={
-              <Button size="sm" variant="outline">
-                <PlusIcon /> Add
-              </Button>
-            }
-            onSubmit={(v) => {
-              const [kind, ref] = String(v.item).split(":");
-              const label = items.find((i) => i.value === v.item)?.label ?? String(v.item);
-              return run(
-                api.addAdjustment.mutate({
-                  rentalId: r.id,
-                  kind: kind as "TIME",
-                  miscChargeId: kind === "MISC" ? ref : undefined,
-                  name: label,
-                  amount: Number(v.amount),
-                }),
-              );
-            }}
-          >
-            <SelectField label="Item" name="item" required options={items} />
-            <Field label="Amount" name="amount" type="number" step="0.01" required />
-          </FormDialog>
-        }
-      >
-        {r.adjustments.length === 0 ? (
-          <Empty>No adjustments.</Empty>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Item</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-                <TableHead>Entered</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {r.adjustments.map((a) => (
-                <TableRow key={a.id}>
-                  <TableCell>{a.name}</TableCell>
-                  <TableCell className="text-right tabular-nums">{money(a.amount)}</TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {dateTime(a.enteredAt)} · {a.enteredBy?.name ?? "—"}
-                  </TableCell>
+      {on("adjustments") && (
+        <Section
+          title="Adjustments"
+          count={r.adjustments.length}
+          flush
+          action={
+            <FormDialog
+              title="Add adjustment"
+              description="Adjust one charge item. Use a negative amount to credit."
+              trigger={
+                <Button size="sm" variant="outline">
+                  <PlusIcon /> Add
+                </Button>
+              }
+              onSubmit={(v) => {
+                const [kind, ref] = String(v.item).split(":");
+                const label = items.find((i) => i.value === v.item)?.label ?? String(v.item);
+                return run(
+                  api.addAdjustment.mutate({
+                    rentalId: r.id,
+                    kind: kind as "TIME",
+                    miscChargeId: kind === "MISC" ? ref : undefined,
+                    name: label,
+                    amount: Number(v.amount),
+                  }),
+                );
+              }}
+            >
+              <SelectField label="Item" name="item" required options={items} />
+              <Field label="Amount" name="amount" type="number" step="0.01" required />
+            </FormDialog>
+          }
+        >
+          {r.adjustments.length === 0 ? (
+            <Empty>No adjustments.</Empty>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Item</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
+                  <TableHead>Entered</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-      </Section>
+              </TableHeader>
+              <TableBody>
+                {r.adjustments.map((a) => (
+                  <TableRow key={a.id}>
+                    <TableCell>{a.name}</TableCell>
+                    <TableCell className="text-right tabular-nums">{money(a.amount)}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {dateTime(a.enteredAt)} · {a.enteredBy?.name ?? "—"}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </Section>
+      )}
     </div>
   );
 }

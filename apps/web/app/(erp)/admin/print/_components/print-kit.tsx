@@ -1,6 +1,7 @@
 /* eslint-disable @next/next/no-img-element -- printed documents use plain <img> so they render identically in print */
 import { money } from "@mrac/ui/lib/format";
 import { cn } from "@mrac/ui/lib/utils";
+import { isPercentLine } from "../../../_lib/charge-lines";
 
 /** Company-wide details printed on every customer document (legacy print header / footer). */
 export const COMPANY = {
@@ -149,7 +150,7 @@ export function PrintChargeTable({ lines, payments, timeLabel = "Total T&M" }: {
     <tr key={`${l.name}${i}`} className="border-b border-border/50">
       <td className="py-1.5 pl-3">{l.name}</td>
       <td className="py-1.5 text-right tabular-nums">{n(l.units) ? n(l.units).toLocaleString() : ""}</td>
-      <td className="py-1.5 text-right tabular-nums">{l.kind === "MILEAGE" ? "" : l.kind === "TAX" && !isAmountTax(l) ? `${n(l.rate)}%` : money(n(l.rate))}</td>
+      <td className="py-1.5 text-right tabular-nums">{l.kind === "MILEAGE" ? "" : isPercentLine(l) ? `${n(l.rate)}%` : money(n(l.rate))}</td>
       <td className="py-1.5 pr-3 text-right tabular-nums">{l.kind === "MILEAGE" ? "" : money(n(l.total))}</td>
     </tr>
   );

@@ -15,7 +15,7 @@ import { NativeSelect } from "@mrac/ui/components/native-select";
 import { toast } from "@mrac/ui/components/sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@mrac/ui/components/tabs";
 import { Textarea } from "@mrac/ui/components/textarea";
-import { money } from "@mrac/ui/lib/format";
+import { fromDateTimeLocal, money, toDateTimeLocal } from "@mrac/ui/lib/format";
 import { ChargeSummary, DiscountField, FormAlert, bookingWindow, initialBookingTimes } from "../../../../_components/booking-kit";
 import { CUSTOMER_FIELDS, CustomerFields, CustomerNotes, MatchList, PaymentInfoCard, customerValues, type CustomerLayout } from "../../../../_components/booking-customer";
 import { CompanySearch } from "../../../../_components/company-search";
@@ -44,21 +44,35 @@ export const RENTAL_PRINTOUTS = [
   "Open Contract-march 2017", "Standard",
 ];
 
-export type StartRentalInitial = { values: Values };
+export type StartRentalInitial = { values: Values; options?: BookingOptions };
+/** Edit Rental: the agreement being edited (the vehicle changes only through Vehicle Exchange). */
+export type RentalEditing = { rentalId: string; raNumber: number; closed: boolean; vehicle: { id: string; label: string } };
 
 /**
  * Start a Rental (CheckOut3.aspx?DoAction=New): a walk-in rental. Customer tab (renter profile, "Save And Goto Rental Tab"),
  * then the Rental tab — dates, vehicle out, odometer/fuel, the options grid, charges and Payment Information — finished
  * with "Complete And Print Rental".
+ * Edit Rental (Checkout3.aspx?AgreementID=…, `editing`): the same form opened on the Rental tab, plus Expected Return,
+ * Return Date / Odometer In / Fuel In (closed rentals), Fuel Charge and Upgrade Type / Amount, saved with "Save".
  */
-export function StartRentalForm({ initial, defaultLocationId, currentUserId }: { initial?: StartRentalInitial; defaultLocationId?: string; currentUserId: string }) {
+export function StartRentalForm({
+  initial,
+  defaultLocationId,
+  currentUserId,
+  editing,
+}: {
+  initial?: StartRentalInitial;
+  defaultLocationId?: string;
+  currentUserId: string;
+  editing?: RentalEditing;
+}) {
   const trpc = useTRPC();
   const client = useTRPCClient();
   const router = useRouter();
   const { data: o } = useQuery(trpc.staff.reservation.formOptions.queryOptions());
   const { data: ro } = useQuery(trpc.staff.rental.formOptions.queryOptions());
 
-  const [tab, setTab] = React.useState("customer");
+  const [tab, setTab] = React.useState(editing ? "rental" : "customer");
   const [v, setV] = React.useState<Values>(() => ({
     country: "Canada",
     province: "British Columbia",
@@ -72,8 +86,11 @@ export function StartRentalForm({ initial, defaultLocationId, currentUserId }: {
     printout: "Open Contract",
     ...initial?.values,
     ...initialBookingTimes(initial?.values),
+    ...(typeof initial?.values.checkedInAt === "string" && initial.values.checkedInAt
+      ? { checkedInAt: toDateTimeLocal(initial.values.checkedInAt, (initial.values.timeZone as string) || undefined) }
+      : {}),
   }));
-  const [opts, setOpts] = React.useState<BookingOptions>(emptyOptions());
+  const [opts, setOpts] = React.useState<BookingOptions>(initial?.options ?? emptyOptions());
   const [customerId, setCustomerId] = React.useState<string | null>((initial?.values.customerId as string) || null);
   const [paymentReady, setPaymentReady] = React.useState(false);
   const [errors, setErrors] = React.useState<Record<string, string[] | undefined>>({});
@@ -138,7 +155,7 @@ export function StartRentalForm({ initial, defaultLocationId, currentUserId }: {
       pickupAt: pickupAt ?? new Date(),
       returnAt: returnAt ?? new Date(),
     }),
-    enabled: validWindow && !!str("vehicleTypeId") && !!str("pickupLocationId"),
+    enabled: !editing && validWindow && !!str("vehicleTypeId") && !!str("pickupLocationId"),
   });
 
   const matches = useQuery({ ...trpc.staff.reservation.checkMatching.queryOptions(matchKey ?? {}), enabled: !!matchKey && !customerId });
@@ -182,9 +199,9 @@ export function StartRentalForm({ initial, defaultLocationId, currentUserId }: {
     setErrors({});
     setFormError(null);
     const pay = paymentReady && str("payMethod") && str("payAmount");
+    const tz = o?.locations.find((l) => l.id === str("pickupLocationId"))?.timeZone;
     try {
-      const res = await client.staff.rental.startWalkIn.mutate({
-        customerId: customerId ?? undefined,
+      const fields = {
         allowUndesired,
         customer: { ...Object.fromEntries(CUSTOMER_FIELDS.map((f) => [f, str(f)])), memo: str("customerMemo") } as never,
         checkOutLocationId: str("pickupLocationId"),
@@ -192,7 +209,6 @@ export function StartRentalForm({ initial, defaultLocationId, currentUserId }: {
         checkOutAt: pickupAt as Date,
         returnAt: returnAt as Date,
         vehicleTypeId: str("vehicleTypeId"),
-        vehicleId: str("vehicleId"),
         rateId: str("rateId"),
         companyId: str("companyId"),
         discountType: (str("discountValue") ? str("discountType") || null : null) as "PERCENT" | null,
@@ -215,6 +231,26 @@ export function StartRentalForm({ initial, defaultLocationId, currentUserId }: {
         memoShowAsPopup: v.memoShowAsPopup === true,
         isNonRevenue: v.isNonRevenue === true,
         options: opts,
+      };
+      if (editing) {
+        await client.staff.rental.update.mutate({
+          ...fields,
+          rentalId: editing.rentalId,
+          checkedInAt: editing.closed && str("checkedInAt") ? fromDateTimeLocal(str("checkedInAt"), tz) : null,
+          odometerIn: str("odometerIn") || null,
+          fuelIn: editing.closed ? Number(str("fuelIn") || 0) : null,
+          fuelCharge: str("fuelCharge") || null,
+          upgradeType: (str("upgradeType") || null) as "FLAT" | null,
+          upgradeAmount: str("upgradeAmount") || null,
+        } as never);
+        toast.success("Rental updated");
+        router.push(`/admin/rentals/${editing.rentalId}`);
+        return;
+      }
+      const res = await client.staff.rental.startWalkIn.mutate({
+        ...fields,
+        customerId: customerId ?? undefined,
+        vehicleId: str("vehicleId"),
         // CVV is never stored
         payment: pay
           ? { method: str("payMethod") as "CASH", transactionType: (str("payType") || "AUTHORIZATION") as "AUTHORIZATION", amount: Number(str("payAmount")), authorizationCode: str("payAuth"), transactionCode: str("payTxn") }
@@ -249,8 +285,9 @@ export function StartRentalForm({ initial, defaultLocationId, currentUserId }: {
   const opt = (xs: { id: string; name: string }[]) => xs.map((x) => <option key={x.id} value={x.id}>{x.name}</option>);
   const company = o.companies.find((c) => c.id === str("companyId"));
   const rates = bo.data?.rates ?? [];
-  const vehicles = (available.data ?? []).map((x) => ({ id: x.id, label: `${x.assignedId} — ${x.year} ${x.make.name} ${x.model.name}` }));
-  const fuel = Number(str("fuelOut") || 0);
+  const vehicles = editing
+    ? [editing.vehicle]
+    : (available.data ?? []).map((x) => ({ id: x.id, label: `${x.assignedId} — ${x.year} ${x.make.name} ${x.model.name}` }));
 
   return (
     <FormErrorsContext.Provider value={errors}>
@@ -298,8 +335,7 @@ export function StartRentalForm({ initial, defaultLocationId, currentUserId }: {
               <div className="min-w-0 space-y-4">
                 <Card>
                   <CardContent className="grid gap-4 sm:grid-cols-2">
-                    <F label="Rental #" name="raNumber" required><Input id="raNumber" value="" placeholder="Auto" disabled /></F>
-                    <div className="hidden sm:block" />
+                    <F label="Rental #" name="raNumber" required><Input id="raNumber" value={editing ? String(editing.raNumber) : ""} placeholder="Auto" disabled /></F>
                     <div className="grid grid-cols-[1fr_5.5rem] gap-2">
                       <F label="Pickup Date" name="checkOutAt" required><Input type="datetime-local" {...bind("pickupAt")} id="checkOutAt" /></F>
                       <div className="space-y-1.5">
@@ -307,7 +343,12 @@ export function StartRentalForm({ initial, defaultLocationId, currentUserId }: {
                         <Input id="xDays" type="number" min={1} value={xDays} onChange={(e) => setXDays(Number(e.target.value))} />
                       </div>
                     </div>
-                    <F label="Return Date" name="returnAt" required><Input type="datetime-local" {...bind("returnAt")} /></F>
+                    <F label={editing ? "Expected Return" : "Return Date"} name="returnAt" required={!editing}><Input type="datetime-local" {...bind("returnAt")} /></F>
+                    {editing?.closed ? (
+                      <F label="Return Date" name="checkedInAt" required><Input type="datetime-local" {...bind("checkedInAt")} /></F>
+                    ) : (
+                      <div className="hidden sm:block" />
+                    )}
                     <F label="Pickup Location" name="checkOutLocationId" required><NativeSelect {...bind("pickupLocationId")} id="checkOutLocationId"><option value="">Please Select</option>{opt(o.locations)}</NativeSelect></F>
                     <F label="Return Location" name="checkInLocationId" required><NativeSelect {...bind("returnLocationId")} id="checkInLocationId"><option value="">Please Select</option>{opt(o.locations)}</NativeSelect></F>
                     <F label="Vehicle Type" name="vehicleTypeId" required>
@@ -331,19 +372,28 @@ export function StartRentalForm({ initial, defaultLocationId, currentUserId }: {
                       <DiscountField bind={bind} label="Discount" noBlank error={errors.discountValue?.[0]} />
                       <F label="Reason" name="discountReasonId"><NativeSelect {...bind("discountReasonId")}><option value="">None</option>{opt(o.discountReasons)}</NativeSelect></F>
                     </div>
-                    <F label="Deposit:" name="deposit"><Input type="number" min={0} step="0.01" {...bind("deposit")} /></F>
+                    <F label="Deposit:" name="deposit"><Input type="number" min={0} step="0.01" {...bind("deposit")} disabled={!!editing} /></F>
                     <F label="Vehicle ID" name="vehicleId" required>
-                      <SearchPicker id="vehicleId" items={vehicles} value={str("vehicleId")} onChange={pickVehicle} disabled={!validWindow || !str("vehicleTypeId")} emptyText="No free vehicle of this type for these dates" />
+                      <SearchPicker id="vehicleId" items={vehicles} value={str("vehicleId")} onChange={pickVehicle} disabled={!!editing || !validWindow || !str("vehicleTypeId")} emptyText="No free vehicle of this type for these dates" />
                     </F>
                     <F label="Odometer Out" name="odometerOut" required><Input type="number" min={0} step={1} {...bind("odometerOut")} /></F>
+                    {editing?.closed && <F label="Odometer In" name="odometerIn" required><Input type="number" min={0} step={1} {...bind("odometerIn")} /></F>}
                     <label className="flex items-center gap-2 self-end text-sm sm:col-span-2">
                       <Checkbox checked={v.prepaidFuel === true} onChange={(e) => set("prepaidFuel", e.target.checked)} /> Buy Prepaid Fuel @ $2.00 Per Gallon
                     </label>
-                    <div className="space-y-1.5 sm:col-span-2">
-                      <Label htmlFor="fuelOut">Fuel Out<span className="text-destructive" aria-hidden>*</span> <span className="font-normal text-muted-foreground">{fuel}/16</span></Label>
-                      <input id="fuelOut" type="range" min={0} max={16} step={1} value={fuel} onChange={(e) => set("fuelOut", e.target.value)} className="w-full accent-primary" />
-                      <div className="flex justify-between text-xs text-muted-foreground"><span>E</span><span>1/4</span><span>1/2</span><span>3/4</span><span>F</span></div>
-                    </div>
+                    <FuelSlider id="fuelOut" label="Fuel Out" required value={str("fuelOut")} onChange={(x) => set("fuelOut", x)} />
+                    {editing?.closed && <FuelSlider id="fuelIn" label="Fuel In" value={str("fuelIn")} onChange={(x) => set("fuelIn", x)} />}
+                    {editing && (
+                      <>
+                        <F label="Fuel Charge" name="fuelCharge"><Input type="number" min={0} step="0.01" {...bind("fuelCharge")} /></F>
+                        <div className="hidden sm:block" />
+                        <F label="Upgrade Type" name="upgradeType">
+                          <NativeSelect {...bind("upgradeType")}><option value="">Upgrade Type</option><option value="FLAT">Flat</option><option value="DAILY">Daily</option></NativeSelect>
+                        </F>
+                        <F label="Upgrade Amount" name="upgradeAmount"><Input type="number" min={0} step="0.01" {...bind("upgradeAmount")} disabled={!str("upgradeType")} /></F>
+                        <Button type="button" variant="secondary" disabled title="Available once vehicle damage records are built">Damage</Button>
+                      </>
+                    )}
                   </CardContent>
                 </Card>
 
@@ -366,7 +416,7 @@ export function StartRentalForm({ initial, defaultLocationId, currentUserId }: {
                   </CardContent>
                 </Card>
 
-                <OptionsGrid data={bo.data} value={opts} onChange={setOpts} applyDefaults paymentDetails={o.paymentDetails} />
+                <OptionsGrid data={bo.data} value={opts} onChange={setOpts} applyDefaults={!editing} paymentDetails={o.paymentDetails} />
               </div>
 
               {/* ── right: charges + Payment Information ─────────────────────── */}
@@ -375,6 +425,7 @@ export function StartRentalForm({ initial, defaultLocationId, currentUserId }: {
                   <RefreshCwIcon /> Update Charges Summary
                 </Button>
                 <ChargeSummary title="Charges" preview={previewOn ? preview.data : undefined} emptyText="Choose dates, location, vehicle type and rate, then Update Charges Summary." />
+                {!editing && (
                 <PaymentInfoCard
                   bind={bind}
                   onSubmit={submitPayment}
@@ -382,14 +433,17 @@ export function StartRentalForm({ initial, defaultLocationId, currentUserId }: {
                   codeLabels={["Auth Code", "Trans Code"]}
                   pendingNote={paymentReady ? Number(str("payAmount")) : null}
                 />
+                )}
               </aside>
             </div>
 
             <div className="mt-6 flex flex-wrap items-end justify-end gap-4 border-t pt-4">
-              <F label="Please Select Rental Printout" name="printout" required className="w-64">
-                <NativeSelect {...bind("printout")}>{RENTAL_PRINTOUTS.map((p) => <option key={p}>{p}</option>)}</NativeSelect>
-              </F>
-              <Button type="submit" size="lg" disabled={pending}>{pending && <Loader2Icon className="animate-spin" />}Complete And Print Rental</Button>
+              {!editing && (
+                <F label="Please Select Rental Printout" name="printout" required className="w-64">
+                  <NativeSelect {...bind("printout")}>{RENTAL_PRINTOUTS.map((p) => <option key={p}>{p}</option>)}</NativeSelect>
+                </F>
+              )}
+              <Button type="submit" size="lg" disabled={pending}>{pending && <Loader2Icon className="animate-spin" />}{editing ? "Save" : "Complete And Print Rental"}</Button>
             </div>
           </TabsContent>
         </Tabs>
@@ -400,13 +454,25 @@ export function StartRentalForm({ initial, defaultLocationId, currentUserId }: {
         onOpenChange={(open) => !open && setUndesired(null)}
         destructive
         title={undesired === "company" ? "Undesired company" : "Undesired customer"}
-        description={`This ${undesired} is on the undesired (do-not-rent) list. Start the rental anyway?`}
-        confirmLabel="Start anyway"
+        description={`This ${undesired} is on the undesired (do-not-rent) list. ${editing ? "Save" : "Start"} the rental anyway?`}
+        confirmLabel={editing ? "Save anyway" : "Start anyway"}
         onConfirm={async () => {
           setUndesired(null);
           await submit(true);
         }}
       />
     </FormErrorsContext.Provider>
+  );
+}
+
+/** RentCentric's 0–16 fuel slider (sixteenths), with its tick labels. */
+function FuelSlider({ id, label, value, onChange, required }: { id: string; label: string; value: string; onChange: (v: string) => void; required?: boolean }) {
+  const n = Number(value || 0);
+  return (
+    <div className="space-y-1.5 sm:col-span-2">
+      <Label htmlFor={id}>{label}{required && <span className="text-destructive" aria-hidden>*</span>} <span className="font-normal text-muted-foreground">{n}/16</span></Label>
+      <div className="flex justify-between px-1 text-[10px] text-muted-foreground tabular-nums">{Array.from({ length: 17 }, (_, i) => <span key={i}>{i}</span>)}</div>
+      <input id={id} type="range" min={0} max={16} step={1} value={n} onChange={(e) => onChange(e.target.value)} className="w-full accent-primary" />
+    </div>
   );
 }

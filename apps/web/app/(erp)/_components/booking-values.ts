@@ -24,3 +24,22 @@ export function optionsFromChargeLines(
       }),
   };
 }
+
+/** The renter profile fields shared by the Reserve and Start a Rental "Customer" tabs (and `customerInput` on the API). */
+export const CUSTOMER_FIELDS = [
+  "firstName", "middleName", "lastName", "email", "phone", "localPhone", "companyPhone", "licenseNumber", "licenseExpiry",
+  "licenseProvince", "birthDate", "address1", "address2", "city", "province", "postal", "country", "insuranceCompany",
+  "insurancePolicyNumber", "insuranceExpiry", "insurancePhone", "insuranceFax",
+] as const;
+export type CustomerField = (typeof CUSTOMER_FIELDS)[number];
+const DATE_FIELDS = new Set<string>(["licenseExpiry", "birthDate", "insuranceExpiry"]);
+
+/** Form values from a customer record (dates as yyyy-mm-dd, nulls as ""). */
+export function customerValues(c: Record<string, unknown>) {
+  return Object.fromEntries(
+    CUSTOMER_FIELDS.map((f) => {
+      const val = c[f];
+      return [f, val == null ? "" : DATE_FIELDS.has(f) ? new Date(val as string).toISOString().slice(0, 10) : String(val)];
+    }),
+  ) as Record<CustomerField, string>;
+}

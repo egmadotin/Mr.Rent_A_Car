@@ -16,11 +16,50 @@ const money = z.coerce.number().finite();
 const optStr = z.string().trim().max(500).optional().transform((v) => v || null);
 const optDate = z.coerce.date().optional().nullable();
 
+/** charge kinds priceBooking produces — Edit Rental replaces these and keeps the rest */
+const REPRICED_KINDS = ["TIME", "MILEAGE", "UPGRADE", "DISCOUNT", "FUEL", "PROTECTION", "MISC", "OTHER", "TAX"] as const;
 const PAYMENT_METHODS = ["AMEX", "CASH", "DEBIT", "EMT", "INTERNAL", "MASTERCARD", "VISA"] as const;
 const CHARGE_KINDS = [
   "TIME", "MILEAGE", "UPGRADE", "DISCOUNT", "FUEL", "PREPAID_FUEL", "MISC", "ONE_WAY", "DAMAGES",
   "TRAFFIC_TICKETS", "ADMIN", "OTHER",
 ] as const;
+
+/** The Start a Rental / Edit Rental (CheckOut3.aspx) fields both endpoints share. */
+const rentalFields = z.object({
+  customer: customerInput,
+  checkOutLocationId: z.string().min(1, "Pickup Location is required"),
+  checkInLocationId: z.string().min(1, "Return Location is required"),
+  checkOutAt: z.coerce.date({ invalid_type_error: "Pickup Date is required" }),
+  returnAt: z.coerce.date({ invalid_type_error: "Return Date is required" }),
+  vehicleTypeId: z.string().min(1, "Vehicle Type is required"),
+  rateId: z.string().min(1, "Rate is required"),
+  companyId: optStr,
+  discountType: z.preprocess((v) => (v === "" ? null : v), z.enum(["PERCENT", "AMOUNT"]).nullable().optional()),
+  discountValue: z.preprocess((v) => (v === "" || v == null ? null : Number(v)), z.number().nonnegative().nullable()),
+  discountReasonId: optStr,
+  deposit: z.preprocess((v) => (v === "" || v == null ? null : Number(v)), z.number().nonnegative().nullable()),
+  isLongTerm: z.boolean().default(false),
+  invoicingPeriod: optStr,
+  odometerOut: z.coerce.number({ invalid_type_error: "Odometer Out is required" }).int().nonnegative(),
+  fuelOut: z.coerce.number().int().min(0).max(16),
+  prepaidFuel: z.boolean().default(false),
+  referralId: optStr,
+  claimNumber: optStr,
+  airport: optStr,
+  airline: optStr,
+  flightNumber: optStr,
+  poNumber: optStr,
+  roNumber: optStr,
+  rentalReasonId: optStr,
+  openedById: optStr,
+  memo: optStr,
+  memoShowAsPopup: z.boolean().default(false),
+  isNonRevenue: z.boolean().default(false),
+  options: bookingOptionsInput,
+});
+const rentalReturnAfterPickup = (v: { checkOutAt: Date; returnAt: Date }, c: z.RefinementCtx) => {
+  if (v.returnAt <= v.checkOutAt) c.addIssue({ code: "custom", path: ["returnAt"], message: "Return must be after pickup" });
+};
 
 async function loadRental(prisma: Prisma.TransactionClient, rentalId: string) {
   const r = await prisma.rental.findFirst({ where: { id: rentalId, deletedAt: null } });
@@ -166,7 +205,7 @@ export const rentalRouter = router({
         openedBy: { select: { name: true } },
         closedBy: { select: { name: true } },
         reservation: { select: { id: true, number: true } },
-        chargeLines: { orderBy: [{ sortOrder: "asc" }, { id: "asc" }], include: { tax: { select: { kind: true } } } },
+        chargeLines: { orderBy: [{ sortOrder: "asc" }, { id: "asc" }], include: { tax: { select: { kind: true } }, miscCharge: { select: { calculationBy: true } } } },
         payments: { orderBy: { takenAt: "asc" }, include: { takenBy: { select: { name: true } }, company: { select: { name: true } } } },
         drivers: { include: { customer: true } },
         memos: { orderBy: { createdAt: "desc" }, include: { author: { select: { name: true } } } },
@@ -343,41 +382,11 @@ export const rentalRouter = router({
    */
   startWalkIn: staffProcedure
     .input(
-      z
-        .object({
+      rentalFields
+        .extend({
           customerId: optStr,
           allowUndesired: z.boolean().default(false),
-          customer: customerInput,
-          checkOutLocationId: z.string().min(1, "Pickup Location is required"),
-          checkInLocationId: z.string().min(1, "Return Location is required"),
-          checkOutAt: z.coerce.date({ invalid_type_error: "Pickup Date is required" }),
-          returnAt: z.coerce.date({ invalid_type_error: "Return Date is required" }),
-          vehicleTypeId: z.string().min(1, "Vehicle Type is required"),
           vehicleId: z.string().min(1, "Vehicle ID is required"),
-          rateId: z.string().min(1, "Rate is required"),
-          companyId: optStr,
-          discountType: z.preprocess((v) => (v === "" ? null : v), z.enum(["PERCENT", "AMOUNT"]).nullable().optional()),
-          discountValue: z.preprocess((v) => (v === "" || v == null ? null : Number(v)), z.number().nonnegative().nullable()),
-          discountReasonId: optStr,
-          deposit: z.preprocess((v) => (v === "" || v == null ? null : Number(v)), z.number().nonnegative().nullable()),
-          isLongTerm: z.boolean().default(false),
-          invoicingPeriod: optStr,
-          odometerOut: z.coerce.number({ invalid_type_error: "Odometer Out is required" }).int().nonnegative(),
-          fuelOut: z.coerce.number().int().min(0).max(16),
-          prepaidFuel: z.boolean().default(false),
-          referralId: optStr,
-          claimNumber: optStr,
-          airport: optStr,
-          airline: optStr,
-          flightNumber: optStr,
-          poNumber: optStr,
-          roNumber: optStr,
-          rentalReasonId: optStr,
-          openedById: optStr,
-          memo: optStr,
-          memoShowAsPopup: z.boolean().default(false),
-          isNonRevenue: z.boolean().default(false),
-          options: bookingOptionsInput,
           payment: z
             .object({
               method: z.enum(PAYMENT_METHODS),
@@ -389,9 +398,7 @@ export const rentalRouter = router({
             .nullable()
             .optional(),
         })
-        .superRefine((v, c) => {
-          if (v.returnAt <= v.checkOutAt) c.addIssue({ code: "custom", path: ["returnAt"], message: "Return must be after pickup" });
-        }),
+        .superRefine(rentalReturnAfterPickup),
     )
     .mutation(({ ctx, input }) =>
       withBookingGuard(() =>
@@ -462,6 +469,115 @@ export const rentalRouter = router({
             await tx.payment.create({ data: { ...input.payment, amount: D(input.payment.amount), rentalId: rental.id, customerId, takenById: ctx.user.id } });
           await audit(tx, "Rental", rental.id, ctx.user.id, { RANumber: ["Start Rental", rental.raNumber] });
           return { rentalId: rental.id };
+        }),
+      ),
+    ),
+
+  /**
+   * Edit Rental (Checkout3.aspx?AgreementID=…): the same form with Expected Return, Return Date / Odometer In / Fuel In
+   * (closed rentals), Fuel Charge and Upgrade Type / Amount. Re-prices the rental; traffic tickets, admin charges,
+   * damages, prepaid fuel and adjustments stay as they are. The vehicle itself changes through Vehicle Exchange.
+   */
+  update: staffProcedure
+    .input(
+      rentalFields
+        .extend({
+          rentalId: z.string(),
+          allowUndesired: z.boolean().default(false),
+          checkedInAt: z.preprocess((v) => (v === "" ? null : v), z.coerce.date().nullable().optional()),
+          odometerIn: z.preprocess((v) => (v === "" || v == null ? null : Number(v)), z.number().int().nonnegative().nullable()),
+          fuelIn: z.preprocess((v) => (v === "" || v == null ? null : Number(v)), z.number().int().min(0).max(16).nullable()),
+          fuelCharge: z.preprocess((v) => (v === "" || v == null ? null : Number(v)), z.number().nonnegative().nullable()),
+          upgradeType: z.preprocess((v) => (v === "" ? null : v), z.enum(["FLAT", "DAILY"]).nullable().optional()),
+          upgradeAmount: z.preprocess((v) => (v === "" || v == null ? null : Number(v)), z.number().nonnegative().nullable()),
+        })
+        .superRefine(rentalReturnAfterPickup),
+    )
+    .mutation(({ ctx, input }) =>
+      withBookingGuard(() =>
+        ctx.prisma.$transaction(async (tx) => {
+          const r = await loadRental(tx, input.rentalId);
+          if (input.companyId && input.companyId !== r.companyId && !input.allowUndesired) {
+            const co = await tx.company.findUnique({ where: { id: input.companyId } });
+            if (co?.isUndesired) throw new TRPCError({ code: "CONFLICT", message: "UNDESIRED_COMPANY" });
+          }
+          const closed = r.status === "CLOSED";
+          if (closed && input.odometerIn != null && input.odometerIn < input.odometerOut)
+            throw new TRPCError({ code: "BAD_REQUEST", message: `Odometer In must be at least ${input.odometerOut}.` });
+          await upsertBookingCustomer(tx, {
+            customerId: r.customerId,
+            customer: input.customer,
+            save: true,
+            allowUndesired: true,
+            locationId: input.checkOutLocationId,
+          });
+          const checkedInAt = closed ? input.checkedInAt ?? r.checkedInAt : null;
+          const endsAt = checkedInAt ?? input.returnAt;
+          const priced = await priceBooking(tx, {
+            pickupAt: input.checkOutAt,
+            returnAt: endsAt,
+            locationId: input.checkOutLocationId,
+            vehicleTypeId: input.vehicleTypeId,
+            rateId: input.rateId,
+            discountType: input.discountType,
+            discountValue: input.discountValue,
+            upgrade: input.upgradeType && input.upgradeAmount ? { type: input.upgradeType, amount: input.upgradeAmount } : null,
+            fuelCharge: input.fuelCharge,
+            ...staffPricingOptions(input.options),
+          });
+          await tx.rental.update({
+            where: { id: r.id },
+            data: {
+              companyId: input.companyId,
+              checkOutLocationId: input.checkOutLocationId,
+              checkInLocationId: input.checkInLocationId,
+              checkOutAt: input.checkOutAt,
+              expectedReturnAt: input.returnAt,
+              ...(closed ? { checkedInAt, odometerIn: input.odometerIn, fuelIn: input.fuelIn } : {}),
+              vehicleTypeId: input.vehicleTypeId,
+              odometerOut: input.odometerOut,
+              fuelOut: input.fuelOut,
+              prepaidFuel: input.prepaidFuel,
+              rateId: input.rateId,
+              discountType: input.discountValue ? input.discountType ?? null : null,
+              discountValue: input.discountValue ? D(input.discountValue) : null,
+              discountReasonId: input.discountReasonId,
+              isLongTerm: input.isLongTerm,
+              invoicingPeriod: input.invoicingPeriod,
+              referralId: input.referralId,
+              rentalReasonId: input.rentalReasonId,
+              claimNumber: input.claimNumber,
+              airport: input.airport,
+              airline: input.airline,
+              flightNumber: input.flightNumber,
+              poNumber: input.poNumber,
+              roNumber: input.roNumber,
+              isNonRevenue: input.isNonRevenue,
+              excludedTaxIds: input.options.excludedTaxIds,
+              openedById: input.openedById,
+            },
+          });
+          // re-priced lines replace the old ones; lines entered elsewhere on the rental stay
+          await tx.chargeLine.deleteMany({
+            where: { rentalId: r.id, kind: { in: [...REPRICED_KINDS] }, NOT: { name: { startsWith: "Adjustment — " } } },
+          });
+          await tx.chargeLine.createMany({ data: priced.lines.map((l) => ({ ...l, rentalId: r.id })) });
+          const first = await tx.rentalVehicleSegment.findFirst({ where: { rentalId: r.id }, orderBy: [{ sequence: "asc" }, { startsAt: "asc" }] });
+          if (first) await tx.rentalVehicleSegment.update({ where: { id: first.id }, data: { startsAt: input.checkOutAt, odometerOut: input.odometerOut, fuelOut: input.fuelOut } });
+          await tx.vehicleBlock.updateMany({ where: { rentalId: r.id }, data: { startsAt: input.checkOutAt, endsAt } });
+          const latest = await tx.memo.findFirst({ where: { rentalId: r.id, kind: "MEMO" }, orderBy: { createdAt: "desc" } });
+          if (input.memo && input.memo !== latest?.body)
+            await tx.memo.create({ data: { rentalId: r.id, body: input.memo, showAsPopup: input.memoShowAsPopup, authorId: ctx.user.id } });
+          await audit(tx, "Rental", r.id, ctx.user.id, {
+            CheckoutDate: [r.checkOutAt, input.checkOutAt],
+            ExpectedCheckinDate: [r.expectedReturnAt, input.returnAt],
+            CheckinDate: [r.checkedInAt, checkedInAt],
+            OdometerOut: [r.odometerOut, input.odometerOut],
+            OdometerIn: [r.odometerIn, closed ? input.odometerIn : r.odometerIn],
+            VehicleType: [r.vehicleTypeId, input.vehicleTypeId],
+            Rate: [r.rateId, input.rateId],
+          });
+          return { rentalId: r.id };
         }),
       ),
     ),

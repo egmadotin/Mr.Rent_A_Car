@@ -9,11 +9,49 @@ import { TransportDialog } from "../../../../../_components/booking-dialogs";
 import { DetailList, Empty, Section } from "./section-kit";
 import { useRentalActions, type RentalData } from "./use-rental";
 
-export function OverviewTab({ data }: { data: RentalData }) {
+export function OverviewTab({ data, show }: { data: RentalData; show?: "transports" }) {
   const r = data.rental;
   const c = r.customer;
   const { api, run } = useRentalActions(r.id);
   const kmDriven = r.odometerIn != null ? r.odometerIn - r.odometerOut : null;
+
+  const transports = (
+    <Section
+      title="Pickup / drop-off"
+      count={r.transports.length}
+      flush
+      className="xl:col-span-3"
+      action={
+        <TransportDialog onSubmit={(p) => run(api.addTransport.mutate({ rentalId: r.id, ...p }))} />
+      }
+    >
+      {r.transports.length === 0 ? (
+        <Empty>No delivery or collection booked.</Empty>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Pickup location</TableHead>
+              <TableHead>Pickup date</TableHead>
+              <TableHead>Drop-off location</TableHead>
+              <TableHead>Drop-off date</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {r.transports.map((t) => (
+              <TableRow key={t.id}>
+                <TableCell>{t.pickupLocation?.name ?? t.pickupAddress ?? "—"}</TableCell>
+                <TableCell>{dateTime(t.pickupAt)}</TableCell>
+                <TableCell>{t.dropoffLocation?.name ?? t.dropoffAddress ?? "—"}</TableCell>
+                <TableCell>{dateTime(t.dropoffAt)}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
+    </Section>
+  );
+  if (show === "transports") return transports;
 
   return (
     <div className="grid gap-4 xl:grid-cols-3">
@@ -68,40 +106,7 @@ export function OverviewTab({ data }: { data: RentalData }) {
         </div>
       </Section>
 
-      <Section
-        title="Pickup / drop-off"
-        count={r.transports.length}
-        flush
-        className="xl:col-span-3"
-        action={
-          <TransportDialog onSubmit={(p) => run(api.addTransport.mutate({ rentalId: r.id, ...p }))} />
-        }
-      >
-        {r.transports.length === 0 ? (
-          <Empty>No delivery or collection booked.</Empty>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Pickup location</TableHead>
-                <TableHead>Pickup date</TableHead>
-                <TableHead>Drop-off location</TableHead>
-                <TableHead>Drop-off date</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {r.transports.map((t) => (
-                <TableRow key={t.id}>
-                  <TableCell>{t.pickupLocation?.name ?? t.pickupAddress ?? "—"}</TableCell>
-                  <TableCell>{dateTime(t.pickupAt)}</TableCell>
-                  <TableCell>{t.dropoffLocation?.name ?? t.dropoffAddress ?? "—"}</TableCell>
-                  <TableCell>{dateTime(t.dropoffAt)}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-      </Section>
+      {transports}
     </div>
   );
 }

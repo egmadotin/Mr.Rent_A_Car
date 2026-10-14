@@ -17,99 +17,104 @@ import { errorMessage } from "../../../../../_components/form";
 import { Empty, Section } from "./section-kit";
 import { useRentalActions, type RentalData } from "./use-rental";
 
-export function DriversTab({ data }: { data: RentalData }) {
+export function DriversTab({ data, show }: { data: RentalData; show?: string }) {
+  const on = (k: string) => !show || show === k;
   const r = data.rental;
   const { api, run } = useRentalActions(r.id);
   const [removing, setRemoving] = React.useState<{ id: string; name: string } | null>(null);
   const segments = r.vehicleSegments;
 
   return (
-    <div className="grid gap-4">
-      <Section title="Additional drivers" count={r.drivers.length} flush action={<AddDriverDialog rentalId={r.id} existing={r.drivers.map((d) => d.customerId).concat(r.customerId)} />}>
-        {r.drivers.length === 0 ? (
-          <Empty>No additional drivers.</Empty>
-        ) : (
+    <div className={show ? "space-y-4" : "grid gap-4"}>
+      {on("drivers") && (
+        <Section title="Additional drivers" count={r.drivers.length} flush action={<AddDriverDialog rentalId={r.id} existing={r.drivers.map((d) => d.customerId).concat(r.customerId)} />}>
+          {r.drivers.length === 0 ? (
+            <Empty>No additional drivers.</Empty>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Full name</TableHead>
+                  <TableHead>Licence #</TableHead>
+                  <TableHead>Licence expiration</TableHead>
+                  <TableHead>Postal code</TableHead>
+                  <TableHead className="w-10" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {r.drivers.map((d) => (
+                  <TableRow key={d.id}>
+                    <TableCell>
+                      <Link href={`/admin/customers/${d.customerId}`} className="text-primary hover:underline">
+                        {fullName(d.customer)}
+                      </Link>
+                    </TableCell>
+                    <TableCell>{d.customer.licenseNumber ?? "—"}</TableCell>
+                    <TableCell>{date(d.customer.licenseExpiry)}</TableCell>
+                    <TableCell>{d.customer.postal ?? "—"}</TableCell>
+                    <TableCell>
+                      <Button
+                        size="icon-sm"
+                        variant="ghost"
+                        className="text-destructive hover:bg-destructive/10"
+                        aria-label={`Remove ${fullName(d.customer)}`}
+                        onClick={() => setRemoving({ id: d.id, name: fullName(d.customer) })}
+                      >
+                        <UserMinusIcon />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+          <ConfirmAction
+            open={removing !== null}
+            onOpenChange={(o) => !o && setRemoving(null)}
+            destructive
+            title="Remove additional driver"
+            description={<>Remove <b>{removing?.name}</b> from this rental? The customer record is kept.</>}
+            confirmLabel="Remove driver"
+            onConfirm={() => run(api.removeDriver.mutate({ bookingDriverId: removing!.id }))}
+          />
+        </Section>
+      )}
+
+      {on("exchange") && (
+        <Section title="Vehicle history" count={Math.max(segments.length, 1)} flush>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Full name</TableHead>
-                <TableHead>Licence #</TableHead>
-                <TableHead>Licence expiration</TableHead>
-                <TableHead>Postal code</TableHead>
-                <TableHead className="w-10" />
+                <TableHead>Vehicle</TableHead>
+                <TableHead>Pickup</TableHead>
+                <TableHead>Return</TableHead>
+                <TableHead className="text-right">Odometer out</TableHead>
+                <TableHead className="text-right">Odometer in</TableHead>
+                <TableHead>Fuel out</TableHead>
+                <TableHead>Fuel in</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {r.drivers.map((d) => (
-                <TableRow key={d.id}>
+              {(segments.length
+                ? segments
+                : [{ id: "current", vehicle: r.vehicle, startsAt: r.checkOutAt, endsAt: r.checkedInAt, odometerOut: r.odometerOut, odometerIn: r.odometerIn, fuelOut: r.fuelOut, fuelIn: r.fuelIn }]
+              ).map((s) => (
+                <TableRow key={s.id}>
                   <TableCell>
-                    <Link href={`/admin/customers/${d.customerId}`} className="text-primary hover:underline">
-                      {fullName(d.customer)}
-                    </Link>
+                    {s.vehicle.make.name} {s.vehicle.model.name} <span className="text-muted-foreground">({s.vehicle.assignedId})</span>
                   </TableCell>
-                  <TableCell>{d.customer.licenseNumber ?? "—"}</TableCell>
-                  <TableCell>{date(d.customer.licenseExpiry)}</TableCell>
-                  <TableCell>{d.customer.postal ?? "—"}</TableCell>
-                  <TableCell>
-                    <Button
-                      size="icon-sm"
-                      variant="ghost"
-                      className="text-destructive hover:bg-destructive/10"
-                      aria-label={`Remove ${fullName(d.customer)}`}
-                      onClick={() => setRemoving({ id: d.id, name: fullName(d.customer) })}
-                    >
-                      <UserMinusIcon />
-                    </Button>
-                  </TableCell>
+                  <TableCell>{dateTime(s.startsAt)}</TableCell>
+                  <TableCell>{s.endsAt ? dateTime(s.endsAt) : <Badge variant="success">Current</Badge>}</TableCell>
+                  <TableCell className="text-right tabular-nums">{s.odometerOut.toLocaleString()}</TableCell>
+                  <TableCell className="text-right tabular-nums">{s.odometerIn?.toLocaleString() ?? "—"}</TableCell>
+                  <TableCell>{fuel(s.fuelOut)}</TableCell>
+                  <TableCell>{fuel(s.fuelIn)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
-        )}
-        <ConfirmAction
-          open={removing !== null}
-          onOpenChange={(o) => !o && setRemoving(null)}
-          destructive
-          title="Remove additional driver"
-          description={<>Remove <b>{removing?.name}</b> from this rental? The customer record is kept.</>}
-          confirmLabel="Remove driver"
-          onConfirm={() => run(api.removeDriver.mutate({ bookingDriverId: removing!.id }))}
-        />
-      </Section>
-
-      <Section title="Vehicle history" count={Math.max(segments.length, 1)} flush>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Vehicle</TableHead>
-              <TableHead>Pickup</TableHead>
-              <TableHead>Return</TableHead>
-              <TableHead className="text-right">Odometer out</TableHead>
-              <TableHead className="text-right">Odometer in</TableHead>
-              <TableHead>Fuel out</TableHead>
-              <TableHead>Fuel in</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {(segments.length
-              ? segments
-              : [{ id: "current", vehicle: r.vehicle, startsAt: r.checkOutAt, endsAt: r.checkedInAt, odometerOut: r.odometerOut, odometerIn: r.odometerIn, fuelOut: r.fuelOut, fuelIn: r.fuelIn }]
-            ).map((s) => (
-              <TableRow key={s.id}>
-                <TableCell>
-                  {s.vehicle.make.name} {s.vehicle.model.name} <span className="text-muted-foreground">({s.vehicle.assignedId})</span>
-                </TableCell>
-                <TableCell>{dateTime(s.startsAt)}</TableCell>
-                <TableCell>{s.endsAt ? dateTime(s.endsAt) : <Badge variant="success">Current</Badge>}</TableCell>
-                <TableCell className="text-right tabular-nums">{s.odometerOut.toLocaleString()}</TableCell>
-                <TableCell className="text-right tabular-nums">{s.odometerIn?.toLocaleString() ?? "—"}</TableCell>
-                <TableCell>{fuel(s.fuelOut)}</TableCell>
-                <TableCell>{fuel(s.fuelIn)}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </Section>
+        </Section>
+      )}
     </div>
   );
 }
