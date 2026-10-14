@@ -1,7 +1,5 @@
-import { cookies } from "next/headers";
 import { PageHeader } from "../../../../_components/page-header";
-import { LOCATION_COOKIE } from "../../../../_lib/cookies";
-import { api, requireStaff } from "../../../../_lib/session";
+import { api, workingLocationId } from "../../../../_lib/session";
 import { quoteToValues } from "../../quotes/_components/quote-values";
 import { ReservationForm, type ReservationFormInitial } from "../_components/reservation-form";
 
@@ -14,9 +12,8 @@ export const metadata = { title: "New reservation" };
  * ?customerId=…     "New reservation" / "Start rental" from a customer (renter prefilled).
  */
 export default async function NewReservationPage({ searchParams }: { searchParams: Promise<{ quoteId?: string; start?: string; vehicleId?: string; customerId?: string }> }) {
-  const session = await requireStaff();
   const sp = await searchParams;
-  const locationId = (await cookies()).get(LOCATION_COOKIE)?.value ?? session.user.defaultLocationId ?? undefined;
+  const locationId = await workingLocationId();
   const staff = await api();
 
   let initial: ReservationFormInitial | undefined;

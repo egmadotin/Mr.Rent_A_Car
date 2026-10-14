@@ -1,14 +1,11 @@
-import { cookies } from "next/headers";
 import { PageHeader } from "../../../_components/page-header";
-import { LOCATION_COOKIE } from "../../../_lib/cookies";
-import { requireStaff } from "../../../_lib/session";
+import { workingLocationId } from "../../../_lib/session";
 import { FleetCalendar } from "./fleet-calendar";
 
 export const metadata = { title: "Fleet calendar" };
 
 export default async function CalendarPage() {
-  const session = await requireStaff();
-  const locationId = (await cookies()).get(LOCATION_COOKIE)?.value ?? session.user.defaultLocationId ?? undefined;
+  const locationId = await workingLocationId();
   return (
     <>
       <PageHeader

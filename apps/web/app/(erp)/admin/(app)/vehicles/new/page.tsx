@@ -1,14 +1,11 @@
-import { cookies } from "next/headers";
 import { PageHeader } from "../../../../_components/page-header";
-import { LOCATION_COOKIE } from "../../../../_lib/cookies";
-import { requireStaff } from "../../../../_lib/session";
+import { workingLocationId } from "../../../../_lib/session";
 import { VehicleForm } from "./vehicle-form";
 
 export const metadata = { title: "Add vehicle" };
 
 export default async function NewVehiclePage() {
-  const session = await requireStaff();
-  const locationId = (await cookies()).get(LOCATION_COOKIE)?.value ?? session.user.defaultLocationId ?? undefined;
+  const locationId = await workingLocationId();
   return (
     <>
       <PageHeader

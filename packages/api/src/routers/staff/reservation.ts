@@ -226,43 +226,80 @@ async function writeBooking(
 }
 
 export const reservationRouter = router({
+  /**
+   * ReservationsSearch.aspx: quick search (Reservation # OR First Name OR Last Name) + Advanced Search
+   * (Reservation#, First/Last Name, Vehicle ID, Phone Number, Vehicle Type, Loc. Name, Company Name,
+   * Pickup Date Begin/End, Loc. Out, Loc. In, Status, National ID/SSN). Sorted by Reservation# descending.
+   */
   list: staffProcedure
     .input(
       z.object({
-        status: z.enum(["TENTATIVE", "CONFIRMED", "CHECKED_OUT", "CHECKED_IN", "CANCELLED", "NO_SHOW"]).optional(),
         search: z.string().optional(),
+        number: z.string().optional(),
+        firstName: z.string().optional(),
+        lastName: z.string().optional(),
+        vehicleAssignedId: z.string().optional(),
+        phone: z.string().optional(),
+        vehicleTypeId: z.string().optional(),
+        locationId: z.string().optional(),
+        companyName: z.string().optional(),
+        from: z.coerce.date().optional(),
+        to: z.coerce.date().optional(),
+        pickupLocationId: z.string().optional(),
+        returnLocationId: z.string().optional(),
+        /** RentCentric status filter: Honored | Confirmed | Cancelled | Tentative | Pending | Null */
+        legacyStatus: z.enum(["Honored", "Confirmed", "Cancelled", "Tentative", "Pending", "Null"]).optional(),
+        ssn: z.string().optional(),
+        status: z.enum(["TENTATIVE", "CONFIRMED", "CHECKED_OUT", "CHECKED_IN", "CANCELLED", "NO_SHOW"]).optional(),
         page: z.number().int().min(1).default(1),
-        pageSize: z.number().int().min(10).max(200).default(25),
+        pageSize: z.number().int().min(10).max(200).default(200),
       }),
     )
     .query(async ({ ctx, input }) => {
-      const q = input.search?.trim();
+      const t = (v?: string) => v?.trim() || undefined;
+      const q = t(input.search);
       const n = q && /^\d+$/.test(q) ? Number(q) : undefined;
+      const ci = (v: string) => ({ contains: v, mode: "insensitive" as const });
+      const STATUS: Record<string, Prisma.ReservationWhereInput["status"]> = {
+        Honored: { in: ["CHECKED_OUT", "CHECKED_IN"] },
+        Confirmed: "CONFIRMED",
+        Cancelled: "CANCELLED",
+        Tentative: "TENTATIVE",
+        // no Pending / Null reservations exist in this system
+        Pending: { in: [] },
+        Null: { in: [] },
+      };
+      const num = t(input.number);
+      const and: Prisma.ReservationWhereInput[] = [
+        ...(q ? [{ OR: [...(n ? [{ number: n }] : []), { firstName: ci(q) }, { lastName: ci(q) }] }] : []),
+        ...(num && /^\d+$/.test(num) ? [{ number: Number(num) }] : []),
+        ...(t(input.firstName) ? [{ firstName: ci(t(input.firstName)!) }] : []),
+        ...(t(input.lastName) ? [{ lastName: ci(t(input.lastName)!) }] : []),
+        ...(t(input.vehicleAssignedId) ? [{ vehicle: { assignedId: ci(t(input.vehicleAssignedId)!) } }] : []),
+        ...(t(input.phone) ? [{ phone: { contains: t(input.phone)! } }] : []),
+        ...(t(input.companyName) ? [{ company: { name: ci(t(input.companyName)!) } }] : []),
+        ...(t(input.ssn) ? [{ customer: { ssn: { contains: t(input.ssn)! } } }] : []),
+      ];
       const where: Prisma.ReservationWhereInput = {
         deletedAt: null,
-        status: input.status,
-        ...(q
-          ? {
-              OR: [
-                ...(n ? [{ number: n }] : []),
-                { lastName: { contains: q, mode: "insensitive" } },
-                { firstName: { contains: q, mode: "insensitive" } },
-                { phone: { contains: q } },
-                { email: { contains: q, mode: "insensitive" } },
-              ],
-            }
-          : {}),
+        status: input.legacyStatus ? STATUS[input.legacyStatus] : input.status,
+        vehicleTypeId: t(input.vehicleTypeId),
+        locationId: t(input.locationId),
+        pickupLocationId: t(input.pickupLocationId),
+        returnLocationId: t(input.returnLocationId),
+        pickupAt: { gte: input.from, lte: input.to },
+        AND: and,
       };
       const [total, rows] = await Promise.all([
         ctx.prisma.reservation.count({ where }),
         ctx.prisma.reservation.findMany({
           where,
-          orderBy: { pickupAt: "desc" },
+          orderBy: { number: "desc" },
           skip: (input.page - 1) * input.pageSize,
           take: input.pageSize,
           select: {
             id: true, number: true, status: true, firstName: true, lastName: true, pickupAt: true, returnAt: true,
-            pickupLocation: { select: { name: true } }, returnLocation: { select: { name: true } },
+            pickupLocation: { select: { name: true, timeZone: true } }, returnLocation: { select: { name: true } },
             vehicleType: { select: { name: true } }, vehicle: { select: { assignedId: true } },
           },
         }),
