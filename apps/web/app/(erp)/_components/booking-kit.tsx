@@ -7,7 +7,7 @@ import { Input } from "@mrac/ui/components/input";
 import { Label } from "@mrac/ui/components/label";
 import { NativeSelect } from "@mrac/ui/components/native-select";
 import { BUSINESS_TZ, fromDateTimeLocal, money, toDateTimeLocal } from "@mrac/ui/lib/format";
-import { nextHourInput } from "@mrac/ui/lib/tz";
+import { nowInput, todayAtInput } from "@mrac/ui/lib/tz";
 
 /**
  * Pieces shared by the Quote and Reservation forms (the same booking fields in RentCentric).
@@ -20,14 +20,16 @@ export function tzLabel(tz: string) {
 }
 
 /**
- * Initial datetime-local values. Saved records pass ISO instants plus `timeZone` (the pickup
- * location's zone); new ones default to the next whole hour, returning a day later.
+ * Initial datetime-local values. Saved records pass ISO instants plus `timeZone` (the pickup location's zone).
+ * New bookings use the RentCentric defaults: Add Quote = now → same time tomorrow; Reserve = 9:00 AM today →
+ * 9:00 AM tomorrow (`defaultAt: "09:00"`).
  */
-export function initialBookingTimes(values: { pickupAt?: unknown; returnAt?: unknown; timeZone?: unknown } = {}) {
+export function initialBookingTimes(values: { pickupAt?: unknown; returnAt?: unknown; timeZone?: unknown } = {}, { defaultAt }: { defaultAt?: string } = {}) {
   const tz = typeof values.timeZone === "string" && values.timeZone ? values.timeZone : BUSINESS_TZ;
+  const fresh = defaultAt ? [todayAtInput(defaultAt, tz), todayAtInput(defaultAt, tz, 1)] : [nowInput(tz), nowInput(tz, 86_400_000)];
   return {
-    pickupAt: typeof values.pickupAt === "string" && values.pickupAt ? toDateTimeLocal(values.pickupAt, tz) : nextHourInput(tz),
-    returnAt: typeof values.returnAt === "string" && values.returnAt ? toDateTimeLocal(values.returnAt, tz) : nextHourInput(tz, 86_400_000),
+    pickupAt: typeof values.pickupAt === "string" && values.pickupAt ? toDateTimeLocal(values.pickupAt, tz) : fresh[0],
+    returnAt: typeof values.returnAt === "string" && values.returnAt ? toDateTimeLocal(values.returnAt, tz) : fresh[1],
   };
 }
 
@@ -51,25 +53,27 @@ export function FormAlert({ message }: { message: string | null }) {
 type Bind = (name: string) => { id: string; name: string; value: string; onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void };
 
 /** Discount: type (blank / % / $) + value; the value is disabled until a type is picked. RentCentric labels it "Discount %". */
-export function DiscountField({ bind, error, label = "Discount %" }: { bind: Bind; error?: string; label?: string }) {
+export function DiscountField({ bind, error, label = "Discount %", noBlank }: { bind: Bind; error?: string; label?: string; /** Reserve form: only % / $ (no blank) */ noBlank?: boolean }) {
   const type = bind("discountType");
   return (
     <div className="space-y-1.5">
       <Label htmlFor="discountValue">{label}</Label>
       <div className="flex gap-2">
         <NativeSelect className="w-20" {...type} aria-label="Discount type">
-          <option value="" />
+          {!noBlank && <option value="" />}
           <option value="PERCENT">%</option>
           <option value="AMOUNT">$</option>
         </NativeSelect>
-        <Input type="number" min={0} step="0.01" {...bind("discountValue")} disabled={!type.value} />
+        <Input type="number" min={0} step="0.01" placeholder={noBlank ? "0.0" : undefined} {...bind("discountValue")} disabled={!noBlank && !type.value} />
       </div>
       {error && <p className="text-xs text-destructive">{error}</p>}
     </div>
   );
 }
 
-type Preview = { lines: { name: string; units: unknown; kind: string; total: unknown }[]; total: unknown; warnings: string[] };
+type Preview = { lines: { name: string; units: unknown; kind: string; rate?: unknown; total: unknown; sortOrder?: number }[]; total: unknown; warnings: string[] };
+/** % lines from priceBooking: percentage taxes (sortOrder 60+) and percentage charges (MISC, 40–49). */
+const isPercent = (l: Preview["lines"][number]) => (l.kind === "TAX" && (l.sortOrder ?? 0) >= 60) || (l.kind === "MISC" && (l.sortOrder ?? 0) >= 40 && (l.sortOrder ?? 0) < 50);
 
 /** Live priced charge lines + total, as shown beside the booking forms. */
 export function ChargeSummary({ title, preview, emptyText }: { title: string; preview: Preview | null | undefined; emptyText: string }) {
@@ -83,12 +87,22 @@ export function ChargeSummary({ title, preview, emptyText }: { title: string; pr
           <p className="text-muted-foreground">{emptyText}</p>
         ) : (
           <>
+            {/* RentCentric columns: Charge · Unit · Rate · Total */}
             <table className="w-full">
+              <thead className="text-left text-xs text-muted-foreground">
+                <tr className="border-b">
+                  <th className="py-1 pr-2 font-medium">Charge</th>
+                  <th className="py-1 pr-2 text-right font-medium">Unit</th>
+                  <th className="py-1 pr-2 text-right font-medium">Rate</th>
+                  <th className="py-1 text-right font-medium">Total</th>
+                </tr>
+              </thead>
               <tbody>
                 {preview.lines.map((l, i) => (
                   <tr key={i} className="border-b border-border/50 last:border-0">
                     <td className="py-1 pr-2">{l.name}</td>
                     <td className="py-1 pr-2 text-right text-muted-foreground tabular-nums">{Number(l.units) || ""}</td>
+                    <td className="py-1 pr-2 text-right text-muted-foreground tabular-nums">{l.kind === "MILEAGE" || l.rate == null ? "" : isPercent(l) ? `${Number(l.rate)}%` : money(Number(l.rate))}</td>
                     <td className="py-1 text-right tabular-nums">{l.kind === "MILEAGE" ? "" : money(l.total as number)}</td>
                   </tr>
                 ))}

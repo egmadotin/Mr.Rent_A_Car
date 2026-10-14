@@ -69,3 +69,15 @@ export function nextHourInput(tz: string = BUSINESS_TZ, addMs = 0) {
   const p = parts(new Date(Date.now() + 3_600_000 + addMs), tz);
   return `${p.y}-${pad(p.m)}-${pad(p.d)}T${pad(p.h)}:00`;
 }
+
+/** Today at `hhmm` ("09:00") in `tz`, plus `addDays`, as an input value — the RentCentric Reserve form default. */
+export function todayAtInput(hhmm: string, tz: string = BUSINESS_TZ, addDays = 0) {
+  const p = parts(new Date(Date.now() + addDays * 86_400_000), tz);
+  return `${p.y}-${pad(p.m)}-${pad(p.d)}T${hhmm}`;
+}
+
+/** "now" as an input value in `tz` (to the minute), plus `addMs` — the RentCentric Add Quote default. */
+export function nowInput(tz: string = BUSINESS_TZ, addMs = 0) {
+  const p = parts(new Date(Date.now() + addMs), tz);
+  return `${p.y}-${pad(p.m)}-${pad(p.d)}T${pad(p.h)}:${pad(p.mi)}`;
+}

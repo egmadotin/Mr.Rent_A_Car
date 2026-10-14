@@ -5,6 +5,7 @@ import { router, staffProcedure } from "../../trpc";
 import { audit } from "../../lib/audit";
 import { withBookingGuard } from "../../lib/errors";
 import { priceBooking } from "../../lib/pricing";
+import { bookingOptionsInput, staffPricingOptions } from "../../lib/booking-options";
 import { billSplitData, billSplitInput, transportInput } from "../../lib/bill-split";
 
 const D = (n: number) => new Prisma.Decimal(n);
@@ -15,6 +16,8 @@ const req = (label: string) => z.string({ required_error: `${label} is required`
 
 const PAYMENT_METHODS = ["AMEX", "CASH", "DEBIT", "EMT", "INTERNAL", "MASTERCARD", "VISA"] as const;
 const ACTIVE = ["TENTATIVE", "CONFIRMED"] as const;
+/** statuses staff can set on the Reserve form (Rented / Checked In come from the rental itself) */
+const SAVE_STATUSES = ["TENTATIVE", "CONFIRMED", "CANCELLED"] as const;
 
 const customerInput = z.object({
   firstName: req("First name"),
@@ -44,7 +47,9 @@ const customerInput = z.object({
 /** New Reservation ("Reserve") — every field from the live form's Customer + Reservation tabs + Payment panel. */
 const reservationInput = z
   .object({
-    status: z.enum(ACTIVE).default("TENTATIVE"),
+    status: z.enum(SAVE_STATUSES).default("CONFIRMED"),
+    /** "Send Confirmation Email" (no email provider yet: logged as a memo) */
+    sendConfirmationEmail: z.boolean().default(false),
     quoteId: optStr,
     customerId: optStr,
     saveCustomer: z.boolean().default(true),
@@ -80,6 +85,8 @@ const reservationInput = z
     memoShowAsPopup: z.boolean().default(false),
     miscCharges: z.array(z.object({ miscChargeId: z.string(), quantity: z.coerce.number().int().min(0) })).default([]),
     insuranceId: optStr,
+    /** the options grid (same as Add Quote); when given it replaces miscCharges / insuranceId */
+    options: bookingOptionsInput.optional(),
     payment: z
       .object({
         method: z.enum(PAYMENT_METHODS),
@@ -152,8 +159,7 @@ async function writeBooking(
     rateId: input.rateId,
     discountType: input.discountType,
     discountValue: input.discountValue,
-    miscCharges: input.miscCharges,
-    insuranceId: input.insuranceId,
+    ...(input.options ? staffPricingOptions(input.options) : { miscCharges: input.miscCharges, insuranceId: input.insuranceId }),
   });
 
   const data = {
@@ -189,6 +195,7 @@ async function writeBooking(
     customerNotes: input.customerNotes,
     isLoaner: input.isLoaner,
     isNonRevenue: input.isNonRevenue,
+    ...(input.options ? { excludedTaxIds: input.options.excludedTaxIds } : {}),
   };
 
   let reservationId: string;
@@ -218,6 +225,10 @@ async function writeBooking(
     await tx.vehicleBlock.create({ data: { vehicleId: input.vehicleId, reservationId, startsAt: input.pickupAt, endsAt: input.returnAt } });
 
   if (input.memo) await tx.memo.create({ data: { reservationId, body: input.memo, showAsPopup: input.memoShowAsPopup, authorId: userId } });
+  if (input.sendConfirmationEmail)
+    await tx.memo.create({
+      data: { reservationId, authorId: userId, body: `Confirmation email requested for ${input.customer.email ?? "(no email)"} — not sent: no email provider is configured yet.` },
+    });
   if (input.payment)
     await tx.payment.create({
       data: { ...input.payment, amount: D(input.payment.amount), reservationId, customerId, takenById: userId },

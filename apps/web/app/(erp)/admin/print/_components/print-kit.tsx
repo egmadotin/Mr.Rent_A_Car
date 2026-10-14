@@ -196,7 +196,7 @@ export function PrintChargeTable({ lines, payments, timeLabel = "Total T&M" }: {
           </div>
         ))}
         {totalRow("Total", total, true)}
-        {payments && payments.length > 0 && (
+        {payments && (
           <div className="mt-2 space-y-0.5">
             {payments.map((p, i) => (
               <div key={i} className="flex justify-between gap-6 px-3 py-0.5 text-muted-foreground">

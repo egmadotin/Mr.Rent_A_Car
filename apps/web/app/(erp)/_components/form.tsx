@@ -250,7 +250,7 @@ export const PAYMENT_METHOD_OPTIONS = [
   { value: "AMEX", label: "Amex" },
   { value: "CASH", label: "Cash" },
   { value: "DEBIT", label: "Debit" },
-  { value: "EMT", label: "EMT (e-Transfer)" },
+  { value: "EMT", label: "EMT" },
   { value: "INTERNAL", label: "Internal" },
   { value: "MASTERCARD", label: "Mastercard" },
   { value: "VISA", label: "Visa" },

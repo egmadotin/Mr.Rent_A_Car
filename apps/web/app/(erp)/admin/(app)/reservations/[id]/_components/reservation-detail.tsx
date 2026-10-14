@@ -4,46 +4,31 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  BanIcon,
-  CheckCircle2Icon,
-  CopyIcon,
-  KeyRoundIcon,
-  MessageSquarePlusIcon,
-  MoreHorizontalIcon,
-  PencilIcon,
-  PinIcon,
-  PlusIcon,
-  PrinterIcon,
-  RotateCcwIcon,
-  Trash2Icon,
-  UserCogIcon,
-  UserXIcon,
-} from "lucide-react";
+import { MessageSquarePlusIcon, PencilIcon, PinIcon, PlusIcon } from "lucide-react";
 import type { RouterOutputs, Wire } from "@mrac/api";
 import { useTRPC, useTRPCClient } from "@mrac/api/client";
 import { Badge } from "@mrac/ui/components/badge";
 import { Button } from "@mrac/ui/components/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@mrac/ui/components/card";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@mrac/ui/components/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@mrac/ui/components/dialog";
 import { Input } from "@mrac/ui/components/input";
 import { toast } from "@mrac/ui/components/sonner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@mrac/ui/components/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@mrac/ui/components/tabs";
-import { date, dateTime, fullName, money, toDateTimeLocal, fromDateTimeLocal } from "@mrac/ui/lib/format";
+import { fullName, money, toDateTimeLocal, fromDateTimeLocal } from "@mrac/ui/lib/format";
 import { ConfirmAction } from "../../../../../_components/confirm-action";
-import { CheckField, Field, FormDialog, PAYMENT_METHOD_OPTIONS, SelectField, TextareaField, errorMessage } from "../../../../../_components/form";
+import {
+  CheckField,
+  Field,
+  FormDialog,
+  PAYMENT_METHOD_OPTIONS,
+  SelectField,
+  TextareaField,
+  errorMessage,
+} from "../../../../../_components/form";
 import { PageHeader } from "../../../../../_components/page-header";
-import { ReservationStatusBadge } from "../../status";
 import { BillSplitDialog, CLAIM_TYPES, TransportDialog } from "../../../../../_components/booking-dialogs";
+import { legacyDate } from "../../../../../_components/list-kit";
+import { PrintChargeTable } from "../../../../print/_components/print-kit";
 
 type Data = Wire<RouterOutputs["staff"]["reservation"]["byId"]>;
 type DialogName = null | "start" | "cancel" | "delete" | "noshow" | "move" | "reinstate";
@@ -57,6 +42,7 @@ export function ReservationDetail({ reservationId, autoStartRental }: { reservat
   const q = useQuery(trpc.staff.reservation.byId.queryOptions({ reservationId }));
   const data = q.data as Data | undefined;
   const [dialog, setDialog] = React.useState<DialogName>(autoStartRental ? "start" : null);
+  const [panel, setPanel] = React.useState<null | "payments" | "drivers" | "billsplit" | "transports">(null);
   const close = (o: boolean) => !o && setDialog(null);
 
   const refresh = () =>
@@ -75,275 +61,198 @@ export function ReservationDetail({ reservationId, autoStartRental }: { reservat
   if (!data) return <div className="p-6 text-sm text-destructive">{q.error?.message ?? "Reservation not found."}</div>;
 
   const r = data.reservation;
-  const t = data.totals;
   const active = r.status === "TENTATIVE" || r.status === "CONFIRMED";
   const popups = r.memos.filter((m) => m.showAsPopup);
+
+  const tz = r.pickupLocation.timeZone;
+  const status = r.status === "CHECKED_OUT" ? "Honored" : r.status.replace("_", " ").toLowerCase().replace(/^\w/, (x) => x.toUpperCase());
+  const notBuilt = "Not available yet: the template / email provider is set up in a later step.";
+  // the RentCentric ReservationMain.aspx action links, two per row, in its order
+  const links: React.ReactNode[] = [
+    active ? (
+      <ActionLink key="s" onClick={() => setDialog("start")}>Start Rental</ActionLink>
+    ) : r.rental ? (
+      <ActionLink key="s" href={`/admin/rentals/${r.rental.id}`}>Rental #{r.rental.raNumber}</ActionLink>
+    ) : (
+      <ActionLink key="s" disabled>Start Rental</ActionLink>
+    ),
+    <ActionLink key="p" onClick={() => setPanel("payments")} active={panel === "payments"}>Payments/Charges ({r.payments.length})</ActionLink>,
+    <ActionLink key="i" disabled title={notBuilt}>Print Invoice</ActionLink>,
+    <ActionLink key="d" onClick={() => setPanel("drivers")} active={panel === "drivers"}>Additional Drivers ({r.drivers.length})</ActionLink>,
+    <ActionLink key="pd" href={`/admin/print/reservations/${r.id}`} newTab>Print Reservation Detail</ActionLink>,
+    <ActionLink key="b" onClick={() => setPanel("billsplit")} active={panel === "billsplit"}>Bill Split ({r.billSplits.length})</ActionLink>,
+    active ? (
+      <ActionLink key="c" onClick={() => setDialog("cancel")}>Cancel Reservation</ActionLink>
+    ) : r.status === "CANCELLED" || r.status === "NO_SHOW" ? (
+      <ActionLink key="c" onClick={() => setDialog("reinstate")}>Reinstate Reservation</ActionLink>
+    ) : (
+      <ActionLink key="c" disabled>Cancel Reservation</ActionLink>
+    ),
+    <ActionLink key="m" onClick={() => setDialog("move")} disabled={!active}>Move Reservation</ActionLink>,
+    <ActionLink key="del" onClick={() => setDialog("delete")} disabled={r.status === "CHECKED_OUT"}>Delete Reservation</ActionLink>,
+    <ActionLink
+      key="dup"
+      onClick={async () => {
+        try {
+          const { id } = await client.staff.reservation.duplicate.mutate({ reservationId });
+          toast.success("Reservation duplicated");
+          router.push(`/admin/reservations/${id}`);
+        } catch (e) {
+          toast.error(errorMessage(e));
+        }
+      }}
+    >
+      Duplicate Reservation
+    </ActionLink>,
+    <ActionLink key="t" onClick={() => setPanel("transports")} active={panel === "transports"}>Pickup/Drop-off ({r.transports.length})</ActionLink>,
+    <ActionLink key="e1" disabled title={notBuilt}>E-Mail Reservation Details</ActionLink>,
+    <ActionLink key="e2" disabled title={notBuilt}>Email Reservation Form/Invoice</ActionLink>,
+    <ActionLink key="ins" disabled title={notBuilt}>Reservation Inspection</ActionLink>,
+  ];
 
   return (
     <>
       <PageHeader
-        breadcrumbs={[{ label: "Reservations", href: "/admin/reservations" }, { label: `#${r.number}` }]}
-        title={
-          <span className="flex flex-wrap items-center gap-2">
-            Reservation #{r.number} <ReservationStatusBadge status={r.status} />
-            {r.pickupLocationId !== r.returnLocationId && <Badge variant="info">One way</Badge>}
-          </span>
-        }
-        description={`${r.firstName} ${r.lastName} · ${r.vehicleType.name}${r.vehicle ? ` · ${r.vehicle.assignedId}` : " · vehicle unassigned"} · ${dateTime(r.pickupAt)} → ${dateTime(r.returnAt)}`}
+        breadcrumbs={[
+          { label: "Reservations", href: "/admin/reservations" },
+          ...(r.customer ? [{ label: fullName(r.customer), href: `/admin/customers/${r.customer.id}` }] : []),
+          { label: `#${r.number}` },
+        ]}
+        title={`Reservation # ${r.number}`}
         actions={
-          <>
-            {active && (
-              <Button onClick={() => setDialog("start")}>
-                <KeyRoundIcon /> Start rental
-              </Button>
-            )}
-            {r.status === "TENTATIVE" && (
-              <Button variant="outline" onClick={() => run(client.staff.reservation.setStatus.mutate({ reservationId, status: "CONFIRMED" })).then(() => toast.success("Reservation confirmed"), (e) => toast.error(errorMessage(e)))}>
-                <CheckCircle2Icon /> Confirm
-              </Button>
-            )}
-            {active && (
-              <Button variant="outline" asChild>
-                <Link href={`/admin/reservations/${r.id}/edit`}><PencilIcon /> Edit</Link>
-              </Button>
-            )}
-            {r.rental && (
-              <Button asChild>
-                <Link href={`/admin/rentals/${r.rental.id}`}><KeyRoundIcon /> Rental #{r.rental.raNumber}</Link>
-              </Button>
-            )}
-            {(r.status === "CANCELLED" || r.status === "NO_SHOW") && (
-              <Button variant="outline" onClick={() => setDialog("reinstate")}><RotateCcwIcon /> Reinstate</Button>
-            )}
+          active ? (
             <Button variant="outline" asChild>
-              <Link href={`/admin/print/reservations/${r.id}`} target="_blank"><PrinterIcon /> Print</Link>
+              <Link href={`/admin/reservations/${r.id}/edit`}><PencilIcon /> Edit</Link>
             </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="icon" aria-label="More actions"><MoreHorizontalIcon /></Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-60">
-                <DropdownMenuItem
-                  onSelect={async () => {
-                    try {
-                      const { id } = await client.staff.reservation.duplicate.mutate({ reservationId });
-                      toast.success("Reservation duplicated");
-                      router.push(`/admin/reservations/${id}`);
-                    } catch (e) {
-                      toast.error(errorMessage(e));
-                    }
-                  }}
-                >
-                  <CopyIcon /> Duplicate reservation
-                </DropdownMenuItem>
-                {active && <DropdownMenuItem onSelect={() => setDialog("move")}><UserCogIcon /> Move to another customer</DropdownMenuItem>}
-                {r.quote && <DropdownMenuItem asChild><Link href={`/admin/quotes/${r.quote.id}`}>From quote #{r.quote.number}</Link></DropdownMenuItem>}
-                {active && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuLabel>Danger zone</DropdownMenuLabel>
-                    <DropdownMenuItem variant="destructive" onSelect={() => setDialog("noshow")}><UserXIcon /> Mark no-show…</DropdownMenuItem>
-                    <DropdownMenuItem variant="destructive" onSelect={() => setDialog("cancel")}><BanIcon /> Cancel reservation…</DropdownMenuItem>
-                  </>
-                )}
-                {r.status !== "CHECKED_OUT" && (
-                  <DropdownMenuItem variant="destructive" onSelect={() => setDialog("delete")}><Trash2Icon /> Delete reservation…</DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </>
+          ) : undefined
         }
       />
 
-      <div className="space-y-4 p-4 md:p-6">
-        {popups.map((m) => (
-          <div key={m.id} role="note" className="flex gap-2 rounded-lg border border-warning/50 bg-warning/10 p-3 text-sm">
-            <PinIcon className="mt-0.5 size-4 shrink-0" /> {m.body}
-          </div>
-        ))}
-
-        <dl className="grid grid-cols-3 overflow-hidden rounded-lg border bg-card">
-          {([["Total", t.total], ["Payments", t.totalPayments], ["Balance", t.balance]] as const).map(([label, val]) => (
-            <div key={label} className="border-r px-4 py-3 last:border-r-0">
-              <dt className="text-xs text-muted-foreground">{label}</dt>
-              <dd className="text-lg font-semibold tabular-nums">{money(val)}</dd>
+      <div className="grid gap-6 p-4 md:p-6 xl:grid-cols-2">
+        <div className="min-w-0 space-y-4">
+          {popups.map((m) => (
+            <div key={m.id} role="note" className="flex gap-2 rounded-lg border border-warning/50 bg-warning/10 p-3 text-sm">
+              <PinIcon className="mt-0.5 size-4 shrink-0" /> {m.body}
             </div>
           ))}
-        </dl>
 
-        <Tabs defaultValue="overview">
-          <TabsList>
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="charges">Charges & payments {r.payments.length > 0 && <Badge variant="muted" className="px-1.5">{r.payments.length}</Badge>}</TabsTrigger>
-            <TabsTrigger value="billsplit">Bill split {r.billSplits.length > 0 && <Badge variant="muted" className="px-1.5">{r.billSplits.length}</Badge>}</TabsTrigger>
-            <TabsTrigger value="drivers">Additional drivers {r.drivers.length > 0 && <Badge variant="muted" className="px-1.5">{r.drivers.length}</Badge>}</TabsTrigger>
-            <TabsTrigger value="notes">Memo {r.memos.length > 0 && <Badge variant="muted" className="px-1.5">{r.memos.length}</Badge>}</TabsTrigger>
-            <TabsTrigger value="activity">Activity log</TabsTrigger>
-          </TabsList>
+          {/* the fields of RentCentric ReservationMain.aspx, in its two columns */}
+          <Card>
+            <CardContent className="grid gap-x-6 gap-y-2.5 text-sm sm:grid-cols-2">
+              <DL
+                single
+                items={[
+                  ["Status:", status],
+                  ["Type:", r.vehicleType.name],
+                  ["Return Location:", r.returnLocation.name],
+                  ["Entered By:", r.createdBy?.name ?? r.reservationChannel],
+                  ["Reservation Date:", legacyDate(r.createdAt, { timeZone: tz })],
+                  ["Reservation Channel:", r.reservationChannel],
+                  ["Company:", r.company?.name ?? "N/A"],
+                ]}
+              />
+              <DL
+                single
+                items={[
+                  [
+                    "Vehicle:",
+                    r.vehicle ? (
+                      <Link key="v" href={`/admin/vehicles/${r.vehicle.id}`} className="text-primary hover:underline">
+                        {r.vehicle.assignedId} — {r.vehicle.year ?? ""} {r.vehicle.make.name} {r.vehicle.model.name}
+                      </Link>
+                    ) : (
+                      "Not Selected"
+                    ),
+                  ],
+                  ["Pickup Date:", legacyDate(r.pickupAt, { timeZone: tz })],
+                  ["Pickup Location:", r.pickupLocation.name],
+                  ["Return Date:", legacyDate(r.returnAt, { timeZone: tz })],
+                  ["Flight Details:", [r.airline, r.flightNumber, r.arrivalAirport].filter(Boolean).join(", ")],
+                ]}
+              />
+            </CardContent>
+          </Card>
 
-          <TabsContent value="overview">
-            <div className="grid gap-4 xl:grid-cols-3">
-              <Card className="xl:col-span-2">
-                <CardHeader><CardTitle>Reservation details</CardTitle></CardHeader>
-                <CardContent>
-                  <DL
-                    items={[
-                      ["Booking location", r.location.name],
-                      ["Vehicle type", r.vehicleType.name],
-                      ["Pickup", `${dateTime(r.pickupAt)} · ${r.pickupLocation.name}`],
-                      ["Return", `${dateTime(r.returnAt)} · ${r.returnLocation.name}`],
-                      ["Vehicle", r.vehicle ? `${r.vehicle.assignedId} — ${r.vehicle.year ?? ""} ${r.vehicle.make.name} ${r.vehicle.model.name}` : "Unassigned"],
-                      ["Rate", r.rate?.code],
-                      ["Company", r.company?.name],
-                      ["Discount", r.discountType ? `${r.discountType === "PERCENT" ? `${r.discountValue}%` : money(r.discountValue)}${r.discountReason ? ` · ${r.discountReason.name}` : ""}` : null],
-                      ["Deposit", r.deposit ? money(r.deposit) : null],
-                      ["Referral", r.referral?.name],
-                      ["Delivery address", r.deliveryAddress],
-                      ["Airline / flight", [r.airline, r.flightNumber].filter(Boolean).join(" ")],
-                      ["Hotel", r.hotel],
-                      ["Arrival airport", r.arrivalAirport],
-                      ["Preferred language", r.preferredLanguage],
-                      ["PO# / RO#", [r.poNumber, r.roNumber].filter(Boolean).join(" / ")],
-                      ["Customer notes", r.customerNotes],
-                      ["Flags", [r.isLoaner && "Loaner", r.isNonRevenue && "Non-revenue"].filter(Boolean).join(", ")],
-                      ["Entered", `${dateTime(r.createdAt)} · ${r.createdBy?.name ?? "—"}`],
-                      ["Reservation channel", r.reservationChannel],
-                    ]}
-                  />
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader><CardTitle>Renter</CardTitle></CardHeader>
-                <CardContent className="space-y-3 text-sm">
-                  {r.customer ? (
-                    <Link href={`/admin/customers/${r.customer.id}`} className="text-base font-medium text-primary hover:underline">{fullName(r.customer)}</Link>
-                  ) : (
-                    <div className="text-base font-medium">{r.firstName} {r.lastName} <Badge variant="muted">Not saved as customer</Badge></div>
-                  )}
-                  {r.customer?.isUndesired && <Badge variant="destructive">Undesired</Badge>}
-                  <DL
-                    items={[
-                      ["Phone", r.phone],
-                      ["Email", r.email],
-                      ["Licence #", r.customer?.licenseNumber],
-                      ["Licence exp.", r.customer ? date(r.customer.licenseExpiry) : null],
-                      ["Date of birth", r.customer ? date(r.customer.birthDate) : null],
-                    ]}
-                    single
-                  />
-                </CardContent>
-              </Card>
-              <Card className="gap-2 pb-0 xl:col-span-3">
-                <CardHeader className="items-center">
-                  <CardTitle>Pickup / drop-off <span className="font-normal text-muted-foreground">({r.transports.length})</span></CardTitle>
-                  {active && <TransportDialog onSubmit={(p) => run(client.staff.reservation.addTransport.mutate({ reservationId, ...p }))} />}
-                </CardHeader>
-                {r.transports.length === 0 ? (
-                  <p className="px-4 pb-4 text-sm text-muted-foreground">No delivery or collection booked.</p>
-                ) : (
-                  <Table>
-                    <TableHeader><TableRow><TableHead>Pickup location</TableHead><TableHead>Pickup date</TableHead><TableHead>Drop-off location</TableHead><TableHead>Drop-off date</TableHead></TableRow></TableHeader>
-                    <TableBody>
-                      {r.transports.map((x) => (
-                        <TableRow key={x.id}>
-                          <TableCell>{x.pickupLocation?.name ?? x.pickupAddress ?? "—"}</TableCell>
-                          <TableCell>{dateTime(x.pickupAt)}</TableCell>
-                          <TableCell>{x.dropoffLocation?.name ?? x.dropoffAddress ?? "—"}</TableCell>
-                          <TableCell>{dateTime(x.dropoffAt)}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
-              </Card>
-            </div>
-          </TabsContent>
+          <Card>
+            <CardContent className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+              {links.map((l, k) => (
+                <div key={k}>{l}</div>
+              ))}
+            </CardContent>
+          </Card>
 
-          <TabsContent value="charges">
-            <div className="grid gap-4 xl:grid-cols-2">
-              <Card className="gap-2 pb-0">
-                <CardHeader><CardTitle>Charges</CardTitle></CardHeader>
-                <Table>
-                  <TableHeader>
-                    <TableRow><TableHead>Charge</TableHead><TableHead className="text-right">Unit</TableHead><TableHead className="text-right">Rate</TableHead><TableHead className="text-right">Total</TableHead></TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {r.chargeLines.map((l) => (
-                      <TableRow key={l.id}>
-                        <TableCell>{l.name}</TableCell>
-                        <TableCell className="text-right tabular-nums">{Number(l.units) || ""}</TableCell>
-                        <TableCell className="text-right tabular-nums">{l.kind === "TAX" && l.tax?.kind !== "AMOUNT" ? `${Number(l.rate)}%` : Number(l.rate) ? money(l.rate) : ""}</TableCell>
-                        <TableCell className="text-right tabular-nums">{l.kind === "MILEAGE" ? "" : money(l.total)}</TableCell>
-                      </TableRow>
-                    ))}
-                    <TableRow className="bg-muted/40 font-semibold"><TableCell colSpan={3}>Total</TableCell><TableCell className="text-right tabular-nums">{money(t.total)}</TableCell></TableRow>
-                  </TableBody>
-                </Table>
-              </Card>
-              <Card className="gap-2 pb-0">
-                <CardHeader className="items-center">
-                  <CardTitle>Payments</CardTitle>
-                  {active && (
-                    <FormDialog
-                      title="Add payment"
-                      wide
-                      trigger={<Button size="sm"><PlusIcon /> Add payment</Button>}
-                      onSubmit={(x) =>
-                        run(
-                          client.staff.reservation.addPayment.mutate({
-                            reservationId,
-                            method: x.method as "CASH",
-                            transactionType: x.transactionType as "PAYMENT",
-                            amount: Number(x.amount),
-                            authorizationCode: x.authorizationCode as string | undefined,
-                            transactionCode: x.transactionCode as string | undefined,
-                            cardLast4: x.cardLast4 as string | undefined,
-                            takenAt: new Date(x.takenAt as string),
-                          }),
-                        )
-                      }
-                    >
-                      <SelectField label="Payment method" name="method" required options={PAYMENT_METHOD_OPTIONS} />
-                      <SelectField label="Transaction type" name="transactionType" placeholder={false} options={[{ value: "PAYMENT", label: "Payment (Credit)" }, { value: "AUTHORIZATION", label: "Authorization" }, { value: "REFUND", label: "Refund (Credit)" }]} />
-                      <Field label="Amount" name="amount" type="number" step="0.01" min="0.01" required />
-                      <Field label="Card last 4" name="cardLast4" inputMode="numeric" maxLength={4} />
-                      <Field label="Authorization code" name="authorizationCode" />
-                      <Field label="Transaction code" name="transactionCode" />
-                      <Field label="Date" name="takenAt" type="datetime-local" required defaultValue={toDateTimeLocal(new Date())} />
-                    </FormDialog>
-                  )}
-                </CardHeader>
-                {r.payments.length === 0 ? (
-                  <p className="px-4 pb-4 text-sm text-muted-foreground">No payments.</p>
-                ) : (
-                  <Table>
-                    <TableBody>
-                      {r.payments.map((p) => (
-                        <TableRow key={p.id}>
-                          <TableCell>{dateTime(p.takenAt)}</TableCell>
-                          <TableCell>{p.method}{p.cardLast4 && ` ···· ${p.cardLast4}`}</TableCell>
-                          <TableCell><Badge variant={p.transactionType === "PAYMENT" ? "success" : p.transactionType === "REFUND" ? "warning" : "info"}>{p.transactionType.toLowerCase()}</Badge></TableCell>
-                          <TableCell className="text-right tabular-nums">{money(p.amount)}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
-              </Card>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="billsplit">
+          {panel === "payments" && (
             <Card className="gap-2 pb-0">
               <CardHeader className="items-center">
-                <CardTitle>Bill split</CardTitle>
+                <CardTitle>Payments/Charges</CardTitle>
+                {active && (
+                  <FormDialog
+                    title="Add payment"
+                    wide
+                    trigger={<Button size="sm"><PlusIcon /> Add payment</Button>}
+                    onSubmit={(x) =>
+                      run(
+                        client.staff.reservation.addPayment.mutate({
+                          reservationId,
+                          method: x.method as "CASH",
+                          transactionType: x.transactionType as "PAYMENT",
+                          amount: Number(x.amount),
+                          authorizationCode: x.authorizationCode as string | undefined,
+                          transactionCode: x.transactionCode as string | undefined,
+                          takenAt: new Date(x.takenAt as string),
+                        }),
+                      )
+                    }
+                  >
+                    <SelectField label="Payment Method" name="method" required options={PAYMENT_METHOD_OPTIONS} />
+                    <Field label="Amount" name="amount" type="number" step="0.01" min="0.01" required />
+                    <SelectField
+                      label="Transaction Type"
+                      name="transactionType"
+                      placeholder={false}
+                      defaultValue="AUTHORIZATION"
+                      options={[{ value: "PAYMENT", label: "Payment (Credit)" }, { value: "AUTHORIZATION", label: "Authorization" }, { value: "REFUND", label: "Refund" }]}
+                    />
+                    <Field label="Authorization Code" name="authorizationCode" />
+                    <Field label="Transaction Code" name="transactionCode" />
+                    <Field label="Date" name="takenAt" type="datetime-local" required defaultValue={toDateTimeLocal(new Date())} />
+                  </FormDialog>
+                )}
+              </CardHeader>
+              {r.payments.length === 0 ? (
+                <p className="px-4 pb-4 text-sm text-muted-foreground">No payments.</p>
+              ) : (
+                <Table>
+                  <TableBody>
+                    {r.payments.map((p) => (
+                      <TableRow key={p.id}>
+                        <TableCell>{legacyDate(p.takenAt, { timeZone: tz })}</TableCell>
+                        <TableCell>{PAYMENT_METHOD_OPTIONS.find((m) => m.value === p.method)?.label ?? p.method}</TableCell>
+                        <TableCell>{p.transactionType === "PAYMENT" ? "Payment (Credit)" : p.transactionType === "REFUND" ? "Refund" : "Authorization"}</TableCell>
+                        <TableCell className="text-right tabular-nums">{money(p.amount)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </Card>
+          )}
+
+          {panel === "drivers" && <DriversCard data={data} run={run} />}
+
+          {panel === "billsplit" && (
+            <Card className="gap-2 pb-0">
+              <CardHeader className="items-center">
+                <CardTitle>Bill Split</CardTitle>
                 {active && <BillSplitDialog onSubmit={(p) => run(client.staff.reservation.addBillSplit.mutate({ reservationId, ...p }))} />}
               </CardHeader>
               {r.billSplits.length === 0 ? (
                 <p className="px-4 pb-4 text-sm text-muted-foreground">Not split. The renter pays the full amount.</p>
               ) : (
                 <Table>
-                  <TableHeader><TableRow><TableHead>Company</TableHead><TableHead>Type</TableHead><TableHead className="text-right">/ day</TableHead><TableHead className="text-right">Days</TableHead><TableHead className="text-right">Total</TableHead></TableRow></TableHeader>
+                  <TableHeader>
+                    <TableRow><TableHead>Company</TableHead><TableHead>Type</TableHead><TableHead className="text-right">/ day</TableHead><TableHead className="text-right">Days</TableHead><TableHead className="text-right">Total</TableHead></TableRow>
+                  </TableHeader>
                   <TableBody>
                     {r.billSplits.map((b) => (
                       <TableRow key={b.id}>
@@ -358,59 +267,67 @@ export function ReservationDetail({ reservationId, autoStartRental }: { reservat
                 </Table>
               )}
             </Card>
-          </TabsContent>
+          )}
 
-          <TabsContent value="drivers">
-            <DriversCard data={data} run={run} />
-          </TabsContent>
-
-          <TabsContent value="notes">
+          {panel === "transports" && (
             <Card className="gap-2 pb-0">
               <CardHeader className="items-center">
-                <CardTitle>Memo history</CardTitle>
-                <FormDialog
-                  title="Add memo"
-                  trigger={<Button size="sm" variant="outline"><MessageSquarePlusIcon /> Add memo</Button>}
-                  onSubmit={(x) => run(client.staff.reservation.addMemo.mutate({ reservationId, body: x.body as string, showAsPopup: Boolean(x.showAsPopup) }))}
-                >
-                  <TextareaField label="Memo" name="body" required rows={4} />
-                  <CheckField label="Always display as popup" name="showAsPopup" />
-                </FormDialog>
+                <CardTitle>Pickup/Drop-off</CardTitle>
+                {active && <TransportDialog onSubmit={(p) => run(client.staff.reservation.addTransport.mutate({ reservationId, ...p }))} />}
               </CardHeader>
-              {r.memos.length === 0 ? (
-                <p className="px-4 pb-4 text-sm text-muted-foreground">No memos.</p>
+              {r.transports.length === 0 ? (
+                <p className="px-4 pb-4 text-sm text-muted-foreground">No delivery or collection booked.</p>
               ) : (
-                <ul className="divide-y">
-                  {r.memos.map((m) => (
-                    <li key={m.id} className="space-y-1 px-4 py-3 text-sm">
-                      <div className="text-xs text-muted-foreground">{m.author?.name ?? "System"} · {dateTime(m.createdAt)} {m.showAsPopup && <Badge variant="warning">Popup</Badge>}</div>
-                      <p className="whitespace-pre-wrap">{m.body}</p>
-                    </li>
-                  ))}
-                </ul>
+                <Table>
+                  <TableHeader>
+                    <TableRow><TableHead>Pickup location</TableHead><TableHead>Pickup date</TableHead><TableHead>Drop-off location</TableHead><TableHead>Drop-off date</TableHead></TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {r.transports.map((x) => (
+                      <TableRow key={x.id}>
+                        <TableCell>{x.pickupLocation?.name ?? x.pickupAddress ?? "—"}</TableCell>
+                        <TableCell>{legacyDate(x.pickupAt, { timeZone: tz })}</TableCell>
+                        <TableCell>{x.dropoffLocation?.name ?? x.dropoffAddress ?? "—"}</TableCell>
+                        <TableCell>{legacyDate(x.dropoffAt, { timeZone: tz })}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               )}
             </Card>
-          </TabsContent>
+          )}
 
-          <TabsContent value="activity">
-            <Card className="gap-0 py-0">
-              <Table>
-                <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>User</TableHead><TableHead>Field</TableHead><TableHead>Old</TableHead><TableHead>New</TableHead></TableRow></TableHeader>
-                <TableBody>
-                  {data.auditLog.map((a) => (
-                    <TableRow key={a.id}>
-                      <TableCell>{dateTime(a.at)}</TableCell>
-                      <TableCell>{a.user?.name ?? "System"}</TableCell>
-                      <TableCell className="font-medium">{a.field}</TableCell>
-                      <TableCell className="text-muted-foreground">{a.oldValue && /^\d{4}-\d\d-\d\dT/.test(a.oldValue) ? dateTime(a.oldValue) : a.oldValue ?? "—"}</TableCell>
-                      <TableCell>{a.newValue && /^\d{4}-\d\d-\d\dT/.test(a.newValue) ? dateTime(a.newValue) : a.newValue ?? "—"}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </Card>
-          </TabsContent>
-        </Tabs>
+          <Card className="gap-2 pb-0">
+            <CardHeader className="items-center">
+              <CardTitle>Memo</CardTitle>
+              <FormDialog
+                title="Add memo"
+                trigger={<Button size="sm" variant="outline"><MessageSquarePlusIcon /> Add memo</Button>}
+                onSubmit={(x) => run(client.staff.reservation.addMemo.mutate({ reservationId, body: x.body as string, showAsPopup: Boolean(x.showAsPopup) }))}
+              >
+                <TextareaField label="Memo" name="body" required rows={4} />
+                <CheckField label="Always display this memo as a popup for system users" name="showAsPopup" />
+              </FormDialog>
+            </CardHeader>
+            {r.memos.length === 0 ? (
+              <p className="px-4 pb-4 text-sm text-muted-foreground">No memos.</p>
+            ) : (
+              <ul className="divide-y">
+                {r.memos.map((m) => (
+                  <li key={m.id} className="space-y-1 px-4 py-3 text-sm">
+                    <div className="text-xs text-muted-foreground">{m.author?.name ?? "System"} · {legacyDate(m.createdAt, { timeZone: tz })}</div>
+                    <p className="whitespace-pre-wrap">{m.body}</p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+        </div>
+
+        {/* charges, as on ReservationMain.aspx: … Total, Total Payments, Balance */}
+        <div className="xl:sticky xl:top-4 xl:self-start">
+          <PrintChargeTable lines={r.chargeLines} payments={r.payments} timeLabel="Total T&KM" />
+        </div>
       </div>
 
       {dialog === "start" && <StartRentalDialog data={data} onOpenChange={close} />}
@@ -607,4 +524,11 @@ function MoveDialog({ reservationId, onOpenChange, run }: { reservationId: strin
       </DialogContent>
     </Dialog>
   );
+}
+
+/** One of the RentCentric action links on the reservation page. */
+function ActionLink({ children, onClick, href, newTab, disabled, active, title }: { children: React.ReactNode; onClick?: () => void; href?: string; newTab?: boolean; disabled?: boolean; active?: boolean; title?: string }) {
+  if (disabled) return <span className="cursor-not-allowed text-muted-foreground" title={title}>{children}</span>;
+  if (href) return <Link href={href} target={newTab ? "_blank" : undefined} className="text-primary hover:underline">{children}</Link>;
+  return <button type="button" onClick={onClick} className={active ? "font-medium text-primary underline" : "text-primary hover:underline"}>{children}</button>;
 }

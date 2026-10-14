@@ -3,7 +3,7 @@ import { api, workingLocationId } from "../../../../_lib/session";
 import { quoteToValues } from "../../quotes/_components/quote-values";
 import { ReservationForm, type ReservationFormInitial } from "../_components/reservation-form";
 
-export const metadata = { title: "New reservation" };
+export const metadata = { title: "Reserve" };
 
 /**
  * ?quoteId=…        "Make New Reservation" from a quote: prefilled and linked to it.
@@ -17,12 +17,12 @@ export default async function NewReservationPage({ searchParams }: { searchParam
   const staff = await api();
 
   let initial: ReservationFormInitial | undefined;
-  let title = "New reservation";
+  let title = "Reserve";
   if (sp.quoteId) {
     const data = await staff.quote.byId({ quoteId: sp.quoteId }).catch(() => null);
     if (data) {
       const q = data.quote;
-      const { values, misc } = quoteToValues(q);
+      const { values, options } = quoteToValues(q);
       const [first, ...rest] = (q.contactName ?? "").split(" ");
       initial = {
         values: {
@@ -36,7 +36,7 @@ export default async function NewReservationPage({ searchParams }: { searchParam
           status: "CONFIRMED",
           saveCustomer: true,
         },
-        misc,
+        options,
       };
       title = `New reservation from quote #${q.number}`;
     }
@@ -57,17 +57,16 @@ export default async function NewReservationPage({ searchParams }: { searchParam
           insurancePhone: s(c.insurancePhone), insuranceFax: s(c.insuranceFax), companyId: s(c.companyId),
           ...(sp.start === "1" ? { status: "CONFIRMED" } : {}),
         },
-        misc: {},
       };
       title = sp.start === "1" ? `Start rental for ${c.firstName} ${c.lastName}` : `New reservation for ${c.firstName} ${c.lastName}`;
     }
   } else if (sp.vehicleId) {
     const v = await staff.vehicle.byId({ vehicleId: sp.vehicleId }).catch(() => null);
-    if (v) initial = { values: { vehicleTypeId: v.vehicleTypeId, vehicleId: v.id, pickupLocationId: v.rentalLocationId, returnLocationId: v.rentalLocationId, locationId: v.rentalLocationId, ...(sp.start === "1" ? { status: "CONFIRMED" } : {}) }, misc: {} };
+    if (v) initial = { values: { vehicleTypeId: v.vehicleTypeId, vehicleId: v.id, pickupLocationId: v.rentalLocationId, returnLocationId: v.rentalLocationId, locationId: v.rentalLocationId, ...(sp.start === "1" ? { status: "CONFIRMED" } : {}) } };
     if (v && sp.start === "1") title = `Start rental — ${v.assignedId}`;
   } else if (sp.start === "1") {
     title = "Start rental";
-    initial = { values: { status: "CONFIRMED" }, misc: {} };
+    initial = { values: { status: "CONFIRMED" } };
   }
 
   return (

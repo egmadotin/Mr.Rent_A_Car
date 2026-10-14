@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { PageHeader } from "../../../../../_components/page-header";
 import { api } from "../../../../../_lib/session";
+import { optionsFromChargeLines } from "../../../../../_components/booking-values";
 import { ReservationForm } from "../../_components/reservation-form";
 
 export const metadata = { title: "Edit reservation" };
@@ -17,12 +18,9 @@ export default async function EditReservationPage({ params }: { params: Promise<
   if (r.status !== "TENTATIVE" && r.status !== "CONFIRMED") redirect(`/admin/reservations/${id}`);
   const c = r.customer;
 
-  // Recover "other charges" quantities from the stored MISC lines.
-  const days = Math.max(1, Math.ceil((+r.returnAt - +r.pickupAt) / 86_400_000));
-  const misc: Record<string, number> = {};
-  for (const l of r.chargeLines)
-    if (l.kind === "MISC" && l.miscChargeId)
-      misc[l.miscChargeId] = Math.max(1, Math.round(Number(l.units) / (l.miscCharge?.calculationBy === "FLAT" ? 1 : days)));
+  // the options grid selection, rebuilt from the stored charge lines
+  const days = Math.max(1, Math.floor((+r.returnAt - +r.pickupAt) / 86_400_000));
+  const options = optionsFromChargeLines(r.chargeLines, r.excludedTaxIds, days);
 
   const s = (x: string | null | undefined) => x ?? "";
   return (
@@ -34,7 +32,9 @@ export default async function EditReservationPage({ params }: { params: Promise<
       <ReservationForm
         initial={{
           reservationId: r.id,
-          misc,
+          number: r.number,
+          createdAt: r.createdAt.toISOString(),
+          options,
           values: {
             status: r.status,
             customerId: s(r.customerId),
@@ -84,7 +84,6 @@ export default async function EditReservationPage({ params }: { params: Promise<
             poNumber: s(r.poNumber),
             roNumber: s(r.roNumber),
             customerNotes: s(r.customerNotes),
-            insuranceId: s(r.chargeLines.find((l) => l.kind === "PROTECTION")?.insuranceId),
             isLoaner: r.isLoaner,
             isNonRevenue: r.isNonRevenue,
           },
