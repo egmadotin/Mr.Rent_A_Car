@@ -6,11 +6,11 @@ import { audit } from "../../lib/audit";
 import { withBookingGuard } from "../../lib/errors";
 import { priceBooking } from "../../lib/pricing";
 import { bookingOptionsInput, staffPricingOptions } from "../../lib/booking-options";
+import { customerInput, upsertBookingCustomer } from "../../lib/customer-input";
 import { billSplitData, billSplitInput, transportInput } from "../../lib/bill-split";
 
 const D = (n: number) => new Prisma.Decimal(n);
 const optStr = z.string().trim().max(2000).optional().nullable().transform((v) => v || null);
-const optDate = z.preprocess((v) => (v === "" ? null : v), z.coerce.date().optional().nullable());
 const optNum = z.preprocess((v) => (v === "" || v === null || v === undefined ? null : Number(v)), z.number().nonnegative().nullable());
 const req = (label: string) => z.string({ required_error: `${label} is required` }).trim().min(1, `${label} is required`);
 
@@ -18,31 +18,6 @@ const PAYMENT_METHODS = ["AMEX", "CASH", "DEBIT", "EMT", "INTERNAL", "MASTERCARD
 const ACTIVE = ["TENTATIVE", "CONFIRMED"] as const;
 /** statuses staff can set on the Reserve form (Rented / Checked In come from the rental itself) */
 const SAVE_STATUSES = ["TENTATIVE", "CONFIRMED", "CANCELLED"] as const;
-
-const customerInput = z.object({
-  firstName: req("First name"),
-  middleName: optStr,
-  lastName: req("Last name"),
-  email: z.preprocess((v) => (v === "" ? null : v), z.string().email("Enter a valid email").nullable().optional()),
-  phone: optStr,
-  localPhone: optStr,
-  licenseNumber: optStr,
-  licenseExpiry: optDate,
-  licenseProvince: optStr,
-  birthDate: optDate,
-  address1: optStr,
-  address2: optStr,
-  city: optStr,
-  province: optStr,
-  postal: optStr,
-  country: optStr,
-  insuranceCompany: optStr,
-  insurancePolicyNumber: optStr,
-  insuranceExpiry: optDate,
-  insurancePhone: optStr,
-  insuranceFax: optStr,
-  memo: optStr,
-});
 
 /** New Reservation ("Reserve") — every field from the live form's Customer + Reservation tabs + Payment panel. */
 const reservationInput = z
@@ -119,21 +94,6 @@ const pricingInput = z.object({
   insuranceId: z.string().optional().nullable(),
 });
 
-async function upsertCustomer(tx: Prisma.TransactionClient, input: ReservationInput, enteredLocationId: string) {
-  const { memo, ...c } = input.customer;
-  if (input.customerId) {
-    const existing = await tx.customer.findUniqueOrThrow({ where: { id: input.customerId } });
-    if (existing.isUndesired && !input.allowUndesired)
-      throw new TRPCError({ code: "CONFLICT", message: "UNDESIRED_CUSTOMER" });
-    if (input.saveCustomer) await tx.customer.update({ where: { id: existing.id }, data: c });
-    return existing.id;
-  }
-  if (!input.saveCustomer) return null;
-  const created = await tx.customer.create({ data: { ...c, enteredLocationId, defaultLocationId: enteredLocationId } });
-  if (memo) await tx.memo.create({ data: { customerId: created.id, body: memo } });
-  return created.id;
-}
-
 async function writeBooking(
   tx: Prisma.TransactionClient,
   userId: string,
@@ -150,7 +110,13 @@ async function writeBooking(
       throw new TRPCError({ code: "BAD_REQUEST", message: "The assigned vehicle is a different type from the reserved type." });
   }
 
-  const customerId = await upsertCustomer(tx, input, input.locationId);
+  const customerId = await upsertBookingCustomer(tx, {
+    customerId: input.customerId,
+    customer: input.customer,
+    save: input.saveCustomer,
+    allowUndesired: input.allowUndesired,
+    locationId: input.locationId,
+  });
   const priced = await priceBooking(tx, {
     pickupAt: input.pickupAt,
     returnAt: input.returnAt,
@@ -427,7 +393,7 @@ export const reservationRouter = router({
           },
         },
         orderBy: { assignedId: "asc" },
-        select: { id: true, assignedId: true, year: true, currentOdometer: true, make: { select: { name: true } }, model: { select: { name: true } } },
+        select: { id: true, assignedId: true, year: true, currentOdometer: true, fuelLevel: true, make: { select: { name: true } }, model: { select: { name: true } } },
       }),
     ),
 

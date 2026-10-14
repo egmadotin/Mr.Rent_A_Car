@@ -6,6 +6,9 @@ import { audit } from "../../lib/audit";
 import { rentalTotals } from "../../lib/totals";
 import { withBookingGuard } from "../../lib/errors";
 import { billSplitData, billSplitInput, transportInput } from "../../lib/bill-split";
+import { priceBooking } from "../../lib/pricing";
+import { bookingOptionsInput, staffPricingOptions } from "../../lib/booking-options";
+import { customerInput, upsertBookingCustomer } from "../../lib/customer-input";
 
 const D = (n: number) => new Prisma.Decimal(n);
 const id = z.object({ rentalId: z.string() });
@@ -155,7 +158,7 @@ export const rentalRouter = router({
         company: { select: { id: true, name: true } },
         vehicle: { include: { make: true, model: true } },
         vehicleType: true,
-        checkOutLocation: { select: { id: true, name: true } },
+        checkOutLocation: { select: { id: true, name: true, timeZone: true } },
         checkInLocation: { select: { id: true, name: true } },
         referral: { select: { name: true } },
         rentalReason: { select: { name: true } },
@@ -201,7 +204,7 @@ export const rentalRouter = router({
 
   /** Pick-lists for the rental screen's dialogs. */
   formOptions: staffProcedure.query(async ({ ctx }) => {
-    const [locations, companies, miscCharges, taxes, referrals, staff, vehicles] = await Promise.all([
+    const [locations, companies, miscCharges, taxes, referrals, staff, vehicles, rentalReasons] = await Promise.all([
       ctx.prisma.location.findMany({ where: { isActive: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
       ctx.prisma.company.findMany({ where: { isActive: true }, select: { id: true, name: true, code: true }, orderBy: { name: "asc" } }),
       ctx.prisma.miscCharge.findMany({ where: { isActive: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
@@ -213,8 +216,9 @@ export const rentalRouter = router({
         select: { id: true, assignedId: true, currentOdometer: true, make: { select: { name: true } }, model: { select: { name: true } } },
         orderBy: { assignedId: "asc" },
       }),
+      ctx.prisma.lookup.findMany({ where: { kind: "RENTAL_REASON", isActive: true }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { id: true, name: true } }),
     ]);
-    return { locations, companies, miscCharges, taxes, referrals, staff, vehicles };
+    return { locations, companies, miscCharges, taxes, referrals, staff, vehicles, rentalReasons };
   }),
 
   // ── Lifecycle ───────────────────────────────────────────────────────────────
@@ -332,6 +336,135 @@ export const rentalRouter = router({
     ),
 
   // ── Sub-records ─────────────────────────────────────────────────────────────
+
+  /**
+   * Start a Rental (CheckOut3.aspx?DoAction=New): a walk-in rental without a reservation. The renter is always saved as a
+   * customer (the form requires licence details); charges come from the same options grid as quotes / reservations.
+   */
+  startWalkIn: staffProcedure
+    .input(
+      z
+        .object({
+          customerId: optStr,
+          allowUndesired: z.boolean().default(false),
+          customer: customerInput,
+          checkOutLocationId: z.string().min(1, "Pickup Location is required"),
+          checkInLocationId: z.string().min(1, "Return Location is required"),
+          checkOutAt: z.coerce.date({ invalid_type_error: "Pickup Date is required" }),
+          returnAt: z.coerce.date({ invalid_type_error: "Return Date is required" }),
+          vehicleTypeId: z.string().min(1, "Vehicle Type is required"),
+          vehicleId: z.string().min(1, "Vehicle ID is required"),
+          rateId: z.string().min(1, "Rate is required"),
+          companyId: optStr,
+          discountType: z.preprocess((v) => (v === "" ? null : v), z.enum(["PERCENT", "AMOUNT"]).nullable().optional()),
+          discountValue: z.preprocess((v) => (v === "" || v == null ? null : Number(v)), z.number().nonnegative().nullable()),
+          discountReasonId: optStr,
+          deposit: z.preprocess((v) => (v === "" || v == null ? null : Number(v)), z.number().nonnegative().nullable()),
+          isLongTerm: z.boolean().default(false),
+          invoicingPeriod: optStr,
+          odometerOut: z.coerce.number({ invalid_type_error: "Odometer Out is required" }).int().nonnegative(),
+          fuelOut: z.coerce.number().int().min(0).max(16),
+          prepaidFuel: z.boolean().default(false),
+          referralId: optStr,
+          claimNumber: optStr,
+          airport: optStr,
+          airline: optStr,
+          flightNumber: optStr,
+          poNumber: optStr,
+          roNumber: optStr,
+          rentalReasonId: optStr,
+          openedById: optStr,
+          memo: optStr,
+          memoShowAsPopup: z.boolean().default(false),
+          isNonRevenue: z.boolean().default(false),
+          options: bookingOptionsInput,
+          payment: z
+            .object({
+              method: z.enum(PAYMENT_METHODS),
+              transactionType: z.enum(["PAYMENT", "AUTHORIZATION", "REFUND"]),
+              amount: z.coerce.number().positive("Amount must be more than 0"),
+              authorizationCode: optStr,
+              transactionCode: optStr,
+            })
+            .nullable()
+            .optional(),
+        })
+        .superRefine((v, c) => {
+          if (v.returnAt <= v.checkOutAt) c.addIssue({ code: "custom", path: ["returnAt"], message: "Return must be after pickup" });
+        }),
+    )
+    .mutation(({ ctx, input }) =>
+      withBookingGuard(() =>
+        ctx.prisma.$transaction(async (tx) => {
+          if (input.companyId && !input.allowUndesired) {
+            const co = await tx.company.findUnique({ where: { id: input.companyId } });
+            if (co?.isUndesired) throw new TRPCError({ code: "CONFLICT", message: "UNDESIRED_COMPANY" });
+          }
+          const v = await tx.vehicle.findUniqueOrThrow({ where: { id: input.vehicleId } });
+          if (v.vehicleTypeId !== input.vehicleTypeId) throw new TRPCError({ code: "BAD_REQUEST", message: "The vehicle is a different type from the rental's vehicle type." });
+          const customerId = (await upsertBookingCustomer(tx, {
+            customerId: input.customerId,
+            customer: input.customer,
+            save: true,
+            allowUndesired: input.allowUndesired,
+            locationId: input.checkOutLocationId,
+          }))!;
+          const priced = await priceBooking(tx, {
+            pickupAt: input.checkOutAt,
+            returnAt: input.returnAt,
+            locationId: input.checkOutLocationId,
+            vehicleTypeId: input.vehicleTypeId,
+            rateId: input.rateId,
+            discountType: input.discountType,
+            discountValue: input.discountValue,
+            ...staffPricingOptions(input.options),
+          });
+          const rental = await tx.rental.create({
+            data: {
+              customerId,
+              companyId: input.companyId,
+              checkOutLocationId: input.checkOutLocationId,
+              checkInLocationId: input.checkInLocationId,
+              checkOutAt: input.checkOutAt,
+              expectedReturnAt: input.returnAt,
+              checkOutChannel: "Counter",
+              vehicleTypeId: v.vehicleTypeId,
+              vehicleId: v.id,
+              odometerOut: input.odometerOut,
+              fuelOut: input.fuelOut,
+              prepaidFuel: input.prepaidFuel,
+              rateId: input.rateId,
+              discountType: input.discountValue ? input.discountType ?? null : null,
+              discountValue: input.discountValue ? D(input.discountValue) : null,
+              discountReasonId: input.discountReasonId,
+              deposit: input.deposit == null ? null : D(input.deposit),
+              isLongTerm: input.isLongTerm,
+              invoicingPeriod: input.invoicingPeriod,
+              referralId: input.referralId,
+              rentalReasonId: input.rentalReasonId,
+              claimNumber: input.claimNumber,
+              airport: input.airport,
+              airline: input.airline,
+              flightNumber: input.flightNumber,
+              poNumber: input.poNumber,
+              roNumber: input.roNumber,
+              isNonRevenue: input.isNonRevenue,
+              excludedTaxIds: input.options.excludedTaxIds,
+              openedById: input.openedById ?? ctx.user.id,
+              chargeLines: { create: priced.lines },
+              vehicleSegments: { create: [{ vehicleId: v.id, startsAt: input.checkOutAt, odometerOut: input.odometerOut, fuelOut: input.fuelOut }] },
+            },
+          });
+          await tx.vehicleBlock.create({ data: { vehicleId: v.id, rentalId: rental.id, startsAt: input.checkOutAt, endsAt: input.returnAt } });
+          await tx.vehicle.update({ where: { id: v.id }, data: { status: "ON_RENT", currentOdometer: input.odometerOut, fuelLevel: input.fuelOut } });
+          if (input.memo) await tx.memo.create({ data: { rentalId: rental.id, body: input.memo, showAsPopup: input.memoShowAsPopup, authorId: ctx.user.id } });
+          if (input.payment)
+            await tx.payment.create({ data: { ...input.payment, amount: D(input.payment.amount), rentalId: rental.id, customerId, takenById: ctx.user.id } });
+          await audit(tx, "Rental", rental.id, ctx.user.id, { RANumber: ["Start Rental", rental.raNumber] });
+          return { rentalId: rental.id };
+        }),
+      ),
+    ),
 
   addPayment: staffProcedure
     .input(

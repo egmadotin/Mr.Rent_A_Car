@@ -88,7 +88,7 @@ export function CustomerDetail({ customerId }: { customerId: string }) {
               c.isUndesired ? (
                 <Button disabled title="On the do-not-rent list"><KeyRoundIcon /> Start rental</Button>
               ) : (
-                <Button asChild><Link href={`/admin/reservations/new?customerId=${c.id}&start=1`}><KeyRoundIcon /> Start rental</Link></Button>
+                <Button asChild><Link href={`/admin/rentals/new?customerId=${c.id}`}><KeyRoundIcon /> Start rental</Link></Button>
               )
             )}
             <Button variant="outline" asChild><Link href={`/admin/reservations/new?customerId=${c.id}`}><NotebookTabsIcon /> New reservation</Link></Button>

@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangleIcon, Loader2Icon, PlusCircleIcon, RefreshCwIcon, SearchIcon, UsersIcon } from "lucide-react";
+import { AlertTriangleIcon, Loader2Icon, RefreshCwIcon, SearchIcon } from "lucide-react";
 import { useTRPC, useTRPCClient } from "@mrac/api/client";
 import { Badge } from "@mrac/ui/components/badge";
 import { Button } from "@mrac/ui/components/button";
@@ -15,13 +15,12 @@ import { NativeSelect } from "@mrac/ui/components/native-select";
 import { toast } from "@mrac/ui/components/sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@mrac/ui/components/tabs";
 import { Textarea } from "@mrac/ui/components/textarea";
-import { COUNTRIES } from "@mrac/ui/lib/countries";
-import { date, money } from "@mrac/ui/lib/format";
-import { REGION_OPTIONS } from "@mrac/ui/lib/regions";
+import { money } from "@mrac/ui/lib/format";
 import { ChargeSummary, DiscountField, FormAlert, bookingWindow, initialBookingTimes } from "../../../../_components/booking-kit";
+import { CUSTOMER_FIELDS, CustomerFields, CustomerNotes, MatchList, PaymentInfoCard, customerValues, type CustomerLayout } from "../../../../_components/booking-customer";
 import { CompanySearch } from "../../../../_components/company-search";
 import { ConfirmAction } from "../../../../_components/confirm-action";
-import { FieldShell as F, FormErrorsContext, PAYMENT_METHOD_OPTIONS, errorMessage, fieldErrorsOf } from "../../../../_components/form";
+import { FieldShell as F, FormErrorsContext, errorMessage, fieldErrorsOf } from "../../../../_components/form";
 import { legacyDate } from "../../../../_components/list-kit";
 import { OptionsGrid, emptyOptions, useBookingOptions, type BookingOptions } from "../../../../_components/options-grid";
 import { ReferralField } from "../../../../_components/referral-field";
@@ -29,17 +28,21 @@ import { SearchPicker } from "../../../../_components/search-picker";
 
 type Values = Record<string, string | boolean>;
 
-const CUSTOMER_FIELDS = [
-  "firstName", "middleName", "lastName", "email", "phone", "localPhone", "licenseNumber", "licenseExpiry", "licenseProvince",
-  "birthDate", "address1", "address2", "city", "province", "postal", "country", "insuranceCompany", "insurancePolicyNumber",
-  "insuranceExpiry", "insurancePhone", "insuranceFax",
-] as const;
-const DATE_FIELDS = new Set(["licenseExpiry", "birthDate", "insuranceExpiry"]);
 /** Customer tab fields RentCentric marks required (checked on "Save and Goto Reservation Tab"). */
 const CUSTOMER_REQUIRED: [string, string][] = [
   ["firstName", "First Name"], ["lastName", "Last Name"], ["licenseNumber", "Driver's Lic.#"], ["licenseExpiry", "Lic.Exp"],
   ["licenseProvince", "Lic.State"], ["birthDate", "Date of birth"], ["country", "Country"], ["province", "State/Province"],
   ["phone", "Phone"], ["email", "Email"],
+];
+/** ReservationsModfiy.aspx Customer tab, in its order and wording. */
+const RESERVE_CUSTOMER: CustomerLayout = [
+  ["firstName", "First Name", true], ["middleName", "Middle Name"], ["lastName", "Last Name", true], 1,
+  ["licenseNumber", "Driver's Lic.#", true], ["licenseExpiry", "Lic.Exp", true], ["licenseProvince", "Lic.State", true], ["birthDate", "Date of birth", true],
+  ["address1", "Address 1"], ["address2", "Address 2"], ["city", "City"], ["postal", "Zip / Postal"],
+  ["country", "Country", true], ["province", "State/Province", true], ["phone", "Phone", true], ["localPhone", "Local Phone"],
+  ["email", "Email", true], 3,
+  ["insurancePolicyNumber", "Policy Number"], ["insuranceCompany", "Insurance Company"], ["insuranceExpiry", "Insurance Expiration"], ["insurancePhone", "Insurance Phone"],
+  ["insuranceFax", "Insurance Fax"],
 ];
 /** Status tick boxes of the Reserve form (they behave as one choice); Rented / Checked In come from the rental. */
 const STATUSES = [
@@ -159,14 +162,7 @@ export function ReservationForm({
 
   function applyCustomer(c: NonNullable<typeof matches.data>[number]) {
     setCustomerId(c.id);
-    setV((s) => {
-      const next = { ...s };
-      for (const f of CUSTOMER_FIELDS) {
-        const val = (c as Record<string, unknown>)[f];
-        next[f] = val == null ? "" : DATE_FIELDS.has(f) ? new Date(val as string).toISOString().slice(0, 10) : String(val);
-      }
-      return next;
-    });
+    setV((s) => ({ ...s, ...customerValues(c) }));
     setMatchKey(null);
     if (c.isUndesired) toast.warning("This customer is on the undesired (do-not-rent) list.");
   }
@@ -284,8 +280,6 @@ export function ReservationForm({
   const cust = (k: string) => `customer.${k}`;
   const vehicles = (available.data ?? []).map((x) => ({ id: x.id, label: `${x.assignedId} — ${x.year} ${x.make.name} ${x.model.name}` }));
   if (str("vehicleId") && !vehicles.some((x) => x.id === str("vehicleId"))) vehicles.unshift({ id: str("vehicleId"), label: "Currently assigned vehicle" });
-  const regionOptions = (sel: string) => [...new Set([...REGION_OPTIONS, ...(sel ? [sel] : [])])];
-  const countries = [...new Set([...COUNTRIES, ...(str("country") ? [str("country")] : [])])];
 
   return (
     <FormErrorsContext.Provider value={errors}>
@@ -310,43 +304,7 @@ export function ReservationForm({
               <CardHeader><CardTitle className="text-base">Primary Driver</CardTitle></CardHeader>
               <CardContent className="space-y-4">
                 <div className="max-w-xs space-y-1.5"><Label htmlFor="swipe">Swipe</Label><Input id="swipe" autoComplete="off" /></div>
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                  <F label="First Name" name="cust-firstName" errorKey={cust("firstName")} required>
-                    <div className="relative">
-                      <Input {...bind("firstName")} id="cust-firstName" autoComplete="off" className="pr-8" />
-                      <button type="button" aria-label="Find customer" onClick={checkMatching} className="absolute top-1/2 right-2.5 -translate-y-1/2 text-muted-foreground hover:text-foreground"><SearchIcon className="size-4" /></button>
-                    </div>
-                  </F>
-                  <F label="Middle Name" name="cust-middleName"><Input {...bind("middleName")} id="cust-middleName" autoComplete="off" /></F>
-                  <F label="Last Name" name="cust-lastName" errorKey={cust("lastName")} required><Input {...bind("lastName")} id="cust-lastName" autoComplete="off" /></F>
-                  <div className="hidden lg:block" />
-                  <F label="Driver's Lic.#" name="licenseNumber" errorKey={cust("licenseNumber")} required><Input {...bind("licenseNumber")} /></F>
-                  <F label="Lic.Exp" name="licenseExpiry" errorKey={cust("licenseExpiry")} required><Input type="date" {...bind("licenseExpiry")} /></F>
-                  <F label="Lic.State" name="licenseProvince" errorKey={cust("licenseProvince")} required>
-                    <NativeSelect {...bind("licenseProvince")}><option value="">Please select</option>{regionOptions(str("licenseProvince")).map((r) => <option key={r}>{r}</option>)}</NativeSelect>
-                  </F>
-                  <F label="Date of birth" name="birthDate" errorKey={cust("birthDate")} required><Input type="date" {...bind("birthDate")} /></F>
-                  <F label="Address 1" name="address1"><Input {...bind("address1")} /></F>
-                  <F label="Address 2" name="address2"><Input {...bind("address2")} /></F>
-                  <F label="City" name="city"><Input {...bind("city")} /></F>
-                  <F label="Zip / Postal" name="postal"><Input {...bind("postal")} /></F>
-                  <F label="Country" name="country" errorKey={cust("country")} required>
-                    <NativeSelect {...bind("country")}><option value="">Please select</option>{countries.map((c) => <option key={c}>{c}</option>)}</NativeSelect>
-                  </F>
-                  <F label="State/Province" name="province" errorKey={cust("province")} required>
-                    <NativeSelect {...bind("province")}><option value="">Please select</option>{regionOptions(str("province")).map((r) => <option key={r}>{r}</option>)}</NativeSelect>
-                  </F>
-                  <F label="Phone" name="cust-phone" errorKey={cust("phone")} required><Input type="tel" {...bind("phone")} id="cust-phone" /></F>
-                  <F label="Local Phone" name="localPhone"><Input type="tel" {...bind("localPhone")} /></F>
-                  <F label="Email" name="cust-email" errorKey={cust("email")} required><Input type="email" {...bind("email")} id="cust-email" /></F>
-                  <div className="hidden lg:col-span-3 lg:block" />
-                  <F label="Policy Number" name="insurancePolicyNumber"><Input {...bind("insurancePolicyNumber")} /></F>
-                  <F label="Insurance Company" name="insuranceCompany"><Input {...bind("insuranceCompany")} /></F>
-                  <F label="Insurance Expiration" name="insuranceExpiry"><Input type="date" {...bind("insuranceExpiry")} /></F>
-                  <F label="Insurance Phone" name="insurancePhone"><Input type="tel" {...bind("insurancePhone")} /></F>
-                  <F label="Insurance Fax" name="insuranceFax"><Input type="tel" {...bind("insuranceFax")} /></F>
-                  <F label="Customer Notes" name="customerMemo" className="sm:col-span-2"><Textarea rows={3} {...bind("customerMemo")} /></F>
-                </div>
+                <CustomerFields layout={RESERVE_CUSTOMER} bind={bind} onFind={checkMatching}><CustomerNotes bind={bind} /></CustomerFields>
                 <MatchList matches={customerId ? [] : matches.data} onUse={applyCustomer} />
                 <div className="flex justify-end">
                   <Button type="button" onClick={saveCustomerTab}>Save and Goto Reservation Tab &gt;&gt;</Button>
@@ -477,30 +435,12 @@ export function ReservationForm({
                   <RefreshCwIcon /> Update Charges Summary
                 </Button>
                 <ChargeSummary title="Charges" preview={previewOn ? preview.data : undefined} emptyText="Choose dates, location, vehicle type and rate, then Update Charges Summary." />
-                <Card className="gap-3">
-                  <CardHeader><CardTitle>Payment Information</CardTitle></CardHeader>
-                  <CardContent className="grid gap-3 sm:grid-cols-2">
-                    <div className="space-y-1.5 sm:col-span-2"><Label htmlFor="ccSwipe">Swipe Credit Card Here Or</Label><Input id="ccSwipe" className="max-w-24" autoComplete="off" /></div>
-                    <div className="space-y-1.5">
-                      <div className="flex items-center gap-1"><Label htmlFor="cc">Credit Card</Label><PlusCircleIcon className="size-3.5 text-primary" aria-hidden /></div>
-                      <NativeSelect id="cc" value="" onChange={() => {}}><option value="" /></NativeSelect>
-                    </div>
-                    <div className="space-y-1.5"><Label htmlFor="cvv">CVV</Label><Input id="cvv" inputMode="numeric" maxLength={4} autoComplete="off" /></div>
-                    <F label="Payment Method" name="payMethod" required><NativeSelect {...bind("payMethod")}><option value="">Please select</option>{PAYMENT_METHOD_OPTIONS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}</NativeSelect></F>
-                    <F label="Amount" name="payAmount" required><Input type="number" min={0.01} step="0.01" {...bind("payAmount")} /></F>
-                    <F label="Transaction Type" name="payType">
-                      <NativeSelect {...bind("payType")}><option value="PAYMENT">Payment (Credit)</option><option value="AUTHORIZATION">Authorization</option><option value="REFUND">Refund</option></NativeSelect>
-                    </F>
-                    <div className="grid grid-cols-2 gap-2">
-                      <F label="Authorization Code" name="payAuth"><Input {...bind("payAuth")} /></F>
-                      <F label="Transaction Code" name="payTxn"><Input {...bind("payTxn")} /></F>
-                    </div>
-                    <div className="sm:col-span-2">
-                      <Button type="button" className="w-full sm:w-1/2" onClick={submitPayment}>Submit</Button>
-                      {paymentReady && !editing && <p className="mt-1 text-xs text-muted-foreground">Payment of {money(Number(str("payAmount")))} will be applied when the reservation is saved.</p>}
-                    </div>
-                  </CardContent>
-                </Card>
+                <PaymentInfoCard
+                  bind={bind}
+                  onSubmit={submitPayment}
+                  transactionTypes={[["PAYMENT", "Payment (Credit)"], ["AUTHORIZATION", "Authorization"], ["REFUND", "Refund"]]}
+                  pendingNote={paymentReady && !editing ? Number(str("payAmount")) : null}
+                />
               </aside>
             </div>
           </TabsContent>
@@ -520,35 +460,5 @@ export function ReservationForm({
         }}
       />
     </FormErrorsContext.Provider>
-  );
-}
-
-type Match = {
-  id: string; firstName: string; middleName: string | null; lastName: string; phone: string | null; email: string | null;
-  licenseNumber: string | null; birthDate: Date | string | null; isUndesired: boolean; isActive: boolean;
-};
-
-/** "Check Matching" results: existing customers to use instead of creating a duplicate. */
-function MatchList<T extends Match>({ matches, onUse }: { matches: T[] | undefined; onUse: (c: T) => void }) {
-  if (!matches?.length) return null;
-  return (
-    <div className="rounded-md border border-warning/50 bg-warning/10 p-3">
-      <p className="mb-2 flex items-center gap-2 text-sm font-medium">
-        <UsersIcon className="size-4" /> {matches.length} matching customer{matches.length > 1 ? "s" : ""}
-      </p>
-      <ul className="divide-y rounded-md border bg-card text-sm">
-        {matches.map((c) => (
-          <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 p-2">
-            <span>
-              <span className="font-medium">{[c.firstName, c.middleName, c.lastName].filter(Boolean).join(" ")}</span>{" "}
-              <span className="text-muted-foreground">{[c.phone, c.email, c.licenseNumber && `Lic ${c.licenseNumber}`, c.birthDate && `DOB ${date(c.birthDate)}`].filter(Boolean).join(" · ")}</span>{" "}
-              {c.isUndesired && <Badge variant="destructive">Undesired</Badge>}
-              {!c.isActive && <Badge variant="muted">Inactive</Badge>}
-            </span>
-            <Button type="button" size="sm" variant="outline" onClick={() => onUse(c)}>Use this customer</Button>
-          </li>
-        ))}
-      </ul>
-    </div>
   );
 }

@@ -33,10 +33,10 @@ export function RentalDetail({ rentalId }: { rentalId: string }) {
   const popups = r.memos.filter((m) => m.showAsPopup);
   const statusLine =
     r.status === "CLOSED" && r.checkedInAt
-      ? `Closed ${dateTime(r.checkedInAt)}`
+      ? `Closed ${dateTime(r.checkedInAt, r.checkOutLocation.timeZone)}`
       : r.status === "VOIDED" && r.voidedAt
-        ? `Voided ${dateTime(r.voidedAt)}`
-        : `Due back ${dateTime(r.expectedReturnAt)}`;
+        ? `Voided ${dateTime(r.voidedAt, r.checkOutLocation.timeZone)}`
+        : `Due back ${dateTime(r.expectedReturnAt, r.checkOutLocation.timeZone)}`;
 
   const tabs = [
     { value: "overview", label: "Overview" },

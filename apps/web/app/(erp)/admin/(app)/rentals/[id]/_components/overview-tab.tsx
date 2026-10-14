@@ -22,9 +22,9 @@ export function OverviewTab({ data }: { data: RentalData }) {
           items={[
             ["Type", r.vehicleType.name],
             ["Vehicle", <React.Fragment key="v">({r.vehicle.assignedId}) {r.vehicle.make.name} {r.vehicle.model.name}</React.Fragment>],
-            ["Pickup date", dateTime(r.checkOutAt)],
+            ["Pickup date", dateTime(r.checkOutAt, r.checkOutLocation.timeZone)],
             ["Pickup location", r.checkOutLocation.name],
-            ["Return date", r.checkedInAt ? dateTime(r.checkedInAt) : <React.Fragment key="rd">{dateTime(r.expectedReturnAt)} <span className="text-muted-foreground">(expected)</span></React.Fragment>],
+            ["Return date", r.checkedInAt ? dateTime(r.checkedInAt, r.checkOutLocation.timeZone) : <React.Fragment key="rd">{dateTime(r.expectedReturnAt, r.checkOutLocation.timeZone)} <span className="text-muted-foreground">(expected)</span></React.Fragment>],
             ["Return location", r.checkInLocation.name],
             ["Opened by", r.openedBy?.name],
             ["Closed by", r.closedBy?.name],
