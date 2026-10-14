@@ -61,6 +61,42 @@ const rentalReturnAfterPickup = (v: { checkOutAt: Date; returnAt: Date }, c: z.R
   if (v.returnAt <= v.checkOutAt) c.addIssue({ code: "custom", path: ["returnAt"], message: "Return must be after pickup" });
 };
 
+/** Close an open rental: status, return details, vehicle back to Available, open segment / block ended, reservation Checked In. */
+async function closeRental(
+  tx: Prisma.TransactionClient,
+  r: { id: string; status: string; vehicleId: string; reservationId: string | null; expectedReturnAt: Date; odometerIn: number | null },
+  userId: string,
+  v: { checkedInAt: Date; checkInLocationId: string; odometerIn: number; fuelIn: number; checkInChannel?: string | null },
+) {
+  await tx.rental.update({
+    where: { id: r.id },
+    data: {
+      status: "CLOSED",
+      checkedInAt: v.checkedInAt,
+      checkInLocationId: v.checkInLocationId,
+      odometerIn: v.odometerIn,
+      fuelIn: v.fuelIn,
+      checkInChannel: v.checkInChannel,
+      closedById: userId,
+    },
+  });
+  await tx.rentalVehicleSegment.updateMany({
+    where: { rentalId: r.id, endsAt: null },
+    data: { endsAt: v.checkedInAt, odometerIn: v.odometerIn, fuelIn: v.fuelIn },
+  });
+  await tx.vehicleBlock.updateMany({ where: { rentalId: r.id }, data: { endsAt: v.checkedInAt } });
+  await tx.vehicle.update({
+    where: { id: r.vehicleId },
+    data: { status: "AVAILABLE", currentOdometer: v.odometerIn, fuelLevel: v.fuelIn, currentLocationId: v.checkInLocationId },
+  });
+  if (r.reservationId) await tx.reservation.update({ where: { id: r.reservationId }, data: { status: "CHECKED_IN" } });
+  await audit(tx, "Rental", r.id, userId, {
+    Status: [r.status, "CLOSED"],
+    CheckinDate: [r.expectedReturnAt, v.checkedInAt],
+    OdometerIn: [r.odometerIn, v.odometerIn],
+  });
+}
+
 async function loadRental(prisma: Prisma.TransactionClient, rentalId: string) {
   const r = await prisma.rental.findFirst({ where: { id: rentalId, deletedAt: null } });
   if (!r) throw new TRPCError({ code: "NOT_FOUND", message: "Rental not found" });
@@ -279,33 +315,7 @@ export const rentalRouter = router({
         if (r.status !== "OPEN") throw new TRPCError({ code: "BAD_REQUEST", message: "Only open rentals can be ended." });
         if (input.odometerIn < r.odometerOut)
           throw new TRPCError({ code: "BAD_REQUEST", message: `Odometer in must be at least ${r.odometerOut}.` });
-        await tx.rental.update({
-          where: { id: r.id },
-          data: {
-            status: "CLOSED",
-            checkedInAt: input.checkedInAt,
-            checkInLocationId: input.checkInLocationId,
-            odometerIn: input.odometerIn,
-            fuelIn: input.fuelIn,
-            checkInChannel: input.checkInChannel,
-            closedById: ctx.user.id,
-          },
-        });
-        await tx.rentalVehicleSegment.updateMany({
-          where: { rentalId: r.id, endsAt: null },
-          data: { endsAt: input.checkedInAt, odometerIn: input.odometerIn, fuelIn: input.fuelIn },
-        });
-        await tx.vehicleBlock.updateMany({ where: { rentalId: r.id }, data: { endsAt: input.checkedInAt } });
-        await tx.vehicle.update({
-          where: { id: r.vehicleId },
-          data: { status: "AVAILABLE", currentOdometer: input.odometerIn, fuelLevel: input.fuelIn, currentLocationId: input.checkInLocationId },
-        });
-        if (r.reservationId) await tx.reservation.update({ where: { id: r.reservationId }, data: { status: "CHECKED_IN" } });
-        await audit(tx, "Rental", r.id, ctx.user.id, {
-          Status: [r.status, "CLOSED"],
-          CheckinDate: [r.expectedReturnAt, input.checkedInAt],
-          OdometerIn: [r.odometerIn, input.odometerIn],
-        });
+        await closeRental(tx, r, ctx.user.id, input);
       }),
     ),
 
@@ -490,6 +500,8 @@ export const rentalRouter = router({
           fuelCharge: z.preprocess((v) => (v === "" || v == null ? null : Number(v)), z.number().nonnegative().nullable()),
           upgradeType: z.preprocess((v) => (v === "" ? null : v), z.enum(["FLAT", "DAILY"]).nullable().optional()),
           upgradeAmount: z.preprocess((v) => (v === "" || v == null ? null : Number(v)), z.number().nonnegative().nullable()),
+          /** End Rental: save and close the open rental */
+          close: z.boolean().default(false),
         })
         .superRefine(rentalReturnAfterPickup),
     )
@@ -501,7 +513,12 @@ export const rentalRouter = router({
             const co = await tx.company.findUnique({ where: { id: input.companyId } });
             if (co?.isUndesired) throw new TRPCError({ code: "CONFLICT", message: "UNDESIRED_COMPANY" });
           }
-          const closed = r.status === "CLOSED";
+          if (input.close) {
+            if (r.status !== "OPEN") throw new TRPCError({ code: "BAD_REQUEST", message: "Only open rentals can be ended." });
+            const missing = [!input.checkedInAt && "Return Date", input.odometerIn == null && "Odometer In", input.fuelIn == null && "Fuel In"].filter(Boolean);
+            if (missing.length) throw new TRPCError({ code: "BAD_REQUEST", message: `${missing.join(", ")} required to end the rental.` });
+          }
+          const closed = r.status === "CLOSED" || input.close;
           if (closed && input.odometerIn != null && input.odometerIn < input.odometerOut)
             throw new TRPCError({ code: "BAD_REQUEST", message: `Odometer In must be at least ${input.odometerOut}.` });
           await upsertBookingCustomer(tx, {
@@ -577,6 +594,14 @@ export const rentalRouter = router({
             VehicleType: [r.vehicleTypeId, input.vehicleTypeId],
             Rate: [r.rateId, input.rateId],
           });
+          if (input.close)
+            await closeRental(tx, r, ctx.user.id, {
+              checkedInAt: checkedInAt!,
+              checkInLocationId: input.checkInLocationId,
+              odometerIn: input.odometerIn!,
+              fuelIn: input.fuelIn!,
+              checkInChannel: "Counter",
+            });
           return { rentalId: r.id };
         }),
       ),

@@ -11,7 +11,7 @@ import { useRentalActions, type RentalData } from "./use-rental";
 
 const FUEL_OPTIONS = Array.from({ length: 17 }, (_, i) => ({ value: String(i), label: `${i}/16` }));
 
-export type RentalDialog = null | "end" | "exchange" | "reopen" | "void" | "unvoid" | "delete" | "rate";
+export type RentalDialog = null | "exchange" | "reopen" | "void" | "unvoid" | "delete" | "rate";
 
 /** The rental's confirm / form dialogs, opened from the AgreementMain action links. */
 export function RentalDialogs({ data, dialog, onClose }: { data: RentalData; dialog: RentalDialog; onClose: () => void }) {
@@ -22,7 +22,6 @@ export function RentalDialogs({ data, dialog, onClose }: { data: RentalData; dia
 
   return (
     <>
-      {dialog === "end" && <EndRentalDialog data={data} onOpenChange={close} />}
       {dialog === "exchange" && <ExchangeDialog data={data} onOpenChange={close} />}
 
       <FormDialog
@@ -80,46 +79,6 @@ export function RentalDialogs({ data, dialog, onClose }: { data: RentalData; dia
 function useOptions() {
   const trpc = useTRPC();
   return useQuery(trpc.staff.rental.formOptions.queryOptions()).data;
-}
-
-function EndRentalDialog({ data, onOpenChange }: { data: RentalData; onOpenChange: (o: boolean) => void }) {
-  const r = data.rental;
-  const opts = useOptions();
-  const { api, run } = useRentalActions(r.id);
-  return (
-    <FormDialog
-      open
-      onOpenChange={onOpenChange}
-      title="End rental"
-      description={`Check in ${r.vehicle.assignedId} (${r.vehicle.make.name} ${r.vehicle.model.name}). Odometer out was ${r.odometerOut.toLocaleString()} km.`}
-      submitLabel="End rental"
-      wide
-      onSubmit={(v) =>
-        run(
-          api.end.mutate({
-            rentalId: r.id,
-            checkedInAt: fromDateTimeLocal(v.checkedInAt as string),
-            checkInLocationId: v.checkInLocationId as string,
-            odometerIn: v.odometerIn as number,
-            fuelIn: v.fuelIn as number,
-            checkInChannel: v.checkInChannel as string | undefined,
-          }),
-        )
-      }
-    >
-      <Field label="Return date & time" name="checkedInAt" type="datetime-local" required defaultValue={toDateTimeLocal(new Date())} />
-      <SelectField
-        label="Return location"
-        name="checkInLocationId"
-        required
-        defaultValue={r.checkInLocationId}
-        options={(opts?.locations ?? [{ id: r.checkInLocationId, name: r.checkInLocation.name }]).map((l) => ({ value: l.id, label: l.name }))}
-      />
-      <Field label="Odometer in (km)" name="odometerIn" type="number" min={r.odometerOut} required />
-      <SelectField label="Fuel in" name="fuelIn" required options={FUEL_OPTIONS} defaultValue="16" placeholder={false} />
-      <Field label="Check-in channel" name="checkInChannel" placeholder="e.g. Counter" />
-    </FormDialog>
-  );
 }
 
 function ExchangeDialog({ data, onOpenChange }: { data: RentalData; onOpenChange: (o: boolean) => void }) {

@@ -63,7 +63,7 @@ export function RentalDetail({ rentalId }: { rentalId: string }) {
 
   // AgreementMain.aspx action links, two per row, in its order
   const links: React.ReactNode[] = [
-    <ActionLink key="end" onClick={() => setDialog("end")} disabled={!open} title="Only an open rental can be ended">End Rental</ActionLink>,
+    <ActionLink key="end" href={`/admin/rentals/${r.id}/edit?end=1`} disabled={!open} title="Only an open rental can be ended">End Rental</ActionLink>,
     <ActionLink key="pay" onClick={toggle("payments")} active={panel === "payments"}>Payments/Charges ({r.payments.length})</ActionLink>,
     <ActionLink key="drv" onClick={toggle("drivers")} active={panel === "drivers"}>Additional Drivers ({r.drivers.length})</ActionLink>,
     <ActionLink key="com" onClick={toggle("commissions")} active={panel === "commissions"}>Commissions ({r.commissions.length})</ActionLink>,

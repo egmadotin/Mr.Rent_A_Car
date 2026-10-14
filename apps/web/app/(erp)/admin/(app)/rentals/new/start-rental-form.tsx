@@ -46,7 +46,8 @@ export const RENTAL_PRINTOUTS = [
 
 export type StartRentalInitial = { values: Values; options?: BookingOptions };
 /** Edit Rental: the agreement being edited (the vehicle changes only through Vehicle Exchange). */
-export type RentalEditing = { rentalId: string; raNumber: number; closed: boolean; vehicle: { id: string; label: string } };
+/** `closed` shows the check-in fields (closed rental, or `ending`); `ending` = End Rental: save and close. */
+export type RentalEditing = { rentalId: string; raNumber: number; closed: boolean; ending?: boolean; vehicle: { id: string; label: string } };
 
 /**
  * Start a Rental (CheckOut3.aspx?DoAction=New): a walk-in rental. Customer tab (renter profile, "Save And Goto Rental Tab"),
@@ -242,9 +243,10 @@ export function StartRentalForm({
           fuelCharge: str("fuelCharge") || null,
           upgradeType: (str("upgradeType") || null) as "FLAT" | null,
           upgradeAmount: str("upgradeAmount") || null,
+          close: editing.ending === true,
         } as never);
-        toast.success("Rental updated");
-        router.push(`/admin/rentals/${editing.rentalId}`);
+        toast.success(editing.ending ? "Rental ended" : "Rental updated");
+        router.push(`/admin/rentals/${editing.rentalId}${editing.ending ? `?print=${encodeURIComponent(str("printout"))}` : ""}`);
         return;
       }
       const res = await client.staff.rental.startWalkIn.mutate({
@@ -382,7 +384,7 @@ export function StartRentalForm({
                       <Checkbox checked={v.prepaidFuel === true} onChange={(e) => set("prepaidFuel", e.target.checked)} /> Buy Prepaid Fuel @ $2.00 Per Gallon
                     </label>
                     <FuelSlider id="fuelOut" label="Fuel Out" required value={str("fuelOut")} onChange={(x) => set("fuelOut", x)} />
-                    {editing?.closed && <FuelSlider id="fuelIn" label="Fuel In" value={str("fuelIn")} onChange={(x) => set("fuelIn", x)} />}
+                    {editing?.closed && <FuelSlider id="fuelIn" label="Fuel In" required={editing.ending} value={str("fuelIn")} onChange={(x) => set("fuelIn", x)} />}
                     {editing && (
                       <>
                         <F label="Fuel Charge" name="fuelCharge"><Input type="number" min={0} step="0.01" {...bind("fuelCharge")} /></F>
@@ -438,12 +440,12 @@ export function StartRentalForm({
             </div>
 
             <div className="mt-6 flex flex-wrap items-end justify-end gap-4 border-t pt-4">
-              {!editing && (
+              {(!editing || editing.ending) && (
                 <F label="Please Select Rental Printout" name="printout" required className="w-64">
                   <NativeSelect {...bind("printout")}>{RENTAL_PRINTOUTS.map((p) => <option key={p}>{p}</option>)}</NativeSelect>
                 </F>
               )}
-              <Button type="submit" size="lg" disabled={pending}>{pending && <Loader2Icon className="animate-spin" />}{editing ? "Save" : "Complete And Print Rental"}</Button>
+              <Button type="submit" size="lg" disabled={pending}>{pending && <Loader2Icon className="animate-spin" />}{editing?.ending ? "End Rental" : editing ? "Save" : "Complete And Print Rental"}</Button>
             </div>
           </TabsContent>
         </Tabs>

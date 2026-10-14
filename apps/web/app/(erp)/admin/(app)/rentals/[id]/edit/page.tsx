@@ -10,13 +10,15 @@ const s = (x: string | null | undefined) => x ?? "";
 const n = (x: unknown) => (x == null ? "" : String(x));
 
 /** Edit Rental (Checkout3.aspx?CustomerID=…&AgreementID=…): the Start a Rental form, filled from the agreement. */
-export default async function EditRentalPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function EditRentalPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ end?: string }> }) {
   const { id } = await params;
+  // "End Rental": the same form with the check-in fields, saved with close
+  const ending = (await searchParams).end === "1";
   const session = await requireStaff();
   const data = await (await api()).rental.byId({ rentalId: id }).catch(() => null);
   if (!data) notFound();
   const r = data.rental;
-  if (r.status === "VOIDED") redirect(`/admin/rentals/${id}`);
+  if (r.status === "VOIDED" || (ending && r.status !== "OPEN")) redirect(`/admin/rentals/${id}`);
 
   const end = r.checkedInAt ?? r.expectedReturnAt;
   const days = Math.max(1, Math.ceil((+end - +r.checkOutAt) / 86_400_000));
@@ -30,7 +32,7 @@ export default async function EditRentalPage({ params }: { params: Promise<{ id:
   return (
     <>
       <PageHeader
-        title="Edit Rental"
+        title={ending ? "End Rental" : "Edit Rental"}
         breadcrumbs={[
           { label: `${`${r.customer.firstName} ${r.customer.lastName}`.toUpperCase()}`, href: `/admin/customers/${r.customerId}` },
           { label: "Rentals", href: "/admin/rentals" },
@@ -42,7 +44,8 @@ export default async function EditRentalPage({ params }: { params: Promise<{ id:
         editing={{
           rentalId: r.id,
           raNumber: r.raNumber,
-          closed: r.status === "CLOSED",
+          closed: r.status === "CLOSED" || ending,
+          ending,
           vehicle: { id: r.vehicleId, label: `${r.vehicle.assignedId} — ${r.vehicle.year ?? ""} ${r.vehicle.make.name} ${r.vehicle.model.name}` },
         }}
         initial={{
@@ -53,7 +56,7 @@ export default async function EditRentalPage({ params }: { params: Promise<{ id:
             timeZone: r.checkOutLocation.timeZone,
             pickupAt: r.checkOutAt.toISOString(),
             returnAt: r.expectedReturnAt.toISOString(),
-            checkedInAt: r.checkedInAt ? r.checkedInAt.toISOString() : "",
+            checkedInAt: r.checkedInAt ? r.checkedInAt.toISOString() : ending ? new Date().toISOString() : "",
             pickupLocationId: r.checkOutLocationId,
             returnLocationId: r.checkInLocationId,
             vehicleTypeId: r.vehicleTypeId,
@@ -67,7 +70,7 @@ export default async function EditRentalPage({ params }: { params: Promise<{ id:
             odometerOut: n(r.odometerOut),
             odometerIn: n(r.odometerIn),
             fuelOut: n(r.fuelOut ?? 16),
-            fuelIn: n(r.fuelIn ?? 0),
+            fuelIn: n(r.fuelIn ?? (ending ? r.fuelOut ?? 16 : 0)),
             prepaidFuel: r.prepaidFuel,
             fuelCharge: fuel ? n(fuel.total) : "",
             upgradeType: upgrade ? (Number(upgrade.units) > 1 ? "DAILY" : "FLAT") : "",
