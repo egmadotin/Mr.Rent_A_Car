@@ -1,0 +1,67 @@
+# Local dev environment. Source code is bind-mounted from this folder; everything heavy
+# (node_modules, pnpm store, Next build output, Postgres data) lives in Docker volumes.
+#
+#   docker compose up -d                 start Postgres + the dev container
+#   docker compose exec dev pnpm install
+#   docker compose exec dev pnpm db:migrate
+#   docker compose exec dev pnpm dev     → http://localhost:3001 (host port 3001; 3000 is used by another project)
+name: mrac
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: mrac
+    ports:
+      - "5442:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      retries: 10
+
+  dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    working_dir: /app
+    command: sleep infinity
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/mrac?schema=public
+      BETTER_AUTH_URL: http://localhost:3001
+      BETTER_AUTH_SECRET: dev-only-secret-change-me-in-any-real-environment
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
+      npm_config_store_dir: /pnpm-store
+      NEXT_TELEMETRY_DISABLED: "1"
+    ports:
+      - "3001:3000"
+    volumes:
+      - .:/app
+      - pnpm-store:/pnpm-store
+      - nm-root:/app/node_modules
+      - nm-web:/app/apps/web/node_modules
+      - nm-db:/app/packages/db/node_modules
+      - nm-ui:/app/packages/ui/node_modules
+      - nm-auth:/app/packages/auth/node_modules
+      - nm-api:/app/packages/api/node_modules
+      - next-build:/app/apps/web/.next
+      - turbo-cache:/app/.turbo
+
+volumes:
+  pgdata:
+  pnpm-store:
+  nm-root:
+  nm-web:
+  nm-db:
+  nm-ui:
+  nm-auth:
+  nm-api:
+  next-build:
+  turbo-cache:

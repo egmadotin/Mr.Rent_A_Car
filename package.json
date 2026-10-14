@@ -1,0 +1,19 @@
+{
+  "name": "mr-rent-a-car",
+  "private": true,
+  "packageManager": "pnpm@10.12.1",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "db:generate": "pnpm --filter @mrac/db generate",
+    "db:validate": "pnpm --filter @mrac/db validate",
+    "db:migrate": "pnpm --filter @mrac/db migrate:deploy",
+    "db:seed": "pnpm --filter @mrac/db seed"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.4",
+    "typescript": "^5.8.3"
+  }
+}

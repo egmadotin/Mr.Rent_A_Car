@@ -1,0 +1,9 @@
+{
+  "name": "@mrac/auth",
+  "version": "0.0.0",
+  "private": true,
+  "exports": { ".": "./src/index.ts", "./client": "./src/client.ts" },
+  "scripts": { "typecheck": "tsc --noEmit" },
+  "dependencies": { "@mrac/db": "workspace:*", "better-auth": "^1.2.12" },
+  "devDependencies": { "typescript": "^5.8.3" }
+}

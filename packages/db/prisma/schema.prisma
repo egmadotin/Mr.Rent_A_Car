@@ -1,0 +1,1572 @@
+// Mr Rent A Car — core schema
+// Source of truth: project-spec.md "Data Model Summary" + field-by-field capture of the
+// live RentCentric "Add/New" forms (VehicleAdd, QuotesModify, ReservationsModfiy,
+// CheckOut3, CustomerInfo, CompaniesModify, RatesModifyNew2, MiscChargesMain).
+//
+// Conventions
+//   /// LEGACY      field flagged in the spec as a likely legacy carry-over (pending client)
+//   /// CONFIRM     exists on the live form but purpose/need is unclear — asking before dropping
+//   /// VERIFY      shape inferred; re-check against the live screen when that module is built
+//   legacyId        RentCentric primary key, kept for the CSV import / migration
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Auth (Better-Auth core tables + admin plugin fields)
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum UserKind {
+  STAFF
+  CUSTOMER
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  // Better-Auth admin plugin
+  role          String?
+  banned        Boolean?
+  banReason     String?
+  banExpires    DateTime?
+
+  kind              UserKind   @default(STAFF)
+  userGroupId       String?
+  userGroup         UserGroup? @relation(fields: [userGroupId], references: [id])
+  defaultLocationId String?
+  defaultLocation   Location?  @relation("UserDefaultLocation", fields: [defaultLocationId], references: [id])
+  customer          Customer?  @relation("CustomerPortalUser")
+
+  sessions Session[]
+  accounts Account[]
+
+  rentalsOpened       Rental[]      @relation("RentalOpenedBy")
+  rentalsClosed       Rental[]      @relation("RentalClosedBy")
+  paymentsTaken       Payment[]     @relation("PaymentTakenBy")
+  memosAuthored       Memo[]        @relation("MemoAuthor")
+  quotesCreated       Quote[]       @relation("QuoteCreatedBy")
+  reservationsCreated Reservation[] @relation("ReservationCreatedBy")
+  adjustmentsEntered  Adjustment[]  @relation("AdjustmentEnteredBy")
+  commissionsEntered  Commission[]  @relation("CommissionEnteredBy")
+  commissionsEarned   Commission[]  @relation("CommissionUser")
+  auditLogs           AuditLog[]
+
+  @@map("user")
+}
+
+model Session {
+  id             String   @id @default(cuid())
+  expiresAt      DateTime
+  token          String   @unique
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  ipAddress      String?
+  userAgent      String?
+  impersonatedBy String?
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("verification")
+}
+
+/// Staff permission group (Settings > Users). VERIFY: permission keys once Settings > Users is audited.
+model UserGroup {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  permissions String[]
+  users       User[]
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Locations & lookups
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Live DB has 6: Richmond, Burnaby, Vancouver Admin Office, Surrey, YYC Offsite, YVR Offsite
+/// (+ Coquitlam in the location switcher).
+model Location {
+  id        String  @id @default(cuid())
+  legacyId  Int?    @unique
+  name      String
+  address1  String?
+  address2  String?
+  city      String?
+  province  String?
+  postal    String?
+  country   String? @default("CA")
+  phone     String?
+  fax       String?
+  email     String?
+  isOffsite Boolean @default(false)
+  isLegacy  Boolean @default(false)
+  /// IANA zone for all times at this location (bookings are local wall-clock time)
+  timeZone  String  @default("America/Vancouver")
+  hoursNote String? /// e.g. "24 hour key drop box" (public Our Locations page)
+  isActive  Boolean @default(true)
+  // legacy Settings > Locations (LocationsModify.aspx)
+  code                String? /// "Location Code", e.g. MRRMD
+  displayOnline       Boolean  @default(false) /// "Web Customer": offered on the public site
+  tollFree            String?
+  closestIntersection String?
+  closestAirport      String?
+  latitude            Decimal? @db.Decimal(9, 6)
+  longitude           Decimal? @db.Decimal(9, 6)
+  minimumAge          Int?
+  underAge            Int? /// renters younger than this pay the underage charge
+  quoteExpiresAfter   Int      @default(0) /// days; a quote shows "Expired" after this (0 = never)
+  memo                String?
+
+  vehicleTypes VehicleTypeLocation[]
+
+  hours       LocationHours[]
+  miscCharges MiscCharge[]
+  insurances  Insurance[]
+  taxes       LocationTax[]
+
+  usersDefaulted     User[]        @relation("UserDefaultLocation")
+  vehiclesRental     Vehicle[]     @relation("VehicleRentalLocation")
+  vehiclesOwning     Vehicle[]     @relation("VehicleOwningLocation")
+  vehiclesCurrent    Vehicle[]     @relation("VehicleCurrentLocation")
+  rates              Rate[]
+  quotesPickup       Quote[]       @relation("QuotePickup")
+  quotesReturn       Quote[]       @relation("QuoteReturn")
+  reservationsBooked Reservation[] @relation("ReservationLocation")
+  reservationsPickup Reservation[] @relation("ReservationPickup")
+  reservationsReturn Reservation[] @relation("ReservationReturn")
+  rentalsOut         Rental[]      @relation("RentalCheckOutLocation")
+  rentalsIn          Rental[]      @relation("RentalCheckInLocation")
+  customersDefault   Customer[]    @relation("CustomerDefaultLocation")
+  customersEntered   Customer[]    @relation("CustomerEnteredLocation")
+  transportsPickup   Transport[]   @relation("TransportPickup")
+  transportsDropoff  Transport[]   @relation("TransportDropoff")
+}
+
+/// Settings > Location Information > Hours Of Operation
+model LocationHours {
+  id         String   @id @default(cuid())
+  locationId String
+  location   Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  dayOfWeek  Int // 0 = Sunday
+  opensAt    String? // "09:00"
+  closesAt   String?
+  isClosed   Boolean  @default(false)
+
+  @@unique([locationId, dayOfWeek])
+}
+
+/// Simple admin-editable pick-lists that are just a name. One table instead of ten.
+enum LookupKind {
+  VEHICLE_CATEGORY
+  VEHICLE_BODY // 15 Pass. Van, ATV, Car, Dirt Bike, Minivan, Snowmobile, Street Motorcycle, SUV, Trailer, Truck, Water Craft
+  FUEL_TYPE // Gas, Diesel, Petrol, Electric, Bicycle, Regular
+  ENGINE_BRAND
+  ENGINE_TYPE
+  VEHICLE_OPTION // Game System X-box, Tow Hitch, Satellite Radio, DVD, ...
+  COMPANY_TYPE // Affiliate, Auto Glass, ..., ICBC, Insurance, Travel Wholesaler (21 values)
+  CUSTOMER_REGION // Burnaby, Coquitlam, Richmond, ...
+  DISCOUNT_REASON
+  RENTAL_REASON
+  PAYMENT_DETAIL // Settings > Payment Details: the "Detail" choices on Add/Edit Other Charges (empty in RentCentric today)
+}
+
+model Lookup {
+  id        String     @id @default(cuid())
+  kind      LookupKind
+  name      String
+  sortOrder Int        @default(0)
+  isActive  Boolean    @default(true)
+
+  vehiclesCategory     Vehicle[]       @relation("VehicleCategory")
+  vehiclesBody         Vehicle[]       @relation("VehicleBody")
+  vehiclesFuelType     Vehicle[]       @relation("VehicleFuelType")
+  vehiclesEngineBrand  Vehicle[]       @relation("VehicleEngineBrand")
+  vehiclesEngineType   Vehicle[]       @relation("VehicleEngineType")
+  vehicleOptions       VehicleOption[]
+  companies            Company[]
+  customersRegion      Customer[]
+  reservationsDiscount Reservation[]
+  rentalsDiscount      Rental[]        @relation("RentalDiscountReason")
+  rentalsReason        Rental[]        @relation("RentalReason")
+
+  @@unique([kind, name])
+}
+
+/// Referrals (ReferralsQuickAdd.aspx: Referral/Company Name, Full Name, Email, Phone, Fax, Memo)
+model Referral {
+  id           String        @id @default(cuid())
+  legacyId     Int?          @unique
+  name         String        @unique
+  fullName     String?
+  email        String?
+  phone        String?
+  fax          String?
+  memo         String?
+  isActive     Boolean       @default(true)
+  quotes       Quote[]
+  reservations Reservation[]
+  rentals      Rental[]
+  customers    Customer[]
+  commissions  Commission[]
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Fleet
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// ~50 active classes (Economy … Model 3/X/Y, VAN 15 Passenger Minibus). Drives rate lookup + availability.
+/// seats/luggage/doors are shown per class on mrrentacar.com/fleet.
+model VehicleType {
+  id                           String    @id @default(cuid())
+  legacyId                     Int?      @unique
+  name                         String    @unique
+  sippCode                     String? /// Settings > Vehicle Setup > SIPP Codes
+  description                  String?
+  seats                        Int?
+  luggage                      Int?
+  doors                        Int?
+  imageKey                     String? // S3
+  displayOnline                Boolean   @default(true)
+  sortOrder                    Int       @default(0)
+  isActive                     Boolean   @default(true)
+  // legacy Settings > Vehicle Setup > Types (VehicleTypesModify.aspx)
+  code                         String? /// "Vehicle Type Code"
+  smallBags                    Int?
+  largeBags                    Int?
+  transmission                 String?
+  minimumAge                   Int?
+  deposit                      Decimal?  @db.Decimal(10, 2)
+  depositType                  String? /// Flat / Percent
+  depositRequiredAtReservation Boolean   @default(false)
+  alwaysAvailable              Boolean   @default(false)
+  airConditioner               Boolean   @default(false)
+  specUrl                      String?
+  videoUrl                     String?
+  effectiveDate                DateTime? @db.Date
+  endDate                      DateTime? @db.Date
+
+  vehicles     Vehicle[]
+  locations    VehicleTypeLocation[]
+  rateValues   RateValue[]
+  miscCharges  MiscChargeVehicleType[]
+  insurances   InsuranceVehicleType[]
+  quotes       Quote[]
+  reservations Reservation[]
+  rentals      Rental[]
+}
+
+/// A class as offered at one location. RentCentric keeps a separate copy of every class per location
+/// (its own VehicleTypeID, photo, memo and "Web Customer" flag); the public fleet lists these per location.
+model VehicleTypeLocation {
+  id            String  @id @default(cuid())
+  vehicleTypeId String
+  locationId    String
+  legacyId      Int?    @unique /// RentCentric VehicleTypeID at this location
+  description   String? /// e.g. "Chrysler Grand Caravan 7-Passenger or Similar"; falls back to the class description
+  imageKey      String? /// falls back to the class photo
+  displayOnline Boolean @default(true)
+  sortOrder     Int     @default(0) /// order on the public fleet page
+  isActive      Boolean @default(true)
+
+  vehicleType VehicleType @relation(fields: [vehicleTypeId], references: [id], onDelete: Cascade)
+  location    Location    @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@unique([vehicleTypeId, locationId])
+  @@index([locationId, displayOnline, sortOrder])
+}
+
+model VehicleMake {
+  id       String         @id @default(cuid())
+  name     String         @unique
+  models   VehicleModel[]
+  vehicles Vehicle[]
+}
+
+model VehicleModel {
+  id       String      @id @default(cuid())
+  makeId   String
+  make     VehicleMake @relation(fields: [makeId], references: [id])
+  name     String
+  vehicles Vehicle[]
+
+  @@unique([makeId, name])
+}
+
+/// Same list and order as the RentCentric vehicle form (see packages/api/src/lib/vehicle-status.ts for labels).
+enum VehicleStatus {
+  ACCIDENT_REPLACEMENT
+  AUCTION
+  AVAILABLE
+  COMPREHENSIVE
+  FOR_SALE
+  GROUNDED
+  HAS_PROBLEM
+  HOLD_FOR_SALE
+  IN_CHECKOUT_PROCESS
+  IN_REPAIR
+  IN_SERVICE
+  LEASED_REPLACEMENT
+  ON_RENT
+  OUT_OF_SERVICE
+  SOLD
+  STAFF
+  STOLEN
+}
+
+enum Transmission {
+  NONE
+  AUTOMATIC
+  MANUAL
+  TIPTRONIC
+}
+
+enum PowerTrain {
+  FOUR_BY_TWO
+  FOUR_BY_FOUR
+}
+
+/// Add New Vehicle form, grouped the way the redesigned form will be.
+model Vehicle {
+  id       String  @id @default(cuid())
+  legacyId Int?    @unique
+  isActive Boolean @default(true)
+
+  // ── Identity / spec
+  assignedId    String        @unique /// "Assigned ID" — the unit number staff use
+  name          String? /// "Vehicle Name"
+  makeId        String
+  make          VehicleMake   @relation(fields: [makeId], references: [id])
+  modelId       String
+  model         VehicleModel  @relation(fields: [modelId], references: [id])
+  modelCode     String?
+  year          Int?
+  colour        String
+  doors         Int?
+  cylinders     Int?
+  transmission  Transmission?
+  vehicleTypeId String
+  vehicleType   VehicleType   @relation(fields: [vehicleTypeId], references: [id])
+  vin           String?       @unique
+  memo          String?
+
+  // ── Operations
+  rentalLocationId  String
+  rentalLocation    Location      @relation("VehicleRentalLocation", fields: [rentalLocationId], references: [id])
+  owningLocationId  String
+  owningLocation    Location      @relation("VehicleOwningLocation", fields: [owningLocationId], references: [id])
+  currentLocationId String? /// "Current Rental / Offsite Location"
+  currentLocation   Location?     @relation("VehicleCurrentLocation", fields: [currentLocationId], references: [id])
+  status            VehicleStatus @default(AVAILABLE)
+  categoryId        String?
+  category          Lookup?       @relation("VehicleCategory", fields: [categoryId], references: [id])
+  bodyId            String?
+  body              Lookup?       @relation("VehicleBody", fields: [bodyId], references: [id])
+  fuelTypeId        String?
+  fuelType          Lookup?       @relation("VehicleFuelType", fields: [fuelTypeId], references: [id])
+  tankSize          Int
+  fuelLevel         Int           @default(16) /// sixteenths, 0–16 (legacy slider)
+  originalOdometer  Int?
+  currentOdometer   Int?
+  spotNumber        String?
+  keyNumber         String?
+  isExclusiveFleet  Boolean       @default(false)
+
+  // ── GPS (not on the legacy form). Manual entry until Moovetrax fills it (integrations phase).
+  gpsTrackerId String?
+  gpsLatitude  Decimal?  @db.Decimal(9, 6)
+  gpsLongitude Decimal?  @db.Decimal(9, 6)
+  gpsUpdatedAt DateTime?
+
+  // ── Maintenance / insurance / legal
+  maintenanceBeginOdometer Int?
+  maintenanceBeginDate     DateTime? @db.Date
+  maintenanceEveryKm       Int
+  insuranceAmount          Decimal   @db.Decimal(10, 2)
+  inspectionDate           DateTime? @db.Date
+  inspectionAmount         Decimal?  @db.Decimal(10, 2)
+  licenseNumber            String /// plate
+  licenseProvince          String?
+  licenseAmount            Decimal?  @db.Decimal(10, 2)
+  licenseFirstRegistered   DateTime? @db.Date
+  licenseExpiry            DateTime? @db.Date
+  ldwMonthlyRate           Decimal?  @db.Decimal(10, 2)
+
+  // ── Mechanical specs
+  powerTrain        PowerTrain?
+  fuelGrade         String?
+  oilType           String?
+  dimensions        String?
+  maxPayload        String?
+  verticalClearance String?
+  frontTirePressure String?
+  rearTirePressure  String?
+  engineBrandId     String?
+  engineBrand       Lookup?     @relation("VehicleEngineBrand", fields: [engineBrandId], references: [id])
+  engineTypeId      String?
+  engineType        Lookup?     @relation("VehicleEngineType", fields: [engineTypeId], references: [id])
+  gvwr              String?
+  cityMpg           Decimal?    @db.Decimal(5, 1)
+  highwayMpg        Decimal?    @db.Decimal(5, 1)
+
+  // ── Appearance & pricing
+  interiorColor            String?
+  interiorRgb              String? /// LEGACY
+  exteriorRgb              String? /// LEGACY — this is the field the live form mislabels as a second "GVWR"
+  stereo                   String? /// LEGACY
+  subscriptionPlanId       String? /// CONFIRM: 7 external plan-ID fields — which (if any) are used?
+  monthlyPlanId            String? /// CONFIRM
+  yearlyPlanId             String? /// CONFIRM
+  weeklyLowMileagePlanId   String? /// CONFIRM
+  weeklyHighMileagePlanId  String? /// CONFIRM
+  monthlyLowMileagePlanId  String? /// CONFIRM
+  monthlyHighMileagePlanId String? /// CONFIRM
+  marketingDescription     String?
+  retailPriceLow           Decimal?        @db.Decimal(10, 2)
+  retailPriceHigh          Decimal?        @db.Decimal(10, 2)
+  options                  VehicleOption[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  reservations   Reservation[]
+  rentals        Rental[]
+  blocks         VehicleBlock[]
+  rentalSegments RentalVehicleSegment[]
+  attachments    Attachment[]
+  memos          Memo[]
+
+  // VERIFY (Vehicle detail module): Accidents, Damage, Maintenance, Repairs, Carwash,
+  // Insurances, Problems, Inspection, Checklist, Status Change history sub-records.
+
+  @@index([vehicleTypeId, rentalLocationId, status])
+}
+
+model VehicleOption {
+  vehicleId String
+  vehicle   Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  optionId  String
+  option    Lookup  @relation(fields: [optionId], references: [id])
+
+  @@id([vehicleId, optionId])
+}
+
+/// One row per period a specific vehicle is committed (assigned reservation or open rental).
+/// Double-booking is prevented in Postgres by an EXCLUDE USING gist constraint on
+/// (vehicleId, tsrange(startsAt, endsAt)) — timestamps are stored as UTC — see prisma/sql/vehicle_block_exclusion.sql.
+/// Also the data source for the Visual Scheduler replacement (vehicle × date × status).
+model VehicleBlock {
+  id            String       @id @default(cuid())
+  vehicleId     String
+  vehicle       Vehicle      @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  startsAt      DateTime
+  endsAt        DateTime
+  reservationId String?      @unique
+  reservation   Reservation? @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  rentalId      String?      @unique
+  rental        Rental?      @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+
+  @@index([vehicleId, startsAt])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Rates & charge catalogue
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum RateCalculation {
+  HOUR_24 // "24 Hour Time"
+  CALENDAR_DAY
+  FLAT
+  PERCENT // misc charges only, e.g. "Premium Location Charge (9.75%)" — % of the other charges before tax
+}
+
+enum RateValidFor {
+  DATE_RANGE
+  SEASON
+}
+
+/// Settings > Rates > Master Rates. One rate code covers many vehicle types (RateValue)
+/// and may be valid for a date range or a set of seasons.
+model Rate {
+  id                String          @id @default(cuid())
+  legacyId          Int?            @unique
+  code              String /// "Rate Code", e.g. "INT Fall End 3 to 6 Days"
+  locationId        String
+  location          Location        @relation(fields: [locationId], references: [id])
+  calculationBy     RateCalculation
+  rateType          String /// Standard, "N Day Multiday", "N Day Flat", Hourly/Daily/Weekly/Monthly Rate Only, Weekend, Min/Max Days, ... (~70 values)
+  validFor          RateValidFor    @default(DATE_RANGE)
+  effectiveDate     DateTime?       @db.Date
+  endDate           DateTime?       @db.Date
+  seasons           RateSeason[]
+  extraKmCharge     Decimal         @db.Decimal(10, 2)
+  graceMinutes      Int
+  fuelChargePerUnit Decimal         @db.Decimal(10, 2)
+  minChargeDays     Int
+  minChargeHours    Int?
+  /// Min/Max rental length this rate applies to ("Min/Max+Regular": e.g. 1–3 days). 0 = no limit.
+  minDays           Int             @default(0)
+  minHours          Int             @default(0)
+  minMinutes        Int             @default(0)
+  maxDays           Int             @default(0)
+  maxHours          Int             @default(0)
+  maxMinutes        Int             @default(0)
+  /// "Available On": pickup weekdays, Sun..Sat
+  availableDays     Boolean[]       @default([true, true, true, true, true, true, true])
+  skipHourly        Boolean         @default(false)
+  displayOnline     Boolean         @default(false)
+  valuePricing      Boolean         @default(false)
+  dateSpecific      Boolean         @default(false)
+  rentcarsCom       Boolean         @default(false) /// CONFIRM: Rentcars.com channel flag — still used?
+  isActive          Boolean         @default(true)
+
+  values       RateValue[]
+  quotes       Quote[]
+  reservations Reservation[]
+  rentals      Rental[]
+
+  @@unique([locationId, code])
+}
+
+/// VERIFY: exact value columns appear per vehicle type once types are ticked on the rate form.
+/// Money columns keep 8 decimals like RentCentric, which stores rates unrounded (e.g. 46.33004719/day) and rounds only the line total.
+model RateValue {
+  id            String      @id @default(cuid())
+  rateId        String
+  rate          Rate        @relation(fields: [rateId], references: [id], onDelete: Cascade)
+  vehicleTypeId String
+  vehicleType   VehicleType @relation(fields: [vehicleTypeId], references: [id])
+  /// Seasonal rates have one row per season; date-range rates have seasonId = null.
+  seasonId      String?
+  season        Season?     @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  hourly        Decimal?    @db.Decimal(16, 8)
+  daily         Decimal?    @db.Decimal(16, 8)
+  extraDaily    Decimal?    @db.Decimal(16, 8) /// "X" — extra day beyond the weekly/monthly block
+  weekly        Decimal?    @db.Decimal(16, 8)
+  monthly       Decimal?    @db.Decimal(16, 8)
+  kmAllowed     Int? /// km per day ("KM Daily"); shows as "Km Allowed" on every charge table
+  kmHourly      Int?
+  kmWeekly      Int?
+  kmMonthly     Int?
+  extraKmCharge Decimal?    @db.Decimal(10, 2)
+
+  @@unique([rateId, vehicleTypeId, seasonId])
+}
+
+/// VERIFY: Settings > Rates > Seasons
+model Season {
+  id         String       @id @default(cuid())
+  locationId String?
+  name       String       @unique
+  /// month/day window; the year is ignored (seasons repeat yearly in RentCentric)
+  startDate  DateTime     @db.Date
+  endDate    DateTime     @db.Date
+  rates      RateSeason[]
+  rateValues RateValue[]
+}
+
+model RateSeason {
+  rateId   String
+  rate     Rate   @relation(fields: [rateId], references: [id], onDelete: Cascade)
+  seasonId String
+  season   Season @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+
+  @@id([rateId, seasonId])
+}
+
+/// Settings > Rates > Miscellaneous Charges (Additional Driver $15/24h, Admin Fee $100 flat,
+/// Booster Seat, out-of-province use, Damage Waiver, Energy Recovery Fee, ...).
+/// Settings > Rates > Miscellaneous Charges (MiscChargesModify.aspx, Basic + Advanced tabs).
+/// Defined per location in RentCentric. Weekly/monthly/hourly/extra-daily rates are stored as on the form.
+model MiscCharge {
+  id                       String                  @id @default(cuid())
+  legacyId                 Int?                    @unique
+  locationId               String? /// null = all locations
+  location                 Location?               @relation(fields: [locationId], references: [id])
+  name                     String
+  code                     String
+  calculationBy            RateCalculation
+  rate                     Decimal                 @db.Decimal(10, 2) /// daily rate (or % for PERCENT, or amount for FLAT)
+  hourlyRate               Decimal?                @db.Decimal(10, 2)
+  weeklyRate               Decimal?                @db.Decimal(10, 2)
+  monthlyRate              Decimal?                @db.Decimal(10, 2)
+  extraDailyRate           Decimal?                @db.Decimal(10, 2)
+  graceMinutes             Int                     @default(0)
+  milesIncluded            Int                     @default(0)
+  effectiveDate            DateTime?               @db.Date
+  endDate                  DateTime?               @db.Date
+  minDays                  Int                     @default(0)
+  maxDays                  Int                     @default(0) /// 0 = no cap
+  group                    String? /// "under age", "OOP", "Snow Tire" — only one charge per group
+  description              String? /// shown online under "(Details)"
+  imageKey                 String?
+  allVehicleTypes          Boolean                 @default(true)
+  vehicleTypes             MiscChargeVehicleType[]
+  displayOnline            Boolean                 @default(false)
+  rentcarsCom              Boolean                 @default(false) /// CONFIRM
+  defaultRentcarsCom       Boolean                 @default(false) /// CONFIRM
+  isMandatory              Boolean                 @default(false)
+  /// "Default MiscCharge": added automatically to every booking (pre-checked and locked online)
+  isDefault                Boolean                 @default(false)
+  valuePricing             Boolean                 @default(false) /// use cheapest of daily/weekly/monthly
+  autoWhenUnderAge         Boolean                 @default(false) /// "Driver is underage"
+  autoWhenAdditionalDriver Boolean                 @default(false) /// "Additional Driver is added"
+  isPrepaidFuel            Boolean                 @default(false)
+  isNoShowCharge           Boolean                 @default(false)
+  multiSelectOnline        Boolean                 @default(false) /// "Enable Multi Selection Online" (quantity > 1)
+  displayAtStartRental     Boolean                 @default(true)
+  displayAtEndRental       Boolean                 @default(true)
+  tollAdminFeeWaiver       Boolean                 @default(false)
+  isActive                 Boolean                 @default(true)
+  chargeLines              ChargeLine[]
+  adjustments              Adjustment[]
+}
+
+model MiscChargeVehicleType {
+  miscChargeId  String
+  miscCharge    MiscCharge  @relation(fields: [miscChargeId], references: [id], onDelete: Cascade)
+  vehicleTypeId String
+  vehicleType   VehicleType @relation(fields: [vehicleTypeId], references: [id], onDelete: Cascade)
+
+  @@id([miscChargeId, vehicleTypeId])
+}
+
+/// Settings > Rates > Insurance Coverage (InsurancesModify.aspx): damage waivers / SLC / No Protection.
+/// Online these are the "Protections & Coverages" radio list — the renter picks exactly one.
+model Insurance {
+  id                 String                 @id @default(cuid())
+  legacyId           Int?                   @unique
+  locationId         String?
+  location           Location?              @relation(fields: [locationId], references: [id])
+  name               String
+  code               String
+  calculationBy      RateCalculation
+  hourlyRate         Decimal?               @db.Decimal(10, 2)
+  dailyRate          Decimal                @db.Decimal(10, 2)
+  weeklyRate         Decimal?               @db.Decimal(10, 2)
+  monthlyRate        Decimal?               @db.Decimal(10, 2)
+  extraDailyRate     Decimal?               @db.Decimal(10, 2)
+  deductible         Decimal?               @db.Decimal(10, 2)
+  graceMinutes       Int                    @default(0)
+  effectiveDate      DateTime?              @db.Date
+  endDate            DateTime?              @db.Date
+  minDays            Int                    @default(0)
+  maxDays            Int                    @default(0)
+  group              String? /// e.g. "ODW"
+  description        String?
+  imageKey           String?
+  allVehicleTypes    Boolean                @default(true)
+  vehicleTypes       InsuranceVehicleType[]
+  displayOnline      Boolean                @default(false)
+  rentcarsCom        Boolean                @default(false) /// CONFIRM
+  defaultRentcarsCom Boolean                @default(false) /// CONFIRM
+  valuePricing       Boolean                @default(false)
+  isDeposit          Boolean                @default(false)
+  isDefault          Boolean                @default(false) /// "Default Insurance": pre-selected
+  isActive           Boolean                @default(true)
+  chargeLines        ChargeLine[]
+}
+
+model InsuranceVehicleType {
+  insuranceId   String
+  insurance     Insurance   @relation(fields: [insuranceId], references: [id], onDelete: Cascade)
+  vehicleTypeId String
+  vehicleType   VehicleType @relation(fields: [vehicleTypeId], references: [id], onDelete: Cascade)
+
+  @@id([insuranceId, vehicleTypeId])
+}
+
+/// VERIFY: Settings > Rates > Taxes (GST / PST seen on charge tables)
+enum TaxKind {
+  PERCENT
+  AMOUNT
+}
+
+/// Settings > Rates > Taxes. Live: Goods & Services Tax 5%, GST(Gas) 5%, Provincial Sales Tax 7%,
+/// Passenger Vehicle Rental Tax $1.50/day (+ Credit, + ICBC variant), Tire Recovery $0.99, WRITEOFF ±$0.01.
+model Tax {
+  id          String         @id @default(cuid())
+  name        String
+  kind        TaxKind        @default(PERCENT)
+  value       Decimal        @db.Decimal(10, 3) /// percent for PERCENT, dollars for AMOUNT
+  perDay      Boolean        @default(false) /// VERIFY per tax (PVRT is per day)
+  isActive    Boolean        @default(true)
+  chargeLines ChargeLine[]
+  billSplits  BillSplitTax[]
+  locations   LocationTax[]
+}
+
+/// Which taxes apply at which location. VERIFY against Settings > Rates > Taxes per location.
+model LocationTax {
+  locationId String
+  location   Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  taxId      String
+  tax        Tax      @relation(fields: [taxId], references: [id], onDelete: Cascade)
+
+  @@id([locationId, taxId])
+}
+
+/// VERIFY: Settings > Equipment Setup (GPS, infant seats — separately inventoried)
+model Equipment {
+  id       String  @id @default(cuid())
+  name     String
+  quantity Int     @default(0)
+  isActive Boolean @default(true)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Customers & companies
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Settings > Company > Companies / Corporates (insurance, corporate, dealership, body shop, ICBC, ...)
+model Company {
+  id                    String    @id @default(cuid())
+  legacyId              Int?      @unique
+  name                  String
+  typeId                String?
+  type                  Lookup?   @relation(fields: [typeId], references: [id])
+  code                  String?
+  contactName           String?
+  address1              String?
+  address2              String?
+  city                  String?
+  province              String?
+  postal                String?
+  country               String?
+  phone                 String?
+  fax                   String?
+  email                 String?
+  taxName               String?
+  taxAddress            String?
+  taxId                 String?
+  claimsOffice          String?
+  minimumAge            Int?
+  insuranceCompany      String?
+  insuranceRep          String?
+  policyNumber          String?
+  policyExpiry          DateTime? @db.Date
+  mileageCap            Int?
+  iataNumber            String?
+  parentIataId          String?
+  parentIata            Company?  @relation("CompanyIataParent", fields: [parentIataId], references: [id])
+  iataChildren          Company[] @relation("CompanyIataParent")
+  partnerPointId        String? /// CONFIRM
+  curp                  String? /// CONFIRM: Mexico-specific tax ID
+  folio                 String? /// CONFIRM: Mexico-specific
+  ssn                   String? /// CONFIRM: sensitive — needed at all?
+  copyInsuranceToRental Boolean   @default(false) /// "Copy Insurance" checkbox — VERIFY behaviour
+  isUndesired           Boolean   @default(false)
+  isActive              Boolean   @default(true)
+
+  customers    Customer[]
+  quotes       Quote[]
+  reservations Reservation[]
+  rentals      Rental[]
+  payments     Payment[]
+  billSplits   BillSplit[]
+}
+
+enum InsuranceType {
+  LIABILITY_ONLY
+  FULL_COVERAGE
+}
+
+enum IdentityVerificationMethod {
+  MANUAL // staff ticked "License Validated"
+  PLUSTEK // counter scan (future phase)
+  PLAID // remote KYC (future phase)
+  YOTI // CONFIRM: live form has "Check Yoti Verification"
+}
+
+/// Customer and driver are the same record. Additional drivers are Customers linked to a
+/// primary via primaryCustomerId, and attached per booking through BookingDriver.
+model Customer {
+  id       String  @id @default(cuid())
+  legacyId Int?    @unique
+  isActive Boolean @default(true)
+
+  title      String? /// Mr / Mrs / Ms / Miss / Dr
+  firstName  String
+  middleName String?
+  lastName   String
+  gender     String?
+  birthDate  DateTime? @db.Date
+
+  address1 String?
+  address2 String?
+  city     String?
+  province String?
+  postal   String?
+  country  String?
+  regionId String?
+  region   Lookup? @relation(fields: [regionId], references: [id])
+
+  phone                 String?
+  cellPhone             String?
+  localPhone            String?
+  email                 String?
+  emergencyContactPhone String?
+
+  licenseNumber      String?
+  licenseExpiry      DateTime? @db.Date
+  licenseProvince    String?
+  licenseCountry     String?
+  motorcycleLicensed Boolean?
+
+  // Identity verification — first-class regardless of path (spec: Plaid section)
+  /// Legacy "Validated" checkbox next to the licence number. Staff tick it by hand today (method MANUAL);
+  /// Plustek/Plaid fill the same fields automatically in the integrations phase.
+  identityVerified       Boolean                     @default(false)
+  identityVerifiedMethod IdentityVerificationMethod?
+  identityVerifiedAt     DateTime?
+  identityVerifiedById   String?
+  checkYotiVerification  Boolean                     @default(false) /// CONFIRM: is Yoti in use?
+
+  insuranceCompany      String?
+  insurancePolicyNumber String?
+  insurancePolicyHolder String?
+  insuranceType         InsuranceType?
+  insuranceExpiry       DateTime?      @db.Date
+  insurancePhone        String?
+  insuranceFax          String?
+
+  companyId    String?
+  company      Company?  @relation(fields: [companyId], references: [id])
+  companyPhone String?
+  jobPosition  String?
+  referralId   String? /// "Source of Referral"
+  referral     Referral? @relation(fields: [referralId], references: [id])
+
+  passportNumber      String?
+  aaaMembershipNumber String?
+  frequentTravelerId  String?
+  taxId               String?
+  hstNumber           String?
+  dbaName             String?
+  bandName            String? /// CONFIRM: First Nations band name (tax-exempt status?) — keep?
+  pin                 String? /// CONFIRM: what is the PIN used for?
+  ssn                 String? /// CONFIRM: sensitive — needed at all?
+
+  approvedBy          String?
+  defaultLocationId   String?
+  defaultLocation     Location? @relation("CustomerDefaultLocation", fields: [defaultLocationId], references: [id])
+  enteredLocationId   String?
+  enteredLocation     Location? @relation("CustomerEnteredLocation", fields: [enteredLocationId], references: [id])
+  registrationChannel String? /// spec: legacy data holds staff emails here — fix in migration
+
+  isUndesired               Boolean @default(false) /// do-not-rent list
+  isPreferred               Boolean @default(false)
+  isClubMember              Boolean @default(false)
+  unsubscribedFromMarketing Boolean @default(false)
+  allVehicleBodies          Boolean @default(false) /// CONFIRM: "All Vehicle Bodies" checkbox meaning
+
+  primaryCustomerId String?
+  primaryCustomer   Customer?  @relation("LinkedDrivers", fields: [primaryCustomerId], references: [id])
+  linkedDrivers     Customer[] @relation("LinkedDrivers")
+
+  userId String? @unique
+  user   User?   @relation("CustomerPortalUser", fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  creditCards    CreditCard[]
+  clubMembership ClubMembership?
+  quotes         Quote[]
+  reservations   Reservation[]
+  rentals        Rental[]
+  bookingDrivers BookingDriver[]
+  payments       Payment[]
+  attachments    Attachment[]
+  memos          Memo[]
+
+  // Duplicate detection ("Check Matching") runs on these at create time.
+  @@index([lastName, firstName])
+  @@index([phone])
+  @@index([email])
+  @@index([licenseNumber])
+}
+
+/// Tokenised only — never store PAN or CVV (legacy form collects CVV2; not carried over).
+model CreditCard {
+  id             String    @id @default(cuid())
+  customerId     String
+  customer       Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  description    String?
+  isActive       Boolean   @default(true)
+  brand          String
+  last4          String
+  expMonth       Int
+  expYear        Int
+  holderName     String?
+  processorToken String? // Stripe payment method id, once the processor is chosen
+  createdAt      DateTime  @default(now())
+  payments       Payment[]
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Booking lifecycle: Quote → Reservation → Rental
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum DiscountType {
+  PERCENT
+  AMOUNT
+}
+
+/// Add Quote form has no customer field; the quote list still shows Name / Phone.
+model Quote {
+  id               String        @id @default(cuid())
+  number           Int           @unique @default(autoincrement())
+  legacyId         Int?          @unique
+  pickupAt         DateTime
+  returnAt         DateTime
+  pickupLocationId String
+  pickupLocation   Location      @relation("QuotePickup", fields: [pickupLocationId], references: [id])
+  returnLocationId String
+  returnLocation   Location      @relation("QuoteReturn", fields: [returnLocationId], references: [id])
+  vehicleTypeId    String
+  vehicleType      VehicleType   @relation(fields: [vehicleTypeId], references: [id])
+  rateId           String?
+  rate             Rate?         @relation(fields: [rateId], references: [id])
+  companyId        String?
+  company          Company?      @relation(fields: [companyId], references: [id])
+  discountType     DiscountType?
+  discountValue    Decimal?      @db.Decimal(10, 2)
+  referralId       String?
+  referral         Referral?     @relation(fields: [referralId], references: [id])
+  customerId       String?
+  customer         Customer?     @relation(fields: [customerId], references: [id])
+  /// Quote contact (legacy Email/SMS Quote + Print Quote: First/Last name, Email, Phone)
+  contactName      String? /// full name, kept for list/search
+  firstName        String?
+  lastName         String?
+  email            String?
+  contactPhone     String?
+  /// taxes unticked in the options grid (tax-exempt for this booking)
+  excludedTaxIds   String[]      @default([])
+  createdById      String?
+  createdBy        User?         @relation("QuoteCreatedBy", fields: [createdById], references: [id])
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  deletedAt        DateTime?
+
+  chargeLines  ChargeLine[]
+  reservations Reservation[]
+  rentals      Rental[]
+  memos        Memo[]
+}
+
+enum ReservationStatus {
+  TENTATIVE
+  CONFIRMED
+  CHECKED_OUT // converted to a Rental
+  CHECKED_IN
+  CANCELLED
+  NO_SHOW
+}
+
+/// Legacy uses five independent checkboxes (Confirmed / Tentative / Cancelled / Checked Out /
+/// Checked In); modelled as one status so contradictory combinations can't exist.
+model Reservation {
+  id       String            @id @default(cuid())
+  number   Int               @unique @default(autoincrement())
+  legacyId Int?              @unique
+  status   ReservationStatus @default(TENTATIVE)
+
+  // renter as typed on the reservation (may precede / differ from the customer record)
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id])
+  firstName  String
+  middleName String?
+  lastName   String
+  email      String?
+  phone      String?
+
+  locationId       String /// booking location
+  location         Location    @relation("ReservationLocation", fields: [locationId], references: [id])
+  pickupLocationId String
+  pickupLocation   Location    @relation("ReservationPickup", fields: [pickupLocationId], references: [id])
+  returnLocationId String
+  returnLocation   Location    @relation("ReservationReturn", fields: [returnLocationId], references: [id])
+  pickupAt         DateTime
+  returnAt         DateTime
+  vehicleTypeId    String
+  vehicleType      VehicleType @relation(fields: [vehicleTypeId], references: [id])
+  vehicleId        String? /// specific unit, optional until assigned
+  vehicle          Vehicle?    @relation(fields: [vehicleId], references: [id])
+  rateId           String?
+  rate             Rate?       @relation(fields: [rateId], references: [id])
+  companyId        String?
+  company          Company?    @relation(fields: [companyId], references: [id])
+
+  discountType     DiscountType?
+  discountValue    Decimal?      @db.Decimal(10, 2)
+  discountReasonId String?
+  discountReason   Lookup?       @relation(fields: [discountReasonId], references: [id])
+  deposit          Decimal?      @db.Decimal(10, 2)
+  referralId       String?
+  referral         Referral?     @relation(fields: [referralId], references: [id])
+
+  deliveryAddress         String?
+  airline                 String?
+  flightNumber            String?
+  hotel                   String?
+  arrivalAirport          String?
+  preferredLanguage       String?
+  poNumber                String?
+  roNumber                String?
+  customerNotes           String?
+  isLoaner                Boolean   @default(false)
+  isNonRevenue            Boolean   @default(false)
+  confirmationEmailSentAt DateTime?
+  excludedTaxIds          String[]  @default([]) /// taxes unticked in the options grid
+  reservationChannel      String? /// legacy "Reservation Channel" (e.g. counter / website)
+
+  quoteId     String?
+  quote       Quote?    @relation(fields: [quoteId], references: [id])
+  createdById String?
+  createdBy   User?     @relation("ReservationCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  cancelledAt DateTime?
+  deletedAt   DateTime?
+
+  transports   Transport[]
+  billSplits   BillSplit[]
+  drivers      BookingDriver[]
+  chargeLines  ChargeLine[]
+  payments     Payment[]
+  memos        Memo[]
+  rental       Rental?
+  vehicleBlock VehicleBlock?
+
+  @@index([pickupAt])
+  @@index([status, pickupLocationId])
+}
+
+/// Delivery / collection ("Pickup/Drop-off"). One row = a pickup leg and a drop-off leg, as on
+/// the Reserve-screen modal and the rental's Pickup/Drop-off list. Belongs to a reservation or a rental.
+model Transport {
+  id            String       @id @default(cuid())
+  reservationId String?
+  reservation   Reservation? @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  rentalId      String?
+  rental        Rental?      @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+
+  pickupLocationId   String?
+  pickupLocation     Location? @relation("TransportPickup", fields: [pickupLocationId], references: [id])
+  pickupLocationName String?
+  pickupAddress      String?
+  pickupCity         String?
+  pickupProvince     String?
+  pickupPostal       String?
+  pickupCountry      String?
+  pickupPhone        String?
+  pickupAt           DateTime?
+  pickupAirport      String?
+  pickupFlightNumber String?
+  pickupMemo         String?
+
+  dropoffLocationId   String?
+  dropoffLocation     Location? @relation("TransportDropoff", fields: [dropoffLocationId], references: [id])
+  dropoffLocationName String?
+  dropoffAddress      String?
+  dropoffCity         String?
+  dropoffProvince     String?
+  dropoffPostal       String?
+  dropoffCountry      String?
+  dropoffPhone        String?
+  dropoffAt           DateTime?
+  dropoffAirline      String?
+  frequentFlyerNumber String?
+  dropoffMemo         String?
+}
+
+enum RentalStatus {
+  OPEN
+  CLOSED
+  VOIDED
+}
+
+/// Rental Agreement (CheckOut3 form + check-in).
+model Rental {
+  id       String       @id @default(cuid())
+  raNumber Int          @unique @default(autoincrement())
+  legacyId Int?         @unique
+  status   RentalStatus @default(OPEN)
+
+  reservationId String?      @unique
+  reservation   Reservation? @relation(fields: [reservationId], references: [id])
+  quoteId       String?
+  quote         Quote?       @relation(fields: [quoteId], references: [id])
+  customerId    String
+  customer      Customer     @relation(fields: [customerId], references: [id])
+  companyId     String?
+  company       Company?     @relation(fields: [companyId], references: [id])
+
+  checkOutLocationId String
+  checkOutLocation   Location  @relation("RentalCheckOutLocation", fields: [checkOutLocationId], references: [id])
+  checkInLocationId  String
+  checkInLocation    Location  @relation("RentalCheckInLocation", fields: [checkInLocationId], references: [id])
+  checkOutAt         DateTime
+  expectedReturnAt   DateTime
+  checkedInAt        DateTime?
+  checkOutChannel    String? /// VERIFY values
+  checkInChannel     String?
+
+  vehicleTypeId String
+  vehicleType   VehicleType @relation(fields: [vehicleTypeId], references: [id])
+  vehicleId     String
+  vehicle       Vehicle     @relation(fields: [vehicleId], references: [id])
+  odometerOut   Int
+  odometerIn    Int?
+  fuelOut       Int? /// sixteenths
+  fuelIn        Int?
+  prepaidFuel   Boolean     @default(false)
+
+  rateId           String?
+  rate             Rate?         @relation(fields: [rateId], references: [id])
+  discountType     DiscountType?
+  discountValue    Decimal?      @db.Decimal(10, 2)
+  discountReasonId String?
+  discountReason   Lookup?       @relation("RentalDiscountReason", fields: [discountReasonId], references: [id])
+  deposit          Decimal?      @db.Decimal(10, 2)
+  isLongTerm       Boolean       @default(false)
+  invoicingPeriod  String? /// VERIFY options (empty on live form)
+
+  referralId     String?
+  referral       Referral? @relation(fields: [referralId], references: [id])
+  rentalReasonId String?
+  rentalReason   Lookup?   @relation("RentalReason", fields: [rentalReasonId], references: [id])
+  claimNumber    String?
+  airport        String?
+  airline        String?
+  flightNumber   String?
+  poNumber       String?
+  roNumber       String?
+  isNonRevenue   Boolean   @default(false)
+
+  openedById String?
+  openedBy   User?     @relation("RentalOpenedBy", fields: [openedById], references: [id])
+  closedById String?
+  closedBy   User?     @relation("RentalClosedBy", fields: [closedById], references: [id])
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  voidedAt   DateTime?
+  deletedAt  DateTime?
+
+  excludedTaxIds String[] @default([]) /// taxes unticked in the options grid
+  exchangeRate   Decimal? @db.Decimal(12, 6) /// "Update Exchange Rate" action — CONFIRM: still used?
+
+  drivers         BookingDriver[]
+  chargeLines     ChargeLine[]
+  payments        Payment[]
+  memos           Memo[]
+  attachments     Attachment[]
+  vehicleBlock    VehicleBlock?
+  vehicleSegments RentalVehicleSegment[]
+  trafficTickets  TrafficTicket[]
+  adjustments     Adjustment[]
+  billSplits      BillSplit[]
+  commissions     Commission[]
+  claims          Claim[]
+  invoices        RentalInvoice[]
+  transports      Transport[]
+
+  @@index([status, checkOutLocationId])
+  @@index([expectedReturnAt])
+}
+
+/// Additional drivers on a reservation or rental.
+model BookingDriver {
+  id            String       @id @default(cuid())
+  customerId    String
+  customer      Customer     @relation(fields: [customerId], references: [id])
+  reservationId String?
+  reservation   Reservation? @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  rentalId      String?
+  rental        Rental?      @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+
+  @@unique([reservationId, customerId])
+  @@unique([rentalId, customerId])
+}
+
+/// Mirrors the legacy charge table + Adjustment "Item Type" list:
+/// Time, Mileage, Upgrade, Fuel, Prepaid Fuel, Traffic Tickets, Discount, Other Charges 1-4,
+/// One way, Damages, then every Misc Charge, Admin Charge and taxes.
+enum ChargeKind {
+  TIME // Hourly / Daily / Weekly / Monthly
+  MILEAGE // Km Allowed / KM Driven / extra km
+  UPGRADE
+  DISCOUNT
+  FUEL
+  PREPAID_FUEL
+  PROTECTION // from Insurance catalogue (damage waivers, SLC, No Protection)
+  MISC // from MiscCharge catalogue (damage waiver, additional driver, energy recovery fee, ...)
+  ONE_WAY
+  DAMAGES
+  TRAFFIC_TICKETS
+  ADMIN // "Admin Charge"
+  OTHER // "Other Charges 1-4"
+  TAX
+}
+
+/// The charge-table row shape shared by Quote, Reservation and Rental: name · unit · rate · total.
+/// Exactly one of quoteId / reservationId / rentalId is set (CHECK constraint in SQL migration).
+model ChargeLine {
+  id            String       @id @default(cuid())
+  quoteId       String?
+  quote         Quote?       @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  reservationId String?
+  reservation   Reservation? @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  rentalId      String?
+  rental        Rental?      @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+  kind          ChargeKind
+  name          String
+  units         Decimal      @db.Decimal(10, 2)
+  rate          Decimal      @db.Decimal(10, 2)
+  total         Decimal      @db.Decimal(10, 2)
+  miscChargeId  String?
+  miscCharge    MiscCharge?  @relation(fields: [miscChargeId], references: [id])
+  insuranceId   String?
+  insurance     Insurance?   @relation(fields: [insuranceId], references: [id])
+  taxId         String?
+  tax           Tax?         @relation(fields: [taxId], references: [id])
+  sortOrder     Int          @default(0)
+
+  @@index([quoteId])
+  @@index([reservationId])
+  @@index([rentalId])
+}
+
+enum PaymentMethod {
+  AMEX
+  CASH
+  DEBIT
+  EMT // Interac e-Transfer
+  INTERNAL
+  MASTERCARD
+  VISA
+}
+
+enum PaymentTransactionType {
+  PAYMENT
+  AUTHORIZATION
+  REFUND
+}
+
+model Payment {
+  id                String                 @id @default(cuid())
+  legacyId          Int?                   @unique
+  reservationId     String?
+  reservation       Reservation?           @relation(fields: [reservationId], references: [id])
+  rentalId          String?
+  rental            Rental?                @relation(fields: [rentalId], references: [id])
+  customerId        String?
+  customer          Customer?              @relation(fields: [customerId], references: [id])
+  method            PaymentMethod
+  transactionType   PaymentTransactionType
+  amount            Decimal                @db.Decimal(10, 2)
+  authorizationCode String?
+  transactionCode   String?
+  creditCardId      String?
+  creditCard        CreditCard?            @relation(fields: [creditCardId], references: [id])
+  cardLast4         String?
+  takenById         String?
+  takenBy           User?                  @relation("PaymentTakenBy", fields: [takenById], references: [id])
+  takenAt           DateTime               @default(now())
+  paymentDetail     String? /// VERIFY options ("----NONE-----" on live form)
+  paymentDetailCont String?
+  companyId         String? /// payment received from a company (insurer, body shop, …)
+  company           Company?               @relation(fields: [companyId], references: [id])
+
+  @@index([reservationId])
+  @@index([rentalId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Cross-cutting: memos & attachments
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Staff memo history (e.g. "emailed for paying ticket on feb14"). "Always display as popup"
+/// is preserved as showAsPopup.
+enum MemoKind {
+  MEMO // "Memo" + "Memo History"
+  NOTE // separate "Notes" list on the rental
+}
+
+model Memo {
+  id            String       @id @default(cuid())
+  kind          MemoKind     @default(MEMO)
+  body          String
+  showAsPopup   Boolean      @default(false)
+  authorId      String?
+  author        User?        @relation("MemoAuthor", fields: [authorId], references: [id])
+  createdAt     DateTime     @default(now())
+  customerId    String?
+  customer      Customer?    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  vehicleId     String?
+  vehicle       Vehicle?     @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  quoteId       String?
+  quote         Quote?       @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  reservationId String?
+  reservation   Reservation? @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  rentalId      String?
+  rental        Rental?      @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+}
+
+enum AttachmentKind {
+  IMAGE
+  DOCUMENT
+  SCANNED_ID
+}
+
+/// S3 objects: vehicle photos/documents, customer scanned IDs, rental documents.
+model Attachment {
+  id          String         @id @default(cuid())
+  kind        AttachmentKind
+  s3Key       String         @unique
+  fileName    String
+  contentType String
+  sizeBytes   Int
+  uploadedAt  DateTime       @default(now())
+  vehicleId   String?
+  vehicle     Vehicle?       @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  customerId  String?
+  customer    Customer?      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  rentalId    String?
+  rental      Rental?        @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Rental sub-records (live Rental detail screen, AgreementMain.aspx)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// "Vehicle Exchange": every vehicle the renter had during the rental, in order. The first
+/// segment is the original vehicle (legacy lists it the same way).
+model RentalVehicleSegment {
+  id          String    @id @default(cuid())
+  rentalId    String
+  rental      Rental    @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+  vehicleId   String
+  vehicle     Vehicle   @relation(fields: [vehicleId], references: [id])
+  startsAt    DateTime
+  endsAt      DateTime?
+  odometerOut Int
+  odometerIn  Int?
+  fuelOut     Int? /// sixteenths
+  fuelIn      Int?
+  sequence    Int       @default(0)
+}
+
+/// "Traffic Tickets" (TrafficTicketsModify.aspx)
+model TrafficTicket {
+  id                String         @id @default(cuid())
+  rentalId          String
+  rental            Rental         @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+  ticketDate        DateTime
+  offense           String
+  location          String?
+  amount            Decimal        @db.Decimal(10, 2)
+  officer           String?
+  city              String?
+  province          String?
+  country           String?
+  payMethod         PaymentMethod?
+  creditCardId      String?
+  processCreditCard Boolean        @default(false)
+  isPaid            Boolean        @default(false)
+  memo              String?
+  attachmentKey     String? // S3 key of the uploaded ticket
+  createdAt         DateTime       @default(now())
+}
+
+/// "Adjustments": an amount against one charge category or misc charge.
+model Adjustment {
+  id           String      @id @default(cuid())
+  rentalId     String
+  rental       Rental      @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+  kind         ChargeKind
+  miscChargeId String?
+  miscCharge   MiscCharge? @relation(fields: [miscChargeId], references: [id])
+  name         String /// item name as shown ("Time", "Other Charges 2", "Energy Recovery Fee" …)
+  amount       Decimal     @db.Decimal(10, 2)
+  enteredById  String?
+  enteredBy    User?       @relation("AdjustmentEnteredBy", fields: [enteredById], references: [id])
+  enteredAt    DateTime    @default(now())
+}
+
+enum ClaimType {
+  RENTER
+  THIRD_PARTY
+  OTHER
+}
+
+/// "Bill Split": part of the rental billed to a company (insurer / ICBC / body shop / corporate).
+model BillSplit {
+  id                         String         @id @default(cuid())
+  /// Belongs to a reservation or a rental (moves to the rental at Start Rental).
+  rentalId                   String?
+  rental                     Rental?        @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+  reservationId              String?
+  reservation                Reservation?   @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  companyId                  String
+  company                    Company        @relation(fields: [companyId], references: [id])
+  claimType                  ClaimType
+  insuranceCompany           String?
+  policyNumber               String?
+  policyExpiry               DateTime?      @db.Date
+  prePaid                    Decimal        @default(0) @db.Decimal(10, 2)
+  lumpSum                    Decimal        @default(0) @db.Decimal(10, 2)
+  amountPerDay               Decimal        @db.Decimal(10, 2)
+  numberOfDays               Int
+  adjuster                   String? /// VERIFY: dropdown of the company's adjusters
+  insured                    String?
+  roNumber                   String?
+  poNumber                   String?
+  lossDate                   DateTime?      @db.Date
+  claimNumber                String?
+  maxPay                     Decimal?       @db.Decimal(10, 2)
+  percentCoPay               Int            @default(0)
+  payAllTaxes                Boolean        @default(false)
+  taxes                      BillSplitTax[]
+  payTotal                   Boolean        @default(false)
+  deductFromCustomersBalance Boolean        @default(false)
+  memo                       String?
+  createdAt                  DateTime       @default(now())
+}
+
+model BillSplitTax {
+  billSplitId String
+  billSplit   BillSplit @relation(fields: [billSplitId], references: [id], onDelete: Cascade)
+  taxId       String
+  tax         Tax       @relation(fields: [taxId], references: [id])
+
+  @@id([billSplitId, taxId])
+}
+
+/// "Commissions": paid to a referral source or a staff user.
+model Commission {
+  id          String    @id @default(cuid())
+  rentalId    String
+  rental      Rental    @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+  amount      Decimal   @db.Decimal(10, 2)
+  referralId  String?
+  referral    Referral? @relation(fields: [referralId], references: [id])
+  userId      String?
+  user        User?     @relation("CommissionUser", fields: [userId], references: [id])
+  enteredById String?
+  enteredBy   User?     @relation("CommissionEnteredBy", fields: [enteredById], references: [id])
+  enteredAt   DateTime  @default(now())
+}
+
+enum ClaimStatus {
+  OPEN
+  PENDING
+  CLOSED
+}
+
+/// "Claims" (ClaimsModify.aspx). CONFIRM: legacy also has "Claims V2" — which one is in use?
+model Claim {
+  id                       String      @id @default(cuid())
+  rentalId                 String
+  rental                   Rental      @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+  claimDate                DateTime
+  claimNumber              String?
+  closeDate                DateTime?
+  type                     ClaimType
+  location                 String?
+  policeDept               String?
+  policeRep                String?
+  status                   ClaimStatus @default(OPEN)
+  deductible               Decimal?    @db.Decimal(10, 2)
+  totalPayments            Decimal?    @db.Decimal(10, 2)
+  memo                     String?
+  hasAccidentReport        Boolean     @default(false)
+  hasRenterInsurancePolicy Boolean     @default(false)
+  hasPoliceReport          Boolean     @default(false)
+  hasRentalAgreement       Boolean     @default(false)
+  createdAt                DateTime    @default(now())
+}
+
+/// "Invoices": periodic invoices on long-term rentals (+ "Add Credit Invoice").
+model RentalInvoice {
+  id            String   @id @default(cuid())
+  rentalId      String
+  rental        Rental   @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+  invoiceNumber Int      @unique @default(autoincrement())
+  numberOfDays  Int
+  beginDate     DateTime
+  endDate       DateTime
+  amount        Decimal  @db.Decimal(10, 2)
+  isCredit      Boolean  @default(false)
+  createdAt     DateTime @default(now())
+}
+
+/// Field-level change history ("Agreements Log": date, user, field, old value, new value).
+/// Generic so reservations, vehicles and customers get the same history.
+model AuditLog {
+  id         String   @id @default(cuid())
+  entityType String /// "Rental", "Reservation", …
+  entityId   String
+  field      String
+  oldValue   String?
+  newValue   String?
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  ipAddress  String?
+  at         DateTime @default(now())
+
+  @@index([entityType, entityId, at])
+}
+
+/// "Club Member" (CustomersMemberInfo.aspx). Customer.isClubMember stays as the quick flag.
+model ClubMembership {
+  id         String    @id @default(cuid())
+  customerId String    @unique
+  customer   Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  gCode      String?
+  cardNumber String?
+  issuedAt   DateTime? @db.Date
+  expiresAt  DateTime? @db.Date
+  sentAt     DateTime? @db.Date
+  status     String? /// VERIFY options
+}

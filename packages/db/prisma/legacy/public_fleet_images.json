@@ -1,0 +1,16 @@
+{
+ "Scooter": "/legacy/vehicle-types/vehicletypeid685vespa-scooter.jpg",
+ "7-Passenger Minivan": "/legacy/vehicle-types/vehicletypeid690chrysler-grand-caravan-2023.jpg",
+ "8-Passenger Minivan": "/legacy/vehicle-types/vehicletypeid691honda-odyssey-2024.jpg",
+ "Compact SUV": "/legacy/vehicle-types/vehicletypeid467hyundai-kona-2023.jpg",
+ "Premium": "/legacy/vehicle-types/vehicletypeid105dodge-charger-2023.jpg",
+ "AUDI Q7": "/legacy/vehicle-types/vehicletypeid509audi-q7.jpg",
+ "BMW 3-Series": "/legacy/vehicle-types/vehicletypeid366bmw-330xi.jpg",
+ "BMW X1": "/legacy/vehicle-types/vehicletypeid608bmw-x1-2023.jpg",
+ "Convertible": "/legacy/vehicle-types/vehicletypeid116ford-mustang-conv-2023.jpg",
+ "Dodge Challenger": "/legacy/vehicle-types/vehicletypeid544dodge-challenger-2023.jpg",
+ "Jeep Wrangler": "/legacy/vehicle-types/vehicletypeid551jeep-wrangler.png",
+ "Luxury Standard Car": "/legacy/vehicle-types/vehicletypeid115mercedes-c-class-2024.jpg",
+ "Range Rover Sport": "/legacy/vehicle-types/vehicletypeid498land-rover-land-rover-sport-2023.jpg",
+ "Intermediate Electric": "/legacy/vehicle-types/vehicletypeid615mazda-mx-30-2023.jpg"
+}

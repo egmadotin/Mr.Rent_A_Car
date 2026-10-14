@@ -1,0 +1,5 @@
+@import "@mrac/ui/globals.css";
+
+@theme inline {
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+}
