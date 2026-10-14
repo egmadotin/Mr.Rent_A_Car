@@ -82,209 +82,24 @@ Key design points:
 | Public site | `/`, `/fleet`, `/our-locations`, `/contact-us`, about/services/blogs stubs | Real location hours and contacts and class specs from mrrentacar.com. One `BookingWidget` (hero/panel/compact). Redirect `/about-mr-rent-a-car` → `/about-us` |
 | Public booking | `/book` → `/book/details` → `/book/confirmed` | Priced results (tested), details form (renders). `customer.requestReservation` creates a TENTATIVE reservation with channel "Website" and no payment |
 
-## Left off exactly here
+## Left off exactly here (Oct 14)
 
-The public booking submit is **verified**. Test reservation #7:
-- Status: TENTATIVE.
-- Channel: "Website".
-- Age, promo code and notes are stored in `customerNotes`.
+Current directive from the user: make **quotes, reservations and rentals** match RentCentric exactly (every field on create / edit / view), then the **public booking** flow exactly as mrrentacar.com, then **invoice / contract / agreement templates** identical to the old ones and editable, with permission-based edit/delete. Don't invent fields. Screenshot-compare every step. Prices: the client sends a price master sheet (they change every 2–3 days), so don't spend more time scraping rates.
+
+Status:
+- Quotes: DONE (list, Add Quote, view, Email/SMS dialogs).
+- Reservations: DONE (list, Reserve form, ReservationMain view).
+- Rentals: list DONE, **Start a Rental DONE** (commit `d99c4a3`). See "Rentals" at the bottom.
 
 Next steps, in order:
+1. **Rental view = `AgreementMain.aspx`**. Capture its field grid and action links read-only from the live ERP (open any existing agreement and do NOT save anything). Rewrite `rentals/[id]` to that layout, the same way `reservation-detail.tsx` was done. Keep our working actions (payments, end, reopen, void, exchange, bill split, tickets, claims, drivers, memo).
+2. **End Rental (check-in)**: capture the legacy check-in form fields and match them (odometer in, fuel in, date, location, charges recalc, payment).
+3. **Rental edit**: the legacy edit screen for an open agreement.
+4. **Public booking** step by step against mrrentacar.com, including the "Rental Options" step (`/rental-options/?vehicle-type=…&rate-id=…`) that we still skip; add `/book/options` using MiscCharge, and extend `customer.requestReservation`.
+5. **Templates**: AgreementsPrintSelect.aspx printouts (Bill Split Invoice, Bill to Invoice Test, Break Down, Closing Test(s), Customer Invoice, Open Contract, Open Contract-march 2017, Standard), plus Print Quote and Reservation Confirmation. Make them editable in Settings. Wire up `?print=` from Start a Rental and the disabled Print/Email links.
+6. Permissions: admins / permitted users can edit and delete anything.
 
-1. **Add the missing "Rental Options" step.** The live site has a step between Select Vehicle and the details form, at `https://www.mrrentacar.com/rental-options/?vehicle-type=…&rate-id=…`, where renters choose add-ons. Our flow skips it.
-   - Capture its options read-only.
-   - Add it as `/book/options`, using MiscCharge with `miscCharges` in `priceBooking`.
-   - Extend `customer.requestReservation` to accept the chosen add-ons.
-   - The URL also shows `isPayNow` (Settings > Rates > "Pay Now Discounts"). Confirm with the client.
-2. **Hero "Find a car" button**: it didn't navigate in one test (possibly clicked before hydration). Re-test.
-
-
-## Session 3 (Oct 12): copying the real pricing data and logic
-
-Everything was read from the live ERP with **GET requests only**. The Rates Calendar is a read-only report; it was regenerated with different dates, and nothing was saved.
-
-### Reference data copied and imported
-
-The raw copies live in `packages/db/prisma/legacy/*.json`. Legacy location IDs: 120 = YYC, 121 = Surrey, 119 = Coquitlam.
-
-- **Misc charges** (`misc_<loc>.json`): every field on MiscChargesModify (Basic + Advanced tabs) for all three locations. 346 charges.
-  - Key flags: *Default MiscCharge* (added automatically, pre-ticked and locked online), *Display Online*, *Mandatory*, *Driver is underage* / *Additional Driver is added* (automatic), group (one charge per group), value pricing, effective dates, vehicle types.
-  - Percentage charges exist, e.g. Premium Location Charge 9.75%.
-- **Insurance coverages** (`ins_<loc>.json`): every field on InsurancesModify. 126 coverages.
-  - Fields include deductible, group, the description shown on the public site, *Default Insurance* and *Display Online*.
-- **Rates** (`rates_<loc>.json`): RatesModifyNew2 header fields.
-  - Rate type "Min/Max+Regular" with a min/max length window (e.g. 3–6 days), seasons, weekdays, extra-km and fuel charges, online flag.
-- **Rate values** (`ratecal_<loc>.json`, `ratecal2_<loc>.json`): per-type Hourly/Daily/Extra/Weekly/Monthly + km allowances, taken from Rates Calendar snapshots.
-  - The rate page itself shows no values for seasonal rates. The calendar only lists a Min/Max rate when the report period fits that rate's length window, hence the second set of snapshots with several period lengths.
-  - Only the Oct/Nov seasons have online rates at YYC right now (they set rates seasonally).
-
-**Importers** (re-runnable, keyed by legacy ID):
-
-```
-docker compose exec -T dev sh -c "cd packages/db && npx tsx prisma/import-legacy-charges.ts && npx tsx prisma/import-legacy-rates.ts"
-```
-
-### Schema added
-- **MiscCharge**: all legacy fields, per location, plus the vehicle types it applies to.
-- **Insurance** + InsuranceVehicleType.
-- ChargeKind **PROTECTION**, and ChargeLine.insuranceId.
-- RateCalculation **PERCENT**.
-- **Rate**: min/max days, hours and minutes, plus `availableDays`.
-- **RateValue**: per season, extra-daily, km per hour/week/month, extra-km charge.
-- **Season**: month/day windows.
-
-### Pricing engine (`packages/api/src/lib/pricing.ts`), now matching the ERP
-- **`pickOnlineRate`**:
-  - Filters to active + Display Online rates at the pickup location that are available on the pickup weekday.
-  - Keeps rates with a value for the type in the pickup date's season, where the rental length fits min/max.
-  - The highest minimum wins. Verified on the live site: Standard at YYC for 3 days = 3 × the "3 to 5 Days" daily rate.
-- **Protection**: the chosen coverage, else the location's Default Insurance.
-- **Charges, in order**:
-  1. Default charges and automatic ones (under age by "19-20"/"21-24" name range, additional driver × count).
-  2. The renter's chosen extras, with one charge per group. Value pricing uses the cheapest monthly/weekly/daily mix.
-  3. Percentage charges, applied to everything above them.
-  4. Fixed-amount taxes, then percentage taxes on the subtotal.
-- **Live check, YYC** (Standard, Oct 20–23): GST only, 9.47 = 5% of 189.47 ✓; Premium Location 16.83 = 9.75% of 172.64 ✓.
-
-### Public booking flow
-Now: Search → Choose a car → **Rental options** (`/book/options`, new) → Your details → Confirmed.
-- **Rental options**: protections as a pick-one list with Details popups (the real ERP description text) and extras (included ones locked), plus a live total from `customer.quote`.
-- **Details**: entering the driver's age adds the under-age fee.
-
-### Staff reservation form
-- The charge list is filtered to the pickup location.
-- Default charges are added automatically.
-- New "Protection" select.
-
-### Gotchas found this session
-- **`prisma migrate dev` refuses** (non-interactive) when a migration has warnings. Generate the SQL instead:
-  ```
-  npx prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --shadow-database-url postgresql://postgres:postgres@db:5432/mrac_shadow --script > prisma/migrations/<ts>_<name>/migration.sql
-  npx prisma migrate deploy && npx prisma generate
-  ```
-  The shadow DB `mrac_shadow` exists.
-- **`apps/web/app/api/dev-ingest/route.ts`** is a TEMPORARY dev-only endpoint used to copy the scraped JSON out of the browser. **Delete it once the import is final.**
-- In Git Bash, prefix docker commands that take container paths with `MSYS_NO_PATHCONV=1`.
-
-
-### Session 3 results (latest)
-
-**Done and verified against mrrentacar.com:**
-- **YYC, Standard, Oct 20–23**: our total is **$198.94** and the live site's is $198.94. With SLC selected it's **$254.09** on both. Every line matches.
-- **Rate picking**: the daily rate is used at full precision (monthly / 30), as RentCentric does.
-- **Premium Location %**: includes the protection. Confirmed on the live site.
-- **Public extras list**: only "Display Online" charges are listed. Hidden defaults are still billed but not shown when they cost $0.
-- **Imports**:
-  - All real rates, values and seasons for YYC and Surrey: 17 rates, 2,335 values. Coquitlam has no rates of its own in RentCentric.
-  - The real percentage misc rates (Premium Location 9.75 / 13.95 / 14, Luxury Surcharge 5) were patched into `legacy/misc_*.json`.
-
-**New staff pages:**
-- **Misc charges**: `/admin/settings/misc-charges` (list, new, `[id]` edit, with the Basic/Advanced tabs as in the ERP).
-- **Insurance coverage**: `/admin/settings/insurances` (same structure).
-- **Master rates**: `/admin/settings/rates` (list + editor with a per-season, per-vehicle-type price grid).
-- **Seasons and taxes**: `/admin/settings/seasons` and `/admin/settings/taxes` (list + dialog).
-- **Not yet clicked through in the browser.** Typecheck is clean. Test them first.
-
-**Left to do, in order:**
-1. **Browser-test** the new Settings pages and the full public flow on YYC: `/book?pickup=loc_yyc&return=loc_yyc&from=2026-10-20T10:00&to=2026-10-23T10:00`.
-2. **Build `/admin/settings` (the index page).** It doesn't exist yet, so the sidebar link 404s.
-   - Copy the legacy category list from `LocationsMainSettings2.aspx` (17 categories, 80+ pages) with a search box.
-   - Link the built pages; mark the rest "not built yet".
-   - Fetch the list with GET while no long report is running: ASP.NET handles one request per session at a time.
-3. **Delete `apps/web/app/api/dev-ingest/route.ts`** and `packages/db/prisma/legacy/tools/` when scraping is finished.
-4. **Rate coverage**: only the Oct/Nov seasons have online rates in RentCentric today. Re-run the rate importer when the client adds new seasons, after re-scraping the Rates Calendar snapshots with period lengths 1/3/6/11/16/21/26 days.
-5. **Still missing** from the old ERP:
-   - Reports (~57).
-   - Other Settings pages: One Way Rates, Pay Now Discounts, Rate Blocking, Overbooking, Equipment, Users, Company CRUD, Locations/hours.
-   - Vehicle detail sub-screens (damage, maintenance, etc.).
-   - Rental Inspection Comparison.
-   - S3 uploads; email/SMS.
-6. **Public site**: mrrentacar.com has no Surrey (its online locations are YVR, Richmond, Vancouver, Burnaby, YYC). Confirm with the client which locations the new public site offers.
-
-
-### Session 4 (Oct 12): what changed
-
-**Done:**
-- **`/admin/settings` index** now exists: the legacy 17 categories with search across every page and an "only available" filter. Unbuilt pages are listed as "Not built yet".
-- **Browser-tested**:
-  - Master rates list and rate editor (real seasonal per-type prices show correctly).
-  - Misc charges list.
-- **PROTECTION charges** are now counted in rental Options Total, both in `totals.ts` and the charge table.
-- **Importer**:
-  - Retires seed-only misc charges with no legacy ID, which removes the duplicate rows.
-  - Reads the `Rate` field for FLAT charges.
-
-**~~Known gap: flat misc charges show $0.00~~ — fixed Oct 13** (`misc2_<loc>.json` re-scraped with every form field; Admin Fee GP = $100 everywhere).
-
-<details><summary>old notes</summary>
-
-**Known gap: flat misc charges show $0.00.**
-- Affects 59 charges per location (e.g. Admin Fee GP should be $100).
-- The flat amount is in the edit form's `Rate` field, which the scrape didn't capture.
-- **Fix:**
-  1. Log in to RentCentric.
-  2. In a RentCentric tab, re-scrape only that field (GET, read-only) and post it to `/api/dev-ingest`.
-  3. Write the values into `legacy/misc_<loc>.json` as `"Rate"`.
-  4. Re-run `import-legacy-charges.ts`.
-- Snippet:
-  ```js
-  // run on www8.rentcentric.com/Client6270 while logged in; loc = 119 | 120 | 121
-  const out={}; for (const id of IDS) { const h=await (await fetch('MiscChargesModify.aspx?LocationID='+loc+'&MiscChargeID='+id)).text();
-    const d=new DOMParser().parseFromString(h,'text/html'); out[id]=d.querySelector('[id$="_Rate"]')?.getAttribute('value'); }
-  ```
-
-**RentCentric session expired** during this session (it now redirects to the login page). Log back in before any further live cross-checks; the agent must not sign in.
-
-**Dev note:** the occasional "Unexpected end of JSON input" overlay in dev is a webpack compile race. Just reload the page.
-
-
-## Session 5 (Oct 12): module-by-module parity. **Quotes: DONE**
-
-The user's instruction: finish one module at a time, field by field, against the old ERP (fill test data in old forms but **never save**). The **printed customer documents** (quote / reservation / rental agreement / invoice) are the most important part. Order: **Quotes → Reservations → Rentals**.
-
-### Quotes: matched to the legacy screens
-- **Add Quote**: the legacy QuotesModify.aspx fields, with Rate *required*.
-  - **Rate dropdown** = every active rate at the location for the type, "CODE ($daily)". Verified identical to legacy (7 rates, same prices).
-  - **Options grid**: shared component `(erp)/_components/options-grid.tsx`, data from `staff.booking.options`. Insurances, misc charges and taxes, in legacy order:
-    - ungrouped items are checkboxes; grouped ones are pick-one radios with a clear (x);
-    - defaults are pre-ticked;
-    - taxes can be unticked (stored as `excludedTaxIds` on Quote/Reservation/Rental);
-    - min/max-days filtering applies.
-  - **Verified**: an exact row-by-row diff against the legacy grid (Surrey, Standard): 50/50 rows, same rates, defaults and groups.
-  - **Other Charges 1–4**: amount, detail, description (lines of kind OTHER).
-  - **Quote contact**: first, last, email, phone (from legacy Email/SMS Quote).
-- **Pricing (`lib/pricing.ts`)**:
-  - Part days for protections and charges are prorated at `round(daily/24,2)` per extra hour. Verified against legacy quote 81100002: ODW SF 30 h = $42.41.
-  - Charges without an hourly rate round up to a full day.
-  - Multiple insurances, tax-exempt and other charges are supported.
-  - "Min/Max+Regular" counts as exact.
-- **Quote detail**: legacy fields; charge table in legacy order (Total T&M / Options Total / Sub Total / taxes / Total).
-  - Print quote: `/admin/print/quotes/[id]`, shared kit in `admin/print/_components/print-kit.tsx`, matches PrintQuoteRW.aspx section by section; always light theme.
-  - Email Quote and SMS Quote dialogs have the legacy fields. No provider yet, so they save the contact and log a memo.
-- **Quote list**: added the Advanced Search filters (date range, location).
-- **Data fixes**:
-  - `prisma/patch-legacy-lists.ts` applies the real rates (flat amounts, negatives, %) and Active flags from the legacy list pages (`legacy/lists.json`), plus pick-one groups from the legacy grid (`legacy/grid_union.json`).
-  - Run it after `import-legacy-charges.ts`.
-
-### Time zones: important, app-wide
-- **Bookings are Canadian local time at the location.** New `Location.timeZone`: Surrey/Coquitlam `America/Vancouver`, YYC `America/Edmonton`.
-- **Helpers**: `@mrac/ui/lib/tz` (copy in `packages/api/src/lib/tz.ts`). `dateTime()`, `toDateTimeLocal()` and `fromDateTimeLocal()` all default to business time.
-- **Every datetime-local input** now parses with `fromDateTimeLocal`. **Never use `new Date("YYYY-MM-DDTHH:mm")`**: it uses the viewer's zone (the user is in India).
-- **Date-only columns** are compared via `localDateAsUtc` (fixes an off-by-one on end dates).
-
-### Not done for quotes
-- Logo and vehicle-class photo on the print: placeholders. Real images need a decision on downloading assets.
-- Quote Edit/Delete were not re-tested in the browser this session.
-
-### Next: Reservations (same method)
-1. In the legacy **Reserve** form (`ReservationsModfiy.aspx?HomeToRes=Yes`), fill test data without saving.
-2. Dump every field: Customer tab, Reservation tab, payment panel, status checkboxes, pickup/drop-off modal, options grid (after location, dates and type).
-3. Compare with ours.
-4. Move the reservation form onto the shared `OptionsGrid` and `staff.booking.preview`; it still uses the old misc-quantity list.
-</details>
-
-5. Find the legacy **print reservation / invoice** templates on ReservationMain.aspx (Print Reservation Detail, Print Invoice, Email Reservation Form/Invoice) and build them with the print kit.
-6. Then the same for **Rentals**: CheckOut3.aspx, End Rental, AgreementMain, and **AgreementsPrintSelect.aspx (rental agreement + invoice templates, the most important)**.
+Test data in the local DB only: rental #3 + customer "Walkin Tester" (from the Start a Rental test).
 
 ## Still to do
 
@@ -303,7 +118,7 @@ The user's instruction: finish one module at a time, field by field, against the
    - Email/SMS (buttons are disabled with tooltips).
 5. **Pricing**: only the "Standard" rate type is exact. Others are approximate and the UI shows a warning (`lib/pricing.ts`).
 6. **Data migration** from RentCentric (CSV import, per spec). Every model has a `legacyId` field. The `registrationChannel` mapping bug noted in the spec still needs fixing.
-7. **Deployment** (AWS ECS Fargate, RDS ca-central-1, S3) is not set up. No git repo yet: run `git init` when the user asks.
+7. **Deployment** (AWS ECS Fargate, RDS ca-central-1, S3) is not set up. Code is on GitHub at egmadotin/Mr.Rent_A_Car (commit as EGMA, no Claude co-author line).
 
 ## Verification method used
 
