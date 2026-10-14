@@ -1,16 +1,23 @@
+import Link from "next/link";
+import { PlusCircleIcon } from "lucide-react";
+import { Button } from "@mrac/ui/components/button";
 import { PageHeader } from "../../../_components/page-header";
-import { requireStaff } from "../../../_lib/session";
+import { workingLocationId } from "../../../_lib/session";
 import { RentalsList } from "./rentals-list";
 
-export const metadata = { title: "Rentals" };
+export const metadata = { title: "Rent" };
 
+/** AgreementsSearch.aspx: titled "Rent", with "Start Rental". `?status=` comes from the dashboard tiles. */
 export default async function RentalsPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
-  await requireStaff();
+  const locationId = await workingLocationId();
   const { status } = await searchParams;
   return (
     <>
-      <PageHeader title="Rentals" description="Rental agreements across all locations." />
-      <RentalsList initialStatus={status === "OPEN" || status === "CLOSED" || status === "VOIDED" ? status : undefined} />
+      <PageHeader
+        title="Rent"
+        actions={<Button asChild><Link href="/admin/rentals/new"><PlusCircleIcon /> Start Rental</Link></Button>}
+      />
+      <RentalsList defaultLocationId={locationId} initialStatus={status === "OPEN" || status === "CLOSED" || status === "VOIDED" ? status : undefined} />
     </>
   );
 }

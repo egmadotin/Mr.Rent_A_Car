@@ -37,32 +37,89 @@ async function syncTicketLine(tx: Prisma.TransactionClient, rentalId: string) {
 }
 
 export const rentalRouter = router({
+  /**
+   * AgreementsSearch.aspx ("Rent"): quick search (Rental # OR First Name OR Last Name) + Advanced Search
+   * (Rental #, Reservation#, Pick-up / Return Date Begin–End, First/Last Name, Phone Number, Company/Corporate,
+   * Exchanged, Vehicle ID, License Plate, Vehicle Make, Vehicle Type, Location Name, Loc. Out, Loc. In, Ticket Date,
+   * Status, Credit Card #, Claim#, RO#, PO#, SSN, Rate Type, Invoice#). Sorted by pickup date.
+   */
   list: staffProcedure
     .input(
       z.object({
         status: z.enum(["OPEN", "CLOSED", "VOIDED"]).optional(),
+        /** RentCentric status filter: Open | Pending | Close | Cancelled */
+        legacyStatus: z.enum(["Open", "Pending", "Close", "Cancelled"]).optional(),
         search: z.string().optional(),
+        raNumber: z.string().optional(),
+        reservationNumber: z.string().optional(),
+        pickupFrom: z.coerce.date().optional(),
+        pickupTo: z.coerce.date().optional(),
+        returnFrom: z.coerce.date().optional(),
+        returnTo: z.coerce.date().optional(),
+        firstName: z.string().optional(),
+        lastName: z.string().optional(),
+        phone: z.string().optional(),
+        companyId: z.string().optional(),
+        exchanged: z.boolean().optional(),
+        vehicleAssignedId: z.string().optional(),
+        licensePlate: z.string().optional(),
+        makeId: z.string().optional(),
+        vehicleTypeId: z.string().optional(),
+        locationId: z.string().optional(),
+        checkOutLocationId: z.string().optional(),
+        checkInLocationId: z.string().optional(),
+        ticketDate: z.coerce.date().optional(),
+        cardNumber: z.string().optional(),
+        claimNumber: z.string().optional(),
+        roNumber: z.string().optional(),
+        poNumber: z.string().optional(),
+        ssn: z.string().optional(),
+        rateType: z.string().optional(),
+        invoiceNumber: z.string().optional(),
         page: z.number().int().min(1).default(1),
-        pageSize: z.number().int().min(10).max(200).default(25),
+        pageSize: z.number().int().min(10).max(200).default(200),
       }),
     )
     .query(async ({ ctx, input }) => {
-      const q = input.search?.trim();
-      const asNumber = q && /^\d+$/.test(q) ? Number(q) : undefined;
+      const t = (v?: string) => v?.trim() || undefined;
+      const ci = (v: string) => ({ contains: v, mode: "insensitive" as const });
+      const int = (v?: string) => (t(v) && /^\d+$/.test(t(v)!) ? Number(t(v)) : undefined);
+      const q = t(input.search);
+      const asNumber = int(q);
+      const STATUS: Record<string, Prisma.RentalWhereInput["status"]> = { Open: "OPEN", Close: "CLOSED", Cancelled: "VOIDED", Pending: { in: [] } };
+      const dayRange = (d?: Date) => (d ? { gte: d, lt: new Date(+d + 86_400_000) } : undefined);
+      const and: Prisma.RentalWhereInput[] = [
+        ...(q ? [{ OR: [...(asNumber ? [{ raNumber: asNumber }] : []), { customer: { firstName: ci(q) } }, { customer: { lastName: ci(q) } }] }] : []),
+        ...(int(input.raNumber) ? [{ raNumber: int(input.raNumber) }] : []),
+        ...(int(input.reservationNumber) ? [{ reservation: { number: int(input.reservationNumber) } }] : []),
+        ...(t(input.firstName) ? [{ customer: { firstName: ci(t(input.firstName)!) } }] : []),
+        ...(t(input.lastName) ? [{ customer: { lastName: ci(t(input.lastName)!) } }] : []),
+        ...(t(input.phone) ? [{ customer: { phone: { contains: t(input.phone)! } } }] : []),
+        ...(t(input.ssn) ? [{ customer: { ssn: { contains: t(input.ssn)! } } }] : []),
+        ...(input.exchanged ? [{ vehicleSegments: { some: { endsAt: { not: null } } } }] : []),
+        ...(t(input.vehicleAssignedId) ? [{ vehicle: { assignedId: ci(t(input.vehicleAssignedId)!) } }] : []),
+        ...(t(input.licensePlate) ? [{ vehicle: { licenseNumber: ci(t(input.licensePlate)!) } }] : []),
+        ...(t(input.makeId) ? [{ vehicle: { makeId: t(input.makeId) } }] : []),
+        ...(input.ticketDate ? [{ trafficTickets: { some: { ticketDate: dayRange(input.ticketDate) } } }] : []),
+        ...(t(input.cardNumber) ? [{ payments: { some: { cardLast4: { contains: t(input.cardNumber)!.slice(-4) } } } }] : []),
+        ...(t(input.claimNumber) ? [{ OR: [{ claimNumber: ci(t(input.claimNumber)!) }, { claims: { some: { claimNumber: ci(t(input.claimNumber)!) } } }] }] : []),
+        ...(t(input.roNumber) ? [{ roNumber: ci(t(input.roNumber)!) }] : []),
+        ...(t(input.poNumber) ? [{ poNumber: ci(t(input.poNumber)!) }] : []),
+        ...(t(input.rateType) ? [{ rate: { rateType: t(input.rateType) } }] : []),
+        ...(int(input.invoiceNumber) ? [{ invoices: { some: { invoiceNumber: int(input.invoiceNumber) } } }] : []),
+        // "Location Name": the rental's own location (where it was opened)
+        ...(t(input.locationId) ? [{ checkOutLocationId: t(input.locationId) }] : []),
+      ];
       const where: Prisma.RentalWhereInput = {
         deletedAt: null,
-        status: input.status,
-        ...(q
-          ? {
-              OR: [
-                ...(asNumber ? [{ raNumber: asNumber }] : []),
-                { customer: { lastName: { contains: q, mode: "insensitive" } } },
-                { customer: { firstName: { contains: q, mode: "insensitive" } } },
-                { vehicle: { assignedId: { contains: q, mode: "insensitive" } } },
-                { company: { name: { contains: q, mode: "insensitive" } } },
-              ],
-            }
-          : {}),
+        status: input.legacyStatus ? STATUS[input.legacyStatus] : input.status,
+        companyId: t(input.companyId),
+        vehicleTypeId: t(input.vehicleTypeId),
+        checkInLocationId: t(input.checkInLocationId),
+        ...(t(input.checkOutLocationId) ? { checkOutLocationId: t(input.checkOutLocationId) } : {}),
+        checkOutAt: { gte: input.pickupFrom, lte: input.pickupTo },
+        expectedReturnAt: { gte: input.returnFrom, lte: input.returnTo },
+        AND: and,
       };
       const [total, rows] = await Promise.all([
         ctx.prisma.rental.count({ where }),
@@ -82,7 +139,7 @@ export const rentalRouter = router({
             company: { select: { name: true } },
             vehicleType: { select: { name: true } },
             vehicle: { select: { assignedId: true } },
-            checkOutLocation: { select: { name: true } },
+            checkOutLocation: { select: { name: true, timeZone: true } },
             checkInLocation: { select: { name: true } },
           },
         }),

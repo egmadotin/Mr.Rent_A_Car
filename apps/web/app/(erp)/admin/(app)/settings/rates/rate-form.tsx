@@ -12,15 +12,9 @@ import { Input } from "@mrac/ui/components/input";
 import { NativeSelect } from "@mrac/ui/components/native-select";
 import { toast } from "@mrac/ui/components/sonner";
 import { cn } from "@mrac/ui/lib/utils";
+import { RATE_TYPES } from "@mrac/ui/lib/rate-types";
 import { CheckField, Field, FormErrorsContext, SelectField, errorMessage, fieldErrorsOf, formToObject } from "../../../../_components/form";
 
-/** Legacy "Rate Type" list (RatesModifyNew2.aspx). */
-const RATE_TYPES = [
-  "Standard",
-  ...Array.from({ length: 30 }, (_, i) => `${i + 1} Day Multiday`),
-  "5 Hour Flat", "Hourly Rate Only", "Daily Rate Only", "Weekly Rate Only", "Monthly Rate Only", "Weekend", "Min/Max Days", "Min/Max+Regular",
-  ...Array.from({ length: 30 }, (_, i) => `${i + 1} Day Flat`),
-];
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const COLS = [
   ["hourly", "Hourly"], ["daily", "Daily"], ["extraDaily", "Extra daily"], ["weekly", "Weekly"], ["monthly", "Monthly"],
