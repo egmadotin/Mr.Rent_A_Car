@@ -37,6 +37,8 @@ export type PricingInput = {
   otherCharges?: { amount: number; description?: string | null; detail?: string | null }[];
   /** add the location's "Default MiscCharge" items automatically (RentCentric behaviour). Default true. */
   includeDefaults?: boolean;
+  /** public website: only defaults that are also "Web Customer" (displayOnline) are added, as on mrrentacar.com */
+  online?: boolean;
   /** primary driver's age — adds the matching "Driver is underage" charge when under 25 */
   driverAge?: number | null;
   /** number of additional drivers — adds the "Additional Driver is added" charge × count */
@@ -302,7 +304,7 @@ export async function priceBooking(tx: Tx, input: PricingInput) {
     where: {
       ...where,
       OR: [
-        ...(input.includeDefaults === false ? [] : [{ isDefault: true }]),
+        ...(input.includeDefaults === false ? [] : [{ isDefault: true, ...(input.online ? { displayOnline: true } : {}) }]),
         ...(input.driverAge != null && input.driverAge < 25 ? [{ autoWhenUnderAge: true }] : []),
         ...((input.additionalDrivers ?? 0) > 0 ? [{ autoWhenAdditionalDriver: true }] : []),
       ],
@@ -368,16 +370,16 @@ export async function priceBooking(tx: Tx, input: PricingInput) {
     lines.push({ kind: "TAX", name: tax.name, units: D(units), rate: tax.value, total: tax.value.mul(units), taxId: tax.id, sortOrder: 50 + sort++ });
   }
   const subTotal = lines.reduce((a, l) => a.add(l.total), ZERO);
-  for (const { tax } of taxes.filter((t) => t.tax.kind === "PERCENT")) {
-    lines.push({
-      kind: "TAX",
-      name: tax.name,
-      units: D(1),
-      rate: tax.value,
-      total: subTotal.mul(tax.value).div(100).toDecimalPlaces(2),
-      taxId: tax.id,
-      sortOrder: 60 + sort++,
-    });
+  const otherIndex = new Map(lines.filter((l) => l.kind === "OTHER").map((l, i) => [l, i + 1]));
+  for (const lt of taxes.filter((t) => t.tax.kind === "PERCENT")) {
+    const { tax } = lt;
+    // RentCentric taxes each line it applies to and rounds per line (.NET: half to even); without imported rules, the subtotal
+    const total = lt.hasRules
+      ? lines
+          .filter((l) => taxApplies(lt, l, otherIndex.get(l)))
+          .reduce((a, l) => a.add(l.total.toDecimalPlaces(2).mul(tax.value).div(100).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_EVEN)), ZERO)
+      : subTotal.mul(tax.value).div(100).toDecimalPlaces(2);
+    lines.push({ kind: "TAX", name: tax.name, units: D(1), rate: tax.value, total, taxId: tax.id, sortOrder: 60 + sort++ });
   }
 
   for (const l of lines) l.total = l.total.toDecimalPlaces(2);
@@ -385,4 +387,33 @@ export async function priceBooking(tx: Tx, input: PricingInput) {
   // per-class extra-km charge from the rate value, else the rate's
   const extraKmCharge = rv?.extraKmCharge ?? rate?.extraKmCharge ?? null;
   return { lines, total, subTotal, days, hours, approximate, warnings, extraKmCharge };
+}
+
+/** Whether a location tax's "Apply to" rules (TaxesModify.aspx) cover a charge line. `other` = n of "Other Charges n". */
+function taxApplies(
+  lt: { appliesTo: string[]; miscChargeIds: string[]; insuranceIds: string[]; taxIds: string[] },
+  l: ChargeDraft,
+  other?: number,
+) {
+  const on = (k: string) => lt.appliesTo.includes(k);
+  switch (l.kind) {
+    case "TIME":
+    case "UPGRADE":
+    case "DISCOUNT":
+      return on("TIME");
+    case "MILEAGE":
+      return on("MILEAGE");
+    case "FUEL":
+      return on("FUEL");
+    case "PROTECTION":
+      return on("INSURANCE") || (!!l.insuranceId && lt.insuranceIds.includes(l.insuranceId));
+    case "MISC":
+      return on("MISC") || (!!l.miscChargeId && lt.miscChargeIds.includes(l.miscChargeId));
+    case "OTHER":
+      return !!other && on(`OTHER${other}`);
+    case "TAX":
+      return on("TAX") || (!!l.taxId && lt.taxIds.includes(l.taxId));
+    default:
+      return false;
+  }
 }

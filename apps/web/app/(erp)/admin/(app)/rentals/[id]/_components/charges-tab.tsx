@@ -11,7 +11,7 @@ import { cn } from "@mrac/ui/lib/utils";
 import { Field, FormDialog, PAYMENT_METHOD_OPTIONS, SelectField } from "../../../../../_components/form";
 import { Empty, Section } from "./section-kit";
 import { useRentalActions, type RentalData } from "./use-rental";
-import { isPercentLine } from "../../../../../_lib/charge-lines";
+import { isPercentLine } from "@mrac/ui/lib/charge-lines";
 
 type Line = RentalData["rental"]["chargeLines"][number];
 

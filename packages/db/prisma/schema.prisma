@@ -741,6 +741,17 @@ model LocationTax {
   taxId      String
   tax        Tax      @relation(fields: [taxId], references: [id], onDelete: Cascade)
 
+  /// RentCentric TaxID at this location (TaxesModify.aspx)
+  legacyId      Int?     @unique
+  /// false = no "Apply to" rules imported: the % applies to the whole subtotal (old behaviour)
+  hasRules      Boolean  @default(false)
+  /// "Apply to" ticks: TIME, MILEAGE, MISC (all), INSURANCE (all), TAX (all taxable), FUEL, DAMAGE, ONE_WAY, OTHER1..OTHER4
+  appliesTo     String[] @default([])
+  /// the misc charges / insurances / taxes ticked in the tax's lists
+  miscChargeIds String[] @default([])
+  insuranceIds  String[] @default([])
+  taxIds        String[] @default([])
+
   @@id([locationId, taxId])
 }
 

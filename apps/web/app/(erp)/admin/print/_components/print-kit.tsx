@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element -- printed documents use plain <img> so they render identically in print */
 import { money } from "@mrac/ui/lib/format";
 import { cn } from "@mrac/ui/lib/utils";
-import { isPercentLine } from "../../../_lib/charge-lines";
+import { isPercentLine } from "@mrac/ui/lib/charge-lines";
 
 /** Company-wide details printed on every customer document (legacy print header / footer). */
 export const COMPANY = {

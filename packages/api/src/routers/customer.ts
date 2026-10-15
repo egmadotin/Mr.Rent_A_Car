@@ -76,6 +76,7 @@ export const customerRouter = router({
       const rate = await pickOnlineRate(ctx.prisma, { locationId: input.pickupLocationId, vehicleTypeId: t.id, pickupAt: input.pickupAt, returnAt: input.returnAt });
       if (!rate) continue;
       const priced = await priceBooking(ctx.prisma, {
+        online: true,
         pickupAt: input.pickupAt,
         returnAt: input.returnAt,
         locationId: input.pickupLocationId,
@@ -119,6 +120,7 @@ export const customerRouter = router({
         id: i.id,
         name: i.name,
         description: i.description,
+        image: i.imageKey,
         deductible: i.deductible?.toFixed(2) ?? null,
         isDefault: i.isDefault,
         total: (i.calculationBy === "FLAT" ? i.dailyRate : periodTotal({ rate: i.dailyRate, weeklyRate: i.weeklyRate, monthlyRate: i.monthlyRate, valuePricing: i.valuePricing }, days)).toFixed(2),
@@ -127,6 +129,7 @@ export const customerRouter = router({
         id: m.id,
         name: m.name,
         description: m.description,
+        image: m.imageKey,
         /** pre-checked and locked online */
         included: m.isDefault || m.isMandatory,
         multiSelect: m.multiSelectOnline && !m.isDefault,
@@ -153,6 +156,7 @@ export const customerRouter = router({
       const rate = await pickOnlineRate(ctx.prisma, { locationId: input.pickupLocationId, vehicleTypeId: input.vehicleTypeId, pickupAt: input.pickupAt, returnAt: input.returnAt });
       if (!rate) return null;
       const priced = await priceBooking(ctx.prisma, {
+        online: true,
         pickupAt: input.pickupAt,
         returnAt: input.returnAt,
         locationId: input.pickupLocationId,
@@ -162,7 +166,7 @@ export const customerRouter = router({
         miscCharges: input.miscCharges,
         driverAge: input.driverAge,
       });
-      // like mrrentacar.com: charges that aren't "Display Online" are still billed but only listed if they cost something
+      // zero-cost charges that aren't "Display Online" (e.g. under-age / driver fees not applying) stay off the summary
       const hidden = new Set(
         (await ctx.prisma.miscCharge.findMany({ where: { id: { in: priced.lines.map((l) => l.miscChargeId).filter((x): x is string => !!x) }, displayOnline: false }, select: { id: true } })).map((m) => m.id),
       );
@@ -172,7 +176,7 @@ export const customerRouter = router({
         total: priced.total.toFixed(2),
         lines: priced.lines
           .filter((l) => l.kind !== "MILEAGE" && !(l.miscChargeId && hidden.has(l.miscChargeId) && l.total.isZero()))
-          .map((l) => ({ name: l.name, total: l.total.toFixed(2), kind: l.kind })),
+          .map((l) => ({ name: l.name, total: l.total.toFixed(2), kind: l.kind, sortOrder: l.sortOrder })),
       };
     }),
 
@@ -220,6 +224,7 @@ export const customerRouter = router({
           });
 
           const priced = await priceBooking(tx, {
+            online: true,
             pickupAt: s.pickupAt,
             returnAt: s.returnAt,
             locationId: s.pickupLocationId,

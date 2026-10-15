@@ -11,7 +11,6 @@ import { NativeSelect } from "@mrac/ui/components/native-select";
 import { BUSINESS_TZ, dateTime, fromDateTimeLocal, money } from "@mrac/ui/lib/format";
 import { BookingWidget, toQuery, type BookingSearch } from "../_components/booking-widget";
 import { VehicleClassCard } from "../_components/vehicle-class-card";
-import { BookingSteps } from "./steps";
 
 export function BookResults({ search }: { search: BookingSearch }) {
   const trpc = useTRPC();
@@ -34,8 +33,6 @@ export function BookResults({ search }: { search: BookingSearch }) {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 px-4 py-8">
-      <BookingSteps current={1} />
-
       {/* Booking summary bar (legacy "Change booking info") */}
       <section aria-label="Your search" className="rounded-xl border bg-card p-4">
         {editing || !valid ? (

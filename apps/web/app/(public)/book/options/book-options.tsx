@@ -1,17 +1,16 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeftIcon, ArrowRightIcon, CheckIcon, InfoIcon, LockIcon, ShieldCheckIcon } from "lucide-react";
+import { ArrowRightIcon, CheckIcon, InfoIcon } from "lucide-react";
 import { useTRPC } from "@mrac/api/client";
-import { Badge } from "@mrac/ui/components/badge";
 import { Button } from "@mrac/ui/components/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@mrac/ui/components/dialog";
-import { BUSINESS_TZ, dateTime, fromDateTimeLocal, money } from "@mrac/ui/lib/format";
+import { BUSINESS_TZ, fromDateTimeLocal, money } from "@mrac/ui/lib/format";
 import { cn } from "@mrac/ui/lib/utils";
 import { toQuery, type BookingSearch } from "../../_components/booking-widget";
+import { BookingBanner, BookingSummary, legacyStamp } from "../booking-summary";
 import { BookingSteps } from "../steps";
 
 /** Encodes chosen extras for the URL: "id:qty,id:qty". */
@@ -70,136 +69,101 @@ export function BookOptions({ search, vehicleTypeId }: { search: BookingSearch; 
     router.push(`/book/details?${q}`);
   }
 
+  const rentalCharges = (quote.data?.lines ?? []).filter((l) => l.kind === "TIME").reduce((a, l) => a + Number(l.total), 0);
+  const when = (v?: string) => (v ? legacyStamp(fromDateTimeLocal(v, tz), tz) : "");
+  const detailsLink = (title: string, body: string | null) =>
+    body ? (
+      <button type="button" className="ml-1 font-semibold italic hover:underline" onClick={(e) => { e.preventDefault(); setDetails({ title, body }); }}>
+        (Details)
+      </button>
+    ) : null;
+
   return (
-    <div className="mx-auto max-w-6xl space-y-6 px-4 py-8">
-      <BookingSteps current={2} />
-      <Button variant="ghost" size="sm" asChild className="px-0">
-        <Link href={`/book?${toQuery(search)}`}><ArrowLeftIcon /> Back to vehicles</Link>
-      </Button>
+    <>
+      <BookingBanner title="Rental Options" />
+      <div className="mx-auto max-w-5xl space-y-8 px-4 py-8">
+        <BookingSteps current={2} hrefs={[`/book?${toQuery(search)}`]} />
+        <BookingSummary
+          pickup={{ location: locName(search.pickup), when: when(search.from) }}
+          dropoff={{ location: locName(search.return ?? search.pickup), when: when(search.to) }}
+          vehicle={vt}
+          lines={quote.data?.lines}
+          total={quote.data?.total}
+        />
+        {opts.isLoading && <p className="text-muted-foreground">Loading options…</p>}
+        {opts.error && <p role="alert" className="text-destructive">{opts.error.message}</p>}
 
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_22rem]">
-        <div className="space-y-8">
-          <h1 className="text-2xl font-bold">Rental options</h1>
-          {opts.isLoading && <p className="text-muted-foreground">Loading options…</p>}
-          {opts.error && <p role="alert" className="text-destructive">{opts.error.message}</p>}
+        {opts.data && opts.data.protections.length > 0 && (
+          <section aria-labelledby="prot-h" className="space-y-3 border-t pt-8">
+            <h2 id="prot-h" className="text-xl">Protections &amp; Coverages</h2>
+            <div role="radiogroup" aria-labelledby="prot-h" className="grid gap-3">
+              {opts.data.protections.map((p) => (
+                <label key={p.id} className="flex cursor-pointer items-center gap-3 rounded-sm bg-muted px-3 py-2.5 text-sm">
+                  <OptionIcon src={p.image} />
+                  <input type="radio" name="protection" className="accent-primary" checked={insuranceId === p.id} onChange={() => setInsuranceId(p.id)} />
+                  <span className="flex-1 uppercase text-muted-foreground">
+                    {p.name}
+                    {detailsLink(p.name, p.description)}
+                  </span>
+                  <span className="pr-4 tabular-nums text-muted-foreground">{money(p.total)}</span>
+                </label>
+              ))}
+            </div>
+          </section>
+        )}
 
-          {opts.data && opts.data.protections.length > 0 && (
-            <section aria-labelledby="prot-h" className="space-y-3">
-              <h2 id="prot-h" className="flex items-center gap-2 text-lg font-semibold"><ShieldCheckIcon className="size-5 text-primary" /> Protections & coverages</h2>
-              <div role="radiogroup" aria-labelledby="prot-h" className="grid gap-2">
-                {opts.data.protections.map((p) => {
-                  const on = insuranceId === p.id;
-                  return (
-                    <label
-                      key={p.id}
-                      className={cn("flex cursor-pointer items-center gap-3 rounded-lg border bg-card p-4 transition-colors hover:border-primary/60", on && "border-primary ring-1 ring-primary")}
-                    >
-                      <input type="radio" name="protection" className="accent-primary" checked={on} onChange={() => setInsuranceId(p.id)} />
-                      <span className="flex-1">
-                        <span className="font-medium">{p.name}</span>
-                        {p.deductible && Number(p.deductible) > 0 && <span className="ml-2 text-xs text-muted-foreground">{money(p.deductible)} deductible</span>}
-                        {p.description && (
-                          <button
-                            type="button"
-                            className="ml-2 text-xs font-medium text-primary underline-offset-2 hover:underline"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              setDetails({ title: p.name, body: p.description! });
-                            }}
-                          >
-                            Details
-                          </button>
-                        )}
-                      </span>
-                      <span className="font-semibold tabular-nums">{money(p.total)}</span>
+        {opts.data && opts.data.extras.length > 0 && (
+          <section aria-labelledby="extra-h" className="space-y-3">
+            <h2 id="extra-h" className="text-xl">Choose Extra Options</h2>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {opts.data.extras.map((x) => {
+                const qty = x.included ? 1 : extras[x.id] ?? 0;
+                const price = x.percent ? (rentalCharges * Number(x.percent)) / 100 : Number(x.total);
+                return (
+                  <div key={x.id} className="flex items-center gap-3 rounded-sm bg-muted px-3 py-2.5 text-sm">
+                    <OptionIcon src={x.image} />
+                    <input
+                      id={`x-${x.id}`}
+                      type="checkbox"
+                      className="size-4 accent-primary"
+                      checked={qty > 0}
+                      disabled={x.included}
+                      title={x.included ? "Included with every rental" : undefined}
+                      onChange={(e) =>
+                        setExtras((s) => {
+                          const n = { ...s, [x.id]: e.target.checked ? 1 : 0 };
+                          // one charge per group (e.g. a single snow-tire option)
+                          if (e.target.checked && x.group)
+                            for (const o of opts.data!.extras) if (o.group === x.group && o.id !== x.id) n[o.id] = 0;
+                          return n;
+                        })
+                      }
+                    />
+                    <label htmlFor={`x-${x.id}`} className="flex-1 uppercase text-muted-foreground">
+                      {x.name}
+                      {detailsLink(x.name, x.description)}
                     </label>
-                  );
-                })}
-              </div>
-            </section>
-          )}
+                    {x.multiSelect && qty > 0 && (
+                      <select
+                        aria-label={`${x.name} quantity`}
+                        className="h-8 rounded-md border bg-background px-1 text-sm"
+                        value={qty}
+                        onChange={(e) => setExtras((s) => ({ ...s, [x.id]: Number(e.target.value) }))}
+                      >
+                        {[1, 2, 3, 4].map((n) => <option key={n} value={n}>{n}</option>)}
+                      </select>
+                    )}
+                    <span className="tabular-nums text-muted-foreground">{money(price)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
 
-          {opts.data && opts.data.extras.length > 0 && (
-            <section aria-labelledby="extra-h" className="space-y-3">
-              <h2 id="extra-h" className="text-lg font-semibold">Extra options</h2>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {opts.data.extras.map((x) => {
-                  const qty = x.included ? 1 : extras[x.id] ?? 0;
-                  return (
-                    <div key={x.id} className={cn("flex items-center gap-3 rounded-lg border bg-card p-4", qty > 0 && !x.included && "border-primary")}>
-                      {x.included ? (
-                        <span className="grid size-4 place-items-center rounded-sm bg-muted text-muted-foreground" title="Included with every rental"><LockIcon className="size-3" /></span>
-                      ) : (
-                        <input
-                          id={`x-${x.id}`}
-                          type="checkbox"
-                          className="size-4 accent-primary"
-                          checked={qty > 0}
-                          onChange={(e) =>
-                            setExtras((s) => {
-                              const n = { ...s, [x.id]: e.target.checked ? 1 : 0 };
-                              // one charge per group (e.g. a single snow-tire option)
-                              if (e.target.checked && x.group)
-                                for (const o of opts.data!.extras) if (o.group === x.group && o.id !== x.id) n[o.id] = 0;
-                              return n;
-                            })
-                          }
-                        />
-                      )}
-                      <label htmlFor={`x-${x.id}`} className="flex-1 text-sm">
-                        <span className="font-medium">{x.name}</span>
-                        {x.included && <Badge variant="muted" className="ml-2">Included</Badge>}
-                        {x.description && (
-                          <button type="button" className="ml-2 text-xs font-medium text-primary hover:underline" onClick={() => setDetails({ title: x.name, body: x.description! })}>
-                            Details
-                          </button>
-                        )}
-                      </label>
-                      {x.multiSelect && qty > 0 && (
-                        <select
-                          aria-label={`${x.name} quantity`}
-                          className="h-8 rounded-md border bg-background px-1 text-sm"
-                          value={qty}
-                          onChange={(e) => setExtras((s) => ({ ...s, [x.id]: Number(e.target.value) }))}
-                        >
-                          {[1, 2, 3, 4].map((n) => <option key={n} value={n}>{n}</option>)}
-                        </select>
-                      )}
-                      <span className="text-sm font-semibold tabular-nums">{x.percent ? `${Number(x.percent)}%` : money(x.total)}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-          )}
+        <div className="flex justify-end">
+          <Button size="lg" onClick={next} disabled={!opts.data}>Continue <ArrowRightIcon /></Button>
         </div>
-
-        <aside className="space-y-3 rounded-xl border bg-card p-5 lg:sticky lg:top-28 lg:self-start">
-          <h2 className="font-semibold">Your booking</h2>
-          <div className="text-lg font-bold">{vt?.name ?? "…"}</div>
-          <dl className="space-y-1 text-sm">
-            <div><dt className="inline text-muted-foreground">Pick-up: </dt><dd className="inline">{locName(search.pickup)}, {dateTime(fromDateTimeLocal(search.from, tz), tz)}</dd></div>
-            <div><dt className="inline text-muted-foreground">Return: </dt><dd className="inline">{locName(search.return ?? search.pickup)}, {dateTime(fromDateTimeLocal(search.to, tz), tz)}</dd></div>
-          </dl>
-          {quote.data && (
-            <>
-              <table className="w-full text-sm">
-                <tbody>
-                  {quote.data.lines.map((l, i) => (
-                    <tr key={i}>
-                      <td className="py-0.5 text-muted-foreground">{l.kind === "TIME" ? "Rental charges" : l.name}</td>
-                      <td className="py-0.5 text-right tabular-nums">{money(l.total)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <div className="flex justify-between border-t pt-2 font-bold"><span>Total</span><span className="tabular-nums">{money(quote.data.total)}</span></div>
-            </>
-          )}
-          <Button className="w-full" size="lg" onClick={next} disabled={!opts.data}>
-            Continue <ArrowRightIcon />
-          </Button>
-        </aside>
       </div>
 
       <Dialog open={details !== null} onOpenChange={(o) => !o && setDetails(null)}>
@@ -222,6 +186,13 @@ export function BookOptions({ search, vehicleTypeId }: { search: BookingSearch; 
           </ul>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }
+
+/** The option's picture from RentCentric's image folder (as on the live site). */
+function OptionIcon({ src }: { src?: string | null }) {
+  // eslint-disable-next-line @next/next/no-img-element -- RentCentric-hosted icons, same as the live site
+  return <span className="grid size-9 shrink-0 place-items-center">{src ? <img src={src} alt="" className="max-h-9 max-w-9 object-contain" /> : null}</span>;
+}
+

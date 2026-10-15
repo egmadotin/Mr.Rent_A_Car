@@ -8,7 +8,7 @@ import { Label } from "@mrac/ui/components/label";
 import { NativeSelect } from "@mrac/ui/components/native-select";
 import { BUSINESS_TZ, fromDateTimeLocal, money, toDateTimeLocal } from "@mrac/ui/lib/format";
 import { nowInput, todayAtInput } from "@mrac/ui/lib/tz";
-import { isPercentLine } from "../_lib/charge-lines";
+import { isPercentLine } from "@mrac/ui/lib/charge-lines";
 
 /**
  * Pieces shared by the Quote and Reservation forms (the same booking fields in RentCentric).
