@@ -195,8 +195,18 @@ export const customerRouter = router({
         lastName: z.string().trim().min(1, "Last name is required").max(80),
         email: z.string().trim().email("Enter a valid email"),
         phone: z.string().trim().min(7, "Enter a phone number").max(30),
-        age: z.coerce.number({ invalid_type_error: "Enter your age" }).int().min(16, "Enter your age").max(120),
+        /** mrrentacar.com "Customer Information": every field is required except Special Request */
+        birthDate: z.coerce.date({ invalid_type_error: "Birth Day is required" }),
+        address: z.string().trim().min(1, "Address is required").max(200),
+        city: z.string().trim().min(1, "City is required").max(80),
+        province: z.string().trim().min(1, "State/Province is required").max(80),
+        country: z.string().trim().min(1, "Country is required").max(80),
+        postal: z.string().trim().min(1, "Zip/Postal Code is required").max(20),
+        licenseNumber: z.string().trim().min(1, "Driver License Number is required").max(40),
+        licenseExpiry: z.coerce.date({ invalid_type_error: "Driver's License Exp. is required" }),
+        licenseProvince: z.string().trim().min(1, "Driver's License State is required").max(80),
         notes: z.string().trim().max(1000).optional(),
+        acceptPolicy: z.literal(true, { errorMap: () => ({ message: "Please accept the rental policy" }) }),
         /** honeypot — real users never fill it */
         website: z.string().max(0).optional(),
       }),
@@ -211,6 +221,18 @@ export const customerRouter = router({
           // Link to an existing customer only on an exact email match; otherwise create one.
           let customer = await tx.customer.findFirst({ where: { email: { equals: input.email, mode: "insensitive" } }, orderBy: { updatedAt: "desc" } });
           if (customer?.isUndesired) throw new TRPCError({ code: "BAD_REQUEST", message: "We can't complete this booking online. Please call us." });
+          const profile = {
+            birthDate: input.birthDate,
+            address1: input.address,
+            city: input.city,
+            province: input.province,
+            country: input.country,
+            postal: input.postal,
+            licenseNumber: input.licenseNumber,
+            licenseExpiry: input.licenseExpiry,
+            licenseProvince: input.licenseProvince,
+          };
+          if (customer) customer = await tx.customer.update({ where: { id: customer.id }, data: { phone: input.phone, ...profile } });
           customer ??= await tx.customer.create({
             data: {
               firstName: input.firstName,
@@ -220,6 +242,7 @@ export const customerRouter = router({
               defaultLocationId: s.pickupLocationId,
               enteredLocationId: s.pickupLocationId,
               registrationChannel: "Website",
+              ...profile,
             },
           });
 
@@ -232,10 +255,10 @@ export const customerRouter = router({
             rateId: rate.id,
             insuranceId: input.insuranceId,
             miscCharges: input.miscCharges,
-            driverAge: input.age,
+            driverAge: ageAt(input.birthDate, s.pickupAt),
           });
           const notes = [
-            `Age: ${input.age}`,
+            `Age: ${ageAt(input.birthDate, s.pickupAt)}`,
             s.promoCode ? `Promo code: ${s.promoCode}` : null,
             input.notes ? `Notes: ${input.notes}` : null,
           ].filter(Boolean).join("\n");
@@ -266,3 +289,11 @@ export const customerRouter = router({
       ),
     ),
 });
+
+/** Full years between a birth date and the pick-up date. */
+function ageAt(birth: Date, at: Date) {
+  let age = at.getUTCFullYear() - birth.getUTCFullYear();
+  const m = at.getUTCMonth() - birth.getUTCMonth();
+  if (m < 0 || (m === 0 && at.getUTCDate() < birth.getUTCDate())) age--;
+  return age;
+}
