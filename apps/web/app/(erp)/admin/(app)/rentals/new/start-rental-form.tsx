@@ -25,7 +25,7 @@ import { OptionsGrid, emptyOptions, useBookingOptions, type BookingOptions } fro
 import { ReferralField } from "../../../../_components/referral-field";
 import { SearchPicker } from "../../../../_components/search-picker";
 
-type Values = Record<string, string | boolean>;
+export type Values = Record<string, string | boolean>;
 
 /** CheckOut3.aspx Customer tab, in its order and wording. */
 const RENTAL_CUSTOMER: CustomerLayout = [
@@ -46,8 +46,8 @@ export const RENTAL_PRINTOUTS = [
 
 export type StartRentalInitial = { values: Values; options?: BookingOptions };
 /** Edit Rental: the agreement being edited (the vehicle changes only through Vehicle Exchange). */
-/** `closed` shows the check-in fields (closed rental, or `ending`); `ending` = End Rental: save and close. */
-export type RentalEditing = { rentalId: string; raNumber: number; closed: boolean; ending?: boolean; vehicle: { id: string; label: string } };
+/** `closed` shows the check-in fields of a closed rental (Return Date, Odometer In, Fuel In). */
+export type RentalEditing = { rentalId: string; raNumber: number; closed: boolean; vehicle: { id: string; label: string } };
 
 /**
  * Start a Rental (CheckOut3.aspx?DoAction=New): a walk-in rental. Customer tab (renter profile, "Save And Goto Rental Tab"),
@@ -202,37 +202,7 @@ export function StartRentalForm({
     const pay = paymentReady && str("payMethod") && str("payAmount");
     const tz = o?.locations.find((l) => l.id === str("pickupLocationId"))?.timeZone;
     try {
-      const fields = {
-        allowUndesired,
-        customer: { ...Object.fromEntries(CUSTOMER_FIELDS.map((f) => [f, str(f)])), memo: str("customerMemo") } as never,
-        checkOutLocationId: str("pickupLocationId"),
-        checkInLocationId: str("returnLocationId"),
-        checkOutAt: pickupAt as Date,
-        returnAt: returnAt as Date,
-        vehicleTypeId: str("vehicleTypeId"),
-        rateId: str("rateId"),
-        companyId: str("companyId"),
-        discountType: (str("discountValue") ? str("discountType") || null : null) as "PERCENT" | null,
-        discountValue: str("discountValue") || null,
-        discountReasonId: str("discountReasonId"),
-        deposit: str("deposit") || null,
-        odometerOut: str("odometerOut") as never,
-        fuelOut: Number(str("fuelOut")),
-        prepaidFuel: v.prepaidFuel === true,
-        referralId: str("referralId"),
-        claimNumber: str("claimNumber"),
-        airport: str("airport"),
-        airline: str("airline"),
-        flightNumber: str("flightNumber"),
-        poNumber: str("poNumber"),
-        roNumber: str("roNumber"),
-        rentalReasonId: str("rentalReasonId"),
-        openedById: str("openedById"),
-        memo: str("memo"),
-        memoShowAsPopup: v.memoShowAsPopup === true,
-        isNonRevenue: v.isNonRevenue === true,
-        options: opts,
-      };
+      const fields = rentalFields(v, opts, { pickupAt: pickupAt as Date, returnAt: returnAt as Date }, allowUndesired);
       if (editing) {
         await client.staff.rental.update.mutate({
           ...fields,
@@ -243,10 +213,9 @@ export function StartRentalForm({
           fuelCharge: str("fuelCharge") || null,
           upgradeType: (str("upgradeType") || null) as "FLAT" | null,
           upgradeAmount: str("upgradeAmount") || null,
-          close: editing.ending === true,
         } as never);
-        toast.success(editing.ending ? "Rental ended" : "Rental updated");
-        router.push(`/admin/rentals/${editing.rentalId}${editing.ending ? `?print=${encodeURIComponent(str("printout"))}` : ""}`);
+        toast.success("Rental updated");
+        router.push(`/admin/rentals/${editing.rentalId}`);
         return;
       }
       const res = await client.staff.rental.startWalkIn.mutate({
@@ -384,7 +353,7 @@ export function StartRentalForm({
                       <Checkbox checked={v.prepaidFuel === true} onChange={(e) => set("prepaidFuel", e.target.checked)} /> Buy Prepaid Fuel @ $2.00 Per Gallon
                     </label>
                     <FuelSlider id="fuelOut" label="Fuel Out" required value={str("fuelOut")} onChange={(x) => set("fuelOut", x)} />
-                    {editing?.closed && <FuelSlider id="fuelIn" label="Fuel In" required={editing.ending} value={str("fuelIn")} onChange={(x) => set("fuelIn", x)} />}
+                    {editing?.closed && <FuelSlider id="fuelIn" label="Fuel In" value={str("fuelIn")} onChange={(x) => set("fuelIn", x)} />}
                     {editing && (
                       <>
                         <F label="Fuel Charge" name="fuelCharge"><Input type="number" min={0} step="0.01" {...bind("fuelCharge")} /></F>
@@ -440,12 +409,12 @@ export function StartRentalForm({
             </div>
 
             <div className="mt-6 flex flex-wrap items-end justify-end gap-4 border-t pt-4">
-              {(!editing || editing.ending) && (
+              {!editing && (
                 <F label="Please Select Rental Printout" name="printout" required className="w-64">
                   <NativeSelect {...bind("printout")}>{RENTAL_PRINTOUTS.map((p) => <option key={p}>{p}</option>)}</NativeSelect>
                 </F>
               )}
-              <Button type="submit" size="lg" disabled={pending}>{pending && <Loader2Icon className="animate-spin" />}{editing?.ending ? "End Rental" : editing ? "Save" : "Complete And Print Rental"}</Button>
+              <Button type="submit" size="lg" disabled={pending}>{pending && <Loader2Icon className="animate-spin" />}{editing ? "Save" : "Complete And Print Rental"}</Button>
             </div>
           </TabsContent>
         </Tabs>
@@ -468,7 +437,7 @@ export function StartRentalForm({
 }
 
 /** RentCentric's 0–16 fuel slider (sixteenths), with its tick labels. */
-function FuelSlider({ id, label, value, onChange, required }: { id: string; label: string; value: string; onChange: (v: string) => void; required?: boolean }) {
+export function FuelSlider({ id, label, value, onChange, required }: { id: string; label: string; value: string; onChange: (v: string) => void; required?: boolean }) {
   const n = Number(value || 0);
   return (
     <div className="space-y-1.5 sm:col-span-2">
@@ -477,4 +446,40 @@ function FuelSlider({ id, label, value, onChange, required }: { id: string; labe
       <input id={id} type="range" min={0} max={16} step={1} value={n} onChange={(e) => onChange(e.target.value)} className="w-full accent-primary" />
     </div>
   );
+}
+
+/** The rental fields of `rental.startWalkIn` / `rental.update` from the form values (shared with End Rental). */
+export function rentalFields(v: Values, opts: BookingOptions, dates: { pickupAt: Date; returnAt: Date }, allowUndesired = false) {
+  const s = (name: string) => (typeof v[name] === "string" ? (v[name] as string) : "");
+  return {
+    allowUndesired,
+    customer: { ...Object.fromEntries(CUSTOMER_FIELDS.map((f) => [f, s(f)])), memo: s("customerMemo") } as never,
+    checkOutLocationId: s("pickupLocationId"),
+    checkInLocationId: s("returnLocationId"),
+    checkOutAt: dates.pickupAt,
+    returnAt: dates.returnAt,
+    vehicleTypeId: s("vehicleTypeId"),
+    rateId: s("rateId"),
+    companyId: s("companyId"),
+    discountType: (s("discountValue") ? s("discountType") || null : null) as "PERCENT" | null,
+    discountValue: s("discountValue") || null,
+    discountReasonId: s("discountReasonId"),
+    deposit: s("deposit") || null,
+    odometerOut: s("odometerOut") as never,
+    fuelOut: Number(s("fuelOut")),
+    prepaidFuel: v.prepaidFuel === true,
+    referralId: s("referralId"),
+    claimNumber: s("claimNumber"),
+    airport: s("airport"),
+    airline: s("airline"),
+    flightNumber: s("flightNumber"),
+    poNumber: s("poNumber"),
+    roNumber: s("roNumber"),
+    rentalReasonId: s("rentalReasonId"),
+    openedById: s("openedById"),
+    memo: s("memo"),
+    memoShowAsPopup: v.memoShowAsPopup === true,
+    isNonRevenue: v.isNonRevenue === true,
+    options: opts,
+  };
 }
