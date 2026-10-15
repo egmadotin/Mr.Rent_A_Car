@@ -39,7 +39,7 @@ const CATEGORIES: SettingsCategory[] = [
     { label: "Customer Import" }, { label: "Company Import" }, { label: "Rate Import" }, { label: "Reservation Import" },
     { label: "Referral Import" }, { label: "Vehicle Import" }, { label: "Copy Location Setup" }, { label: "Renew Rental Agreements" },
   ] },
-  { title: "Payment Settings", items: [{ label: "Payment Gateway" }, { label: "Payment Methods" }] },
+  { title: "Payment Settings", items: [{ label: "Payment Gateway", href: "/admin/settings/payment-gateway", desc: "Stripe keys (admins only), test / live, what online bookings do with the card" }, { label: "Payment Methods" }] },
   { title: "Rental Contracts & Invoices", items: [{ label: "Rental Agreement Templates" }, { label: "Invoice Templates" }] },
   { title: "Vehicle Setup", items: [
     { label: "Vehicle Types", href: "/admin/settings/vehicle-types", desc: "Classes, photos and which locations show them online" }, { label: "SIPP Codes" }, { label: "Makes & Models" }, { label: "Categories" }, { label: "Body Types" },

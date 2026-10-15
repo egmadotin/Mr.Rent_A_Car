@@ -4,6 +4,7 @@ import { Prisma } from "@mrac/db";
 import { router, publicProcedure } from "../trpc";
 import { onlineOptions, periodTotal, pickOnlineRate, priceBooking } from "../lib/pricing";
 import { withBookingGuard } from "../lib/errors";
+import { cardOf, requireStripe, stripeGateway } from "../lib/payments";
 
 /**
  * Customer-facing surface: public booking site today, Expo app later.
@@ -26,7 +27,70 @@ const searchInput = z
 
 const publicType = { id: true, name: true, description: true, seats: true, luggage: true, doors: true, imageKey: true } as const;
 
+const optionsInput = {
+  vehicleTypeId: z.string().min(1),
+  insuranceId: z.string().optional().nullable(),
+  miscCharges: z.array(z.object({ miscChargeId: z.string(), quantity: z.number().int().min(0).max(10) })).default([]),
+};
+
+/** The online price of a booking (same rate pick and charges as the quote and the reservation). */
+async function priceOnline(
+  db: Prisma.TransactionClient,
+  input: { search: z.infer<typeof searchInput>; vehicleTypeId: string; insuranceId?: string | null; miscCharges: { miscChargeId: string; quantity: number }[]; birthDate: Date },
+) {
+  const s = input.search;
+  const rate = await pickOnlineRate(db, { locationId: s.pickupLocationId, vehicleTypeId: input.vehicleTypeId, pickupAt: s.pickupAt, returnAt: s.returnAt });
+  if (!rate) throw new TRPCError({ code: "BAD_REQUEST", message: "That vehicle class isn't available online for these dates. Please call us." });
+  const priced = await priceBooking(db, {
+    online: true,
+    pickupAt: s.pickupAt,
+    returnAt: s.returnAt,
+    locationId: s.pickupLocationId,
+    vehicleTypeId: input.vehicleTypeId,
+    rateId: rate.id,
+    insuranceId: input.insuranceId,
+    miscCharges: input.miscCharges,
+    driverAge: ageAt(input.birthDate, s.pickupAt),
+  });
+  return { rate, priced };
+}
+
+const cents = (d: Prisma.Decimal) => Math.round(Number(d) * 100);
+
 export const customerRouter = router({
+  /** Whether step 3 shows the card field (Settings > Payment Gateway), and Stripe's publishable key. */
+  paymentConfig: publicProcedure.query(async ({ ctx }) => {
+    const g = await ctx.prisma.paymentGateway.findUnique({ where: { provider: "STRIPE" } });
+    return g?.isActive && g.publishableKey && g.secretKeyEnc ? { enabled: true as const, publishableKey: g.publishableKey, onlineMode: g.onlineMode } : { enabled: false as const };
+  }),
+
+  /**
+   * Step 3, before Reserve: a Stripe SetupIntent (keep the card for the counter) or a manual-capture PaymentIntent
+   * (hold the booking total), for the browser to confirm with Stripe's card field. Card numbers never reach our server.
+   */
+  prepareCard: publicProcedure
+    .input(z.object({ search: searchInput, ...optionsInput, birthDate: z.coerce.date(), email: z.string().trim().email("Enter a valid email"), name: z.string().trim().max(160) }))
+    .mutation(async ({ ctx, input }) => {
+      const g = await requireStripe(ctx.prisma);
+      const customer = await g.stripe.customers.create({ email: input.email, name: input.name || undefined });
+      if (g.onlineMode === "AUTHORIZE") {
+        const { priced } = await priceOnline(ctx.prisma, input);
+        const pi = await g.stripe.paymentIntents.create({
+          amount: cents(priced.total),
+          currency: "cad",
+          capture_method: "manual",
+          customer: customer.id,
+          setup_future_usage: "off_session",
+          payment_method_types: ["card"],
+          description: "Mr Rent A Car online reservation (authorization)",
+        });
+        return { kind: "payment" as const, clientSecret: pi.client_secret!, intentId: pi.id };
+      }
+      const si = await g.stripe.setupIntents.create({ customer: customer.id, usage: "off_session", payment_method_types: ["card"] });
+      return { kind: "setup" as const, clientSecret: si.client_secret!, intentId: si.id };
+    }),
+
+
   /** Locations offered on the public site (RentCentric "Web Customer"). */
   locations: publicProcedure.query(({ ctx }) =>
     ctx.prisma.location.findMany({
@@ -181,8 +245,8 @@ export const customerRouter = router({
     }),
 
   /**
-   * Booking step 4: request a reservation. Creates a TENTATIVE reservation (channel "Website") for staff
-   * to confirm. No payment is taken online — matches the current site. VERIFY with the client.
+   * Step 3 "Reserve": creates a TENTATIVE reservation (channel "Website") for staff to confirm. With card payments on
+   * (Settings > Payment Gateway), the card confirmed by Stripe is saved (and, in AUTHORIZE mode, the hold recorded).
    */
   requestReservation: publicProcedure
     .input(
@@ -207,16 +271,32 @@ export const customerRouter = router({
         licenseProvince: z.string().trim().min(1, "Driver's License State is required").max(80),
         notes: z.string().trim().max(1000).optional(),
         acceptPolicy: z.literal(true, { errorMap: () => ({ message: "Please accept the rental policy" }) }),
+        /** the Stripe Setup/Payment Intent confirmed in the browser (required when card payments are on) */
+        stripeIntentId: z.string().optional(),
         /** honeypot — real users never fill it */
         website: z.string().max(0).optional(),
       }),
     )
-    .mutation(({ ctx, input }) =>
-      withBookingGuard(() =>
+    .mutation(async ({ ctx, input }) => {
+      // card first (outside the DB transaction): the confirmed intent's card, and the held amount when authorizing
+      const g = await stripeGateway(ctx.prisma);
+      let card: (Awaited<ReturnType<typeof cardOf>> & { paymentMethodId: string; heldCents: number | null; intentId: string }) | null = null;
+      if (g) {
+        if (!input.stripeIntentId) throw new TRPCError({ code: "BAD_REQUEST", message: "Please enter your card details." });
+        const isPayment = input.stripeIntentId.startsWith("pi_");
+        const intent = isPayment ? await g.stripe.paymentIntents.retrieve(input.stripeIntentId) : await g.stripe.setupIntents.retrieve(input.stripeIntentId);
+        const ok = isPayment ? intent.status === "requires_capture" : intent.status === "succeeded";
+        const pm = typeof intent.payment_method === "string" ? intent.payment_method : intent.payment_method?.id;
+        if (!ok || !pm) throw new TRPCError({ code: "BAD_REQUEST", message: "Your card wasn't confirmed. Please try again." });
+        card = { ...(await cardOf(g.stripe, pm)), paymentMethodId: pm, heldCents: isPayment ? (intent as { amount: number }).amount : null, intentId: intent.id };
+      }
+
+      return withBookingGuard(() =>
         ctx.prisma.$transaction(async (tx) => {
           const s = input.search;
-          const rate = await pickOnlineRate(tx, { locationId: s.pickupLocationId, vehicleTypeId: input.vehicleTypeId, pickupAt: s.pickupAt, returnAt: s.returnAt });
-          if (!rate) throw new TRPCError({ code: "BAD_REQUEST", message: "That vehicle class isn't available online for these dates. Please call us." });
+          const { rate, priced } = await priceOnline(tx, input);
+          if (card?.heldCents != null && card.heldCents !== cents(priced.total))
+            throw new TRPCError({ code: "BAD_REQUEST", message: "The price changed while you were booking. Please go back and try again." });
 
           // Link to an existing customer only on an exact email match; otherwise create one.
           let customer = await tx.customer.findFirst({ where: { email: { equals: input.email, mode: "insensitive" } }, orderBy: { updatedAt: "desc" } });
@@ -246,17 +326,6 @@ export const customerRouter = router({
             },
           });
 
-          const priced = await priceBooking(tx, {
-            online: true,
-            pickupAt: s.pickupAt,
-            returnAt: s.returnAt,
-            locationId: s.pickupLocationId,
-            vehicleTypeId: input.vehicleTypeId,
-            rateId: rate.id,
-            insuranceId: input.insuranceId,
-            miscCharges: input.miscCharges,
-            driverAge: ageAt(input.birthDate, s.pickupAt),
-          });
           const notes = [
             `Age: ${ageAt(input.birthDate, s.pickupAt)}`,
             s.promoCode ? `Promo code: ${s.promoCode}` : null,
@@ -284,11 +353,32 @@ export const customerRouter = router({
             },
           });
           await tx.auditLog.create({ data: { entityType: "Reservation", entityId: r.id, field: "ReservationNumber", newValue: String(r.number) } });
+          if (card) {
+            const cc = await tx.creditCard.create({
+              data: { customerId: customer.id, description: "Online reservation", brand: card.brand, last4: card.last4, expMonth: card.expMonth, expYear: card.expYear, holderName: card.holderName, processorToken: card.paymentMethodId },
+            });
+            if (card.heldCents != null)
+              await tx.payment.create({
+                data: {
+                  reservationId: r.id,
+                  customerId: customer.id,
+                  method: CARD_METHOD[card.brand.toLowerCase()] ?? "INTERNAL",
+                  transactionType: "AUTHORIZATION",
+                  amount: priced.total,
+                  creditCardId: cc.id,
+                  cardLast4: card.last4,
+                  transactionCode: card.intentId,
+                  paymentDetail: `Stripe ${card.brand}`,
+                },
+              });
+          }
           return { reservationNumber: r.number, total: priced.total.toFixed(2) };
         }),
-      ),
-    ),
+      );
+    }),
 });
+
+const CARD_METHOD: Record<string, "VISA" | "MASTERCARD" | "AMEX"> = { visa: "VISA", mastercard: "MASTERCARD", amex: "AMEX" };
 
 /** Full years between a birth date and the pick-up date. */
 function ageAt(birth: Date, at: Date) {

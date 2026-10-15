@@ -10,6 +10,7 @@ import { quoteRouter } from "./routers/staff/quote";
 import { customerRouter as staffCustomerRouter } from "./routers/staff/customer";
 import { settingsRouter } from "./routers/staff/settings";
 import { bookingRouter } from "./routers/staff/booking";
+import { paymentGatewayRouter } from "./routers/staff/payment-gateway";
 
 export const staffRouter = router({
   meta: metaRouter,
@@ -21,6 +22,7 @@ export const staffRouter = router({
   customer: staffCustomerRouter,
   settings: settingsRouter,
   booking: bookingRouter,
+  paymentGateway: paymentGatewayRouter,
 });
 
 export const appRouter = router({

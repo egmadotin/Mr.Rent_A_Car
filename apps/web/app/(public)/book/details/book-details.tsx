@@ -16,6 +16,7 @@ import { toQuery, type BookingSearch } from "../../_components/booking-widget";
 import { BookingBanner, BookingSummary, legacyStamp } from "../booking-summary";
 import { decodeExtras } from "../options/book-options";
 import { BookingSteps } from "../steps";
+import { CardField, type ConfirmCard } from "./card-field";
 
 type Errors = Record<string, string[] | undefined>;
 
@@ -56,6 +57,8 @@ export function BookDetails({ search, vehicleTypeId, insuranceId, extras }: { se
   const [formError, setFormError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
   const [birth, setBirth] = React.useState("2000-01-01");
+  const pay = useQuery(trpc.customer.paymentConfig.queryOptions()).data;
+  const confirmCard = React.useRef<ConfirmCard | null>(null);
 
   const searchInput = {
     pickupLocationId: search.pickup ?? "",
@@ -84,7 +87,14 @@ export function BookDetails({ search, vehicleTypeId, insuranceId, extras }: { se
     setErrors({});
     setFormError(null);
     try {
+      // card first: Stripe confirms it in the browser, then the reservation is created with the intent id
+      const stripeIntentId = pay?.enabled
+        ? await confirmCard.current!(() =>
+            client.customer.prepareCard.mutate({ search: searchInput, vehicleTypeId, insuranceId: insuranceId ?? null, miscCharges, birthDate: g("birthDate") as never, email: g("email"), name: `${g("firstName")} ${g("lastName")}`.trim() }),
+          )
+        : undefined;
       const res = await client.customer.requestReservation.mutate({
+        stripeIntentId,
         search: searchInput,
         vehicleTypeId,
         insuranceId: insuranceId ?? null,
@@ -145,6 +155,15 @@ export function BookDetails({ search, vehicleTypeId, insuranceId, extras }: { se
                 {err(x.id) && <p className="text-xs text-destructive">{err(x.id)}</p>}
               </div>
             ))}
+            {pay?.enabled && (
+              <div className="space-y-1.5 sm:col-span-2">
+                <span className="text-xs uppercase text-muted-foreground">Credit Card *</span>
+                <CardField publishableKey={pay.publishableKey} mode={pay.onlineMode === "AUTHORIZE" ? "AUTHORIZE" : "SAVE_CARD"} amountCents={Math.round(Number(quote.data?.total ?? 0) * 100)} confirmRef={confirmCard} />
+                <p className="text-xs text-muted-foreground">
+                  {pay.onlineMode === "AUTHORIZE" ? "The booking total is held on your card (not charged) until pick-up." : "Your card is kept securely by Stripe; nothing is charged now."}
+                </p>
+              </div>
+            )}
             <div className="space-y-1.5 sm:col-span-2">
               <Label htmlFor="notes" className="text-xs uppercase text-muted-foreground">Special Request/Local Information</Label>
               <Textarea id="notes" name="notes" rows={3} placeholder="Special Request/Local Information" />

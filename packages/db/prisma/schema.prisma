@@ -1581,3 +1581,19 @@ model ClubMembership {
   sentAt     DateTime? @db.Date
   status     String? /// VERIFY options
 }
+
+/// Settings > Payment Settings > Payment Gateway. Keys are entered by an admin in the ERP; secrets are stored encrypted
+/// (AES-256-GCM, see packages/api/src/lib/secrets.ts) and never sent back to the browser.
+model PaymentGateway {
+  id               String   @id @default(cuid())
+  provider         String   @unique /// "STRIPE"
+  isActive         Boolean  @default(false)
+  testMode         Boolean  @default(true)
+  publishableKey   String?
+  secretKeyEnc     String?
+  webhookSecretEnc String?
+  /// online bookings: SAVE_CARD = keep the card for the counter (Stripe SetupIntent); AUTHORIZE = hold the total (manual-capture PaymentIntent)
+  onlineMode       String   @default("SAVE_CARD")
+  updatedAt        DateTime @updatedAt
+  updatedById      String?
+}

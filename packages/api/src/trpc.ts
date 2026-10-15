@@ -51,3 +51,9 @@ export const staffProcedure = t.procedure.use(({ ctx, next }) => {
   if (!isStaff(ctx.session.user)) throw new TRPCError({ code: "FORBIDDEN" });
   return next({ ctx: { ...ctx, session: ctx.session, user: ctx.session.user } });
 });
+
+/** Staff with the admin role — settings that hold secrets (payment gateway keys). */
+export const adminProcedure = staffProcedure.use(({ ctx, next }) => {
+  if ((ctx.user as { role?: string | null }).role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Only admins can change this setting." });
+  return next();
+});
