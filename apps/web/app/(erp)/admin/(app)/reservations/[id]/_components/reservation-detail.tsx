@@ -27,12 +27,13 @@ import {
 } from "../../../../../_components/form";
 import { PageHeader } from "../../../../../_components/page-header";
 import { BillSplitDialog, CLAIM_TYPES, TransportDialog } from "../../../../../_components/booking-dialogs";
+import { EmailDocumentDialog } from "../../../../../_components/email-document-dialog";
 import { ActionLink, DL } from "../../../../../_components/legacy-view";
 import { legacyDate } from "../../../../../_components/list-kit";
 import { PrintChargeTable } from "../../../../print/_components/print-kit";
 
 type Data = Wire<RouterOutputs["staff"]["reservation"]["byId"]>;
-type DialogName = null | "start" | "cancel" | "delete" | "noshow" | "move" | "reinstate";
+type DialogName = null | "start" | "cancel" | "delete" | "noshow" | "move" | "reinstate" | "email";
 const FUEL = Array.from({ length: 17 }, (_, i) => ({ value: String(i), label: `${i}/16` }));
 
 export function ReservationDetail({ reservationId, autoStartRental }: { reservationId: string; autoStartRental?: boolean }) {
@@ -67,7 +68,7 @@ export function ReservationDetail({ reservationId, autoStartRental }: { reservat
 
   const tz = r.pickupLocation.timeZone;
   const status = r.status === "CHECKED_OUT" ? "Honored" : r.status.replace("_", " ").toLowerCase().replace(/^\w/, (x) => x.toUpperCase());
-  const notBuilt = "Not available yet: the template / email provider is set up in a later step.";
+  const notBuilt = "Not available yet: vehicle inspections are built with the Vehicles module.";
   // the RentCentric ReservationMain.aspx action links, two per row, in its order
   const links: React.ReactNode[] = [
     active ? (
@@ -78,7 +79,7 @@ export function ReservationDetail({ reservationId, autoStartRental }: { reservat
       <ActionLink key="s" disabled>Start Rental</ActionLink>
     ),
     <ActionLink key="p" onClick={() => setPanel("payments")} active={panel === "payments"}>Payments/Charges ({r.payments.length})</ActionLink>,
-    <ActionLink key="i" disabled title={notBuilt}>Print Invoice</ActionLink>,
+    <ActionLink key="i" href={`/admin/print/reservations/${r.id}?t=${encodeURIComponent("Reservation Confirmation")}`} newTab>Print Invoice</ActionLink>,
     <ActionLink key="d" onClick={() => setPanel("drivers")} active={panel === "drivers"}>Additional Drivers ({r.drivers.length})</ActionLink>,
     <ActionLink key="pd" href={`/admin/print/reservations/${r.id}`} newTab>Print Reservation Detail</ActionLink>,
     <ActionLink key="b" onClick={() => setPanel("billsplit")} active={panel === "billsplit"}>Bill Split ({r.billSplits.length})</ActionLink>,
@@ -106,8 +107,8 @@ export function ReservationDetail({ reservationId, autoStartRental }: { reservat
       Duplicate Reservation
     </ActionLink>,
     <ActionLink key="t" onClick={() => setPanel("transports")} active={panel === "transports"}>Pickup/Drop-off ({r.transports.length})</ActionLink>,
-    <ActionLink key="e1" disabled title={notBuilt}>E-Mail Reservation Details</ActionLink>,
-    <ActionLink key="e2" disabled title={notBuilt}>Email Reservation Form/Invoice</ActionLink>,
+    <ActionLink key="e1" onClick={() => setDialog("email")}>E-Mail Reservation Details</ActionLink>,
+    <ActionLink key="e2" onClick={() => setDialog("email")}>Email Reservation Form/Invoice</ActionLink>,
     <ActionLink key="ins" disabled title={notBuilt}>Reservation Inspection</ActionLink>,
   ];
 
@@ -332,6 +333,17 @@ export function ReservationDetail({ reservationId, autoStartRental }: { reservat
       </div>
 
       {dialog === "start" && <StartRentalDialog data={data} onOpenChange={close} />}
+      <EmailDocumentDialog
+        open={dialog === "email"}
+        onOpenChange={close}
+        kind="RESERVATION"
+        id={r.id}
+        locationId={r.pickupLocationId}
+        defaultTo={r.email ?? r.customer?.email}
+        defaultSubject={`Reservation Confirmation #${r.number} — Mr Rent A Car`}
+        title="Email Reservation"
+        onSent={() => void q.refetch()}
+      />
       {dialog === "move" && <MoveDialog reservationId={reservationId} onOpenChange={close} run={run} />}
 
       <ConfirmAction

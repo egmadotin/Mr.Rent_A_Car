@@ -18,7 +18,7 @@ export function SendQuoteDialogs(c: Contact) {
     <>
       <FormDialog
         title="Email Quote"
-        description="No email provider is configured yet: the contact is saved on the quote and the request is logged in the memo."
+        description="Emails the quote (Settings > Rentals & Invoices, “Quote”) from the mailbox in Settings > Email Setup and saves the contact on the quote."
         wide
         trigger={<Button variant="outline"><MailIcon /> Email Quote</Button>}
         submitLabel="Send Email"

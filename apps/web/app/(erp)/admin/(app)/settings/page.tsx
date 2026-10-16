@@ -49,7 +49,7 @@ const CATEGORIES: SettingsCategory[] = [
   { title: "Self Service & Car Share SetUp", items: [{ label: "Self Service" }, { label: "Car Share" }] },
   { title: "Claims Management", items: [{ label: "Claims Management" }, { label: "Claims Management V2" }] },
   { title: "Financial / Commission Settings", items: [{ label: "Commissions" }, { label: "Financial Settings" }] },
-  { title: "Website & Email Setup", items: [{ label: "Website Design V3" }, { label: "Add/Edit Webpages" }, { label: "Widget/Rotator Setup" }, { label: "Email Setup" }] },
+  { title: "Website & Email Setup", items: [{ label: "Website Design V3" }, { label: "Add/Edit Webpages" }, { label: "Widget/Rotator Setup" }, { label: "Email Setup", href: "/admin/settings/email", desc: "SMTP account for agreements, invoices, confirmations and quotes (admins only)" }] },
   { title: "SMS Notification", items: [{ label: "SMS Notification" }] },
   { title: "Point Of Sale", items: [{ label: "Point Of Sale" }] },
   { title: "Email Marketing", items: [{ label: "Email Marketing" }] },

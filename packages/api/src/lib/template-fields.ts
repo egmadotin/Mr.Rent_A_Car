@@ -140,6 +140,8 @@ function docFields(d: Doc): Fields {
   set("Memo", d.memo);
   set("FlightNumber", d.flightNumber);
   set("DropOffLocation", d.returnLocation.address1 || d.returnLocation.name);
+  set("PickupLocationName", d.location.name);
+  set("ReturnLocationName", d.returnLocation.name);
   set("CurrentDate", fmt(new Date(), tz, "date"));
   // dates
   const back = d.in ?? d.dueIn;

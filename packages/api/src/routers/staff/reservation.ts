@@ -8,6 +8,7 @@ import { priceBooking } from "../../lib/pricing";
 import { bookingOptionsInput, staffPricingOptions } from "../../lib/booking-options";
 import { customerInput, upsertBookingCustomer } from "../../lib/customer-input";
 import { billSplitData, billSplitInput, transportInput } from "../../lib/bill-split";
+import { emailDocument } from "../../lib/email-document";
 
 const D = (n: number) => new Prisma.Decimal(n);
 const optStr = z.string().trim().max(2000).optional().nullable().transform((v) => v || null);
@@ -191,15 +192,26 @@ async function writeBooking(
     await tx.vehicleBlock.create({ data: { vehicleId: input.vehicleId, reservationId, startsAt: input.pickupAt, endsAt: input.returnAt } });
 
   if (input.memo) await tx.memo.create({ data: { reservationId, body: input.memo, showAsPopup: input.memoShowAsPopup, authorId: userId } });
-  if (input.sendConfirmationEmail)
-    await tx.memo.create({
-      data: { reservationId, authorId: userId, body: `Confirmation email requested for ${input.customer.email ?? "(no email)"} — not sent: no email provider is configured yet.` },
-    });
   if (input.payment)
     await tx.payment.create({
       data: { ...input.payment, amount: D(input.payment.amount), reservationId, customerId, takenById: userId },
     });
   return reservationId;
+}
+
+/**
+ * "Send Confirmation Email" on the Reserve form: the reservation's confirmation template, after it is saved. A failure
+ * (no email set up, no address, SMTP error) never undoes the save — it is noted on the reservation instead.
+ */
+async function sendConfirmation(db: Prisma.TransactionClient, reservationId: string, email: string | null | undefined, userId: string) {
+  const note = (body: string) => db.memo.create({ data: { reservationId, kind: "NOTE", body, authorId: userId } });
+  if (!email) return note("Confirmation email not sent: the reservation has no email address.");
+  const r = await db.reservation.findUniqueOrThrow({ where: { id: reservationId }, select: { number: true } });
+  try {
+    await emailDocument(db, { kind: "RESERVATION", id: reservationId, to: email, subject: `Reservation Confirmation #${r.number} — Mr Rent A Car`, sentById: userId });
+  } catch (e) {
+    await note(`Confirmation email to ${email} not sent: ${(e as Error).message}`);
+  }
 }
 
 export const reservationRouter = router({
@@ -398,7 +410,11 @@ export const reservationRouter = router({
     ),
 
   create: staffProcedure.input(reservationInput).mutation(({ ctx, input }) =>
-    withBookingGuard(async () => ({ id: await ctx.prisma.$transaction((tx) => writeBooking(tx, ctx.user.id, input)) })),
+    withBookingGuard(async () => {
+      const id = await ctx.prisma.$transaction((tx) => writeBooking(tx, ctx.user.id, input));
+      if (input.sendConfirmationEmail) await sendConfirmation(ctx.prisma, id, input.customer.email, ctx.user.id);
+      return { id };
+    }),
   ),
 
   update: staffProcedure.input(z.object({ reservationId: z.string(), data: reservationInput })).mutation(({ ctx, input }) =>
@@ -408,6 +424,7 @@ export const reservationRouter = router({
       if (!(ACTIVE as readonly string[]).includes(r.status))
         throw new TRPCError({ code: "BAD_REQUEST", message: "Only tentative or confirmed reservations can be edited." });
       await ctx.prisma.$transaction((tx) => writeBooking(tx, ctx.user.id, { ...input.data, payment: null }, r.id));
+      if (input.data.sendConfirmationEmail) await sendConfirmation(ctx.prisma, r.id, input.data.customer.email, ctx.user.id);
       return { id: r.id };
     }),
   ),

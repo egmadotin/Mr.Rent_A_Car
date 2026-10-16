@@ -2,6 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { Prisma } from "@mrac/db";
 import { router, staffProcedure } from "../../trpc";
+import { emailDocument } from "../../lib/email-document";
 import { audit } from "../../lib/audit";
 import { priceBooking } from "../../lib/pricing";
 import { bookingOptionsInput, staffPricingOptions } from "../../lib/booking-options";
@@ -250,15 +251,24 @@ export const quoteRouter = router({
             contactPhone: input.phone || undefined,
           },
         });
-        const to = input.channel === "EMAIL" ? `${input.email}${input.cc ? ` (cc ${input.cc})` : ""}` : `${input.phone}${input.provider ? ` via ${input.provider}` : ""}`;
+        if (input.channel === "EMAIL") return;
+        const to = `${input.phone}${input.provider ? ` via ${input.provider}` : ""}`;
         await tx.memo.create({
           data: {
             quoteId: input.quoteId,
             authorId: ctx.user.id,
-            body: `${input.channel === "EMAIL" ? "Email" : "SMS"} quote to ${to} — queued; no ${input.channel === "EMAIL" ? "email" : "SMS"} provider configured yet.${input.notes ? `
+            body: `SMS quote to ${to} — queued; no SMS provider configured yet.${input.notes ? `
 ${input.notes}` : ""}`,
           },
         });
       });
+      // Email Quote: the quote's template (Settings > Rentals & Invoices, "Quote"), Cc as a second recipient, Notes as the message
+      if (input.channel === "EMAIL") {
+        const q = await ctx.prisma.quote.findUniqueOrThrow({ where: { id: input.quoteId }, select: { number: true } });
+        const to = [input.email!, input.cc].filter(Boolean).join(", ");
+        await emailDocument(ctx.prisma, { kind: "QUOTE", id: input.quoteId, to, subject: `Your quote #${q.number} — Mr Rent A Car`, message: input.notes, sentById: ctx.user.id });
+        await ctx.prisma.memo.create({ data: { quoteId: input.quoteId, authorId: ctx.user.id, body: `Quote emailed to ${to}${input.notes ? `
+${input.notes}` : ""}` } });
+      }
     }),
 });

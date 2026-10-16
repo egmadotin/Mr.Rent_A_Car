@@ -1,0 +1,41 @@
+<!-- Quote — RentCentric's built-in Print Quote (PrintQuoteRW.aspx) as an editable template. Placeholders: ##FieldName##. -->
+<style type="text/css">
+  .qt { font-family: Verdana, Arial, sans-serif; font-size: 12px; color: #000; }
+  .qt table { border-collapse: collapse; width: 100%; }
+  .qt td, .qt th { vertical-align: top; padding: 2px 4px; }
+  .qt h2 { font-size: 15px; margin: 14px 0 4px; border-bottom: 1px solid #999; }
+  .qt .charges-summary td, .qt .charges-summary th { border-bottom: 1px solid #ddd; }
+</style>
+<div class="qt">
+  <table>
+    <tr>
+      <td style="width: 50%;"><img alt="" src="https://www5.rentcentric.com/Client6270/images/LocationID116mr%20rent%20logo-75-rentcentric-2016.jpg" /></td>
+      <td style="text-align: right;">
+        <strong>##LocationName##</strong><br />##LocationAddress##<br />##LocationCity##, ##LocationState## ##LocationZIP##<br />
+        Phone: ##LocationPhone## &nbsp; Fax: ##LocationFax##<br />##LocationWebSite##
+      </td>
+    </tr>
+  </table>
+  <h2>Quote</h2>
+  <table>
+    <tr><td style="width: 25%;">Quote #:</td><td>##QuoteNumber##</td><td style="width: 25%;">Date:</td><td>##CurrentDate##</td></tr>
+    <tr><td>Name:</td><td>##CustomerFirstName## ##CustomerLastName##</td><td>Phone:</td><td>##CustomerPhone##</td></tr>
+    <tr><td>Company:</td><td>##CompanyName##</td><td>Prepared By:</td><td>##OpenedBy##</td></tr>
+  </table>
+  <h2>Your Vehicle</h2>
+  <table>
+    <tr>
+      <td style="width: 180px;"><img alt="" src="##VehicleTypeImage##" style="max-width: 170px;" /></td>
+      <td><strong>##VehicleType##</strong><br />##NumberOfPassengers## Passengers &nbsp; ##NumberOfLuggages## Luggages &nbsp; ##NumberOfDoors## Doors</td>
+    </tr>
+  </table>
+  <h2>Your Time and Place</h2>
+  <table>
+    <tr><td style="width: 25%;">Pickup Location:</td><td>##PickupLocationName##</td><td style="width: 25%;">Pickup Date:</td><td>##DateOut##</td></tr>
+    <tr><td>Return Location:</td><td>##ReturnLocationName##</td><td>Return Date:</td><td>##DateIn##</td></tr>
+    <tr><td>Rental Days:</td><td>##RentalDays##</td><td>Mileage Included:</td><td>##TotalMilesAllowed##</td></tr>
+  </table>
+  <h2>Charge Summary</h2>
+  ##ChargesSummaryTable##
+  <p style="margin-top: 14px;">Rates are subject to availability and may change until the reservation is confirmed. Thank you for choosing Mr Rent A Car.</p>
+</div>

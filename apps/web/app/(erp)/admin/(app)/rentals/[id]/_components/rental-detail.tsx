@@ -12,6 +12,7 @@ import { toast } from "@mrac/ui/components/sonner";
 import { Textarea } from "@mrac/ui/components/textarea";
 import { fullName, money } from "@mrac/ui/lib/format";
 import { errorMessage } from "../../../../../_components/form";
+import { EmailDocumentDialog } from "../../../../../_components/email-document-dialog";
 import { ActionLink, DL } from "../../../../../_components/legacy-view";
 import { legacyDate } from "../../../../../_components/list-kit";
 import { PageHeader } from "../../../../../_components/page-header";
@@ -28,7 +29,6 @@ type Panel =
   | null | "payments" | "drivers" | "commissions" | "exchange" | "adjustments" | "tickets" | "billsplit" | "invoices" | "notes"
   | "transports" | "log" | "claims" | "memos";
 
-const NOT_BUILT = "Not available yet: the template / email provider is set up in a later step.";
 
 /**
  * Rental view = RentCentric AgreementMain.aspx: "Rental# n" + Edit, the two-column field grid, the action links in its
@@ -41,6 +41,7 @@ export function RentalDetail({ rentalId }: { rentalId: string }) {
   const data = q.data as RentalData | undefined;
   const [dialog, setDialog] = React.useState<RentalDialog>(null);
   const [panel, setPanel] = React.useState<Panel>(null);
+  const [emailing, setEmailing] = React.useState(false);
   // after Start / End Rental: the printout chosen there ("Complete And Print Rental")
   const printout = useSearchParams().get("print");
   const toggle = (p: Panel) => () => setPanel((cur) => (cur === p ? null : p));
@@ -81,7 +82,7 @@ export function RentalDetail({ rentalId }: { rentalId: string }) {
     >
       Vehicle Exchange ({exchanges})
     </ActionLink>,
-    <ActionLink key="email" disabled title={NOT_BUILT}>Email Agreement/Invoice</ActionLink>,
+    <ActionLink key="email" onClick={() => setEmailing(true)}>Email Agreement/Invoice</ActionLink>,
     <ActionLink key="adj" onClick={toggle("adjustments")} active={panel === "adjustments"}>Adjustments ({r.adjustments.length})</ActionLink>,
     <ActionLink key="void" onClick={() => setDialog("void")} disabled={r.status === "VOIDED"} title="Already voided">Void Rental</ActionLink>,
     <ActionLink key="tt" onClick={toggle("tickets")} active={panel === "tickets"}>Traffic Tickets ({r.trafficTickets.length})</ActionLink>,
@@ -207,6 +208,17 @@ export function RentalDetail({ rentalId }: { rentalId: string }) {
       </div>
 
       <RentalDialogs data={data} dialog={dialog} onClose={() => setDialog(null)} />
+      <EmailDocumentDialog
+        open={emailing}
+        onOpenChange={setEmailing}
+        kind="AGREEMENT"
+        id={r.id}
+        locationId={r.checkOutLocationId}
+        defaultTo={r.customer.email}
+        defaultSubject={`Rental Agreement #${r.raNumber} — Mr Rent A Car`}
+        title="Email Agreement/Invoice"
+        onSent={() => void q.refetch()}
+      />
     </>
   );
 }

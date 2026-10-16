@@ -1622,3 +1622,38 @@ model DocumentTemplate {
 
   @@index([locationId, kind])
 }
+
+/// Settings > Website & Email Setup > Email Setup: the SMTP account outgoing email is sent from. One row.
+model EmailSettings {
+  id          String   @id @default("default")
+  isActive    Boolean  @default(false)
+  host        String?
+  port        Int      @default(587)
+  /// true = TLS from the start (port 465); false = STARTTLS when offered (587)
+  secure      Boolean  @default(false)
+  username    String?
+  passwordEnc String?
+  fromName    String?  @default("Mr Rent A Car")
+  fromEmail   String?
+  /// copy every email sent to this address (optional)
+  bccEmail    String?
+  updatedAt   DateTime @updatedAt
+  updatedById String?
+}
+
+/// Every email the system sends (agreements, invoices, confirmations, quotes), for the record.
+model EmailLog {
+  id            String   @id @default(cuid())
+  to            String
+  subject       String
+  /// RENTAL | RESERVATION | QUOTE
+  entityType    String?
+  entityId      String?
+  templateName  String?
+  status        String /// SENT | FAILED
+  error         String?
+  sentById      String?
+  createdAt     DateTime @default(now())
+
+  @@index([entityType, entityId])
+}
