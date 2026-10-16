@@ -18,16 +18,11 @@ import { PaymentInfoCard } from "../../../../../_components/booking-customer";
 import { FieldShell as F, FormErrorsContext, errorMessage, fieldErrorsOf } from "../../../../../_components/form";
 import { legacyDate } from "../../../../../_components/list-kit";
 import { PageHeader } from "../../../../../_components/page-header";
+import { PrintoutSelect } from "../../../../../_components/printout-select";
 import { FuelSlider, rentalFields, type Values } from "../../new/start-rental-form";
 import { rentalFormInitial } from "../../_lib/rental-form-values";
 import { ChargeTable } from "../_components/charges-tab";
 import type { RentalData } from "../_components/use-rental";
-
-/** "Please Select Rental Printout" on End Rental (RentCentric, YYC). VERIFY per location in the templates step. */
-const CLOSE_PRINTOUTS = [
-  "Bill Split Invoice", "Break Down Close", "Customer Invoice", "Direct Bill Invoice", "Dynamic Standard", "Dynamic Standard 2016",
-  "DynamicBillSplitInvoice", "DynamicCustomerInvoice", "Open Contract", "Standard",
-];
 
 /**
  * End Rental (CheckIn2.aspx): Pickup Date; Expected Return Date*, Return Date*; Pickup Location, Return Location;
@@ -60,7 +55,6 @@ export function EndRentalForm({ rentalId }: { rentalId: string }) {
       checkedInAt: toDateTimeLocal(init.values.checkedInAt as string, zone),
       // RentCentric pre-fills Odometer In with Odometer Out
       odometerIn: (init.values.odometerOut as string) ?? "",
-      printout: "Open Contract",
       payType: "AUTHORIZATION",
       payAmount: Number(data.totals.balance) > 0 ? Number(data.totals.balance).toFixed(2) : "",
     });
@@ -70,6 +64,7 @@ export function EndRentalForm({ rentalId }: { rentalId: string }) {
   const tz = r?.checkOutLocation.timeZone;
   const str = (k: string) => (v && typeof v[k] === "string" ? (v[k] as string) : "");
   const set = (k: string, val: string) => setV((s) => (s ? { ...s, [k]: val } : s));
+  const setPrintout = React.useCallback((name: string) => setV((s) => (s ? { ...s, printout: name } : s)), []);
   const bind = (k: string) => ({
     id: k,
     name: k,
@@ -206,7 +201,7 @@ export function EndRentalForm({ rentalId }: { rentalId: string }) {
           )}
           <div className="flex flex-col items-end gap-3">
             <F label="Please Select Rental Printout" name="printout" required className="w-64">
-              <NativeSelect {...bind("printout")}>{CLOSE_PRINTOUTS.map((p) => <option key={p}>{p}</option>)}</NativeSelect>
+              <PrintoutSelect locationId={r.checkOutLocationId} value={str("printout")} onChange={setPrintout} />
             </F>
             <Button type="submit" size="lg" disabled={pending}>{pending && <Loader2Icon className="animate-spin" />}End Rental</Button>
           </div>

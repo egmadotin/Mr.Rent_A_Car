@@ -179,6 +179,7 @@ model Location {
   customersEntered   Customer[]    @relation("CustomerEnteredLocation")
   transportsPickup   Transport[]   @relation("TransportPickup")
   transportsDropoff  Transport[]   @relation("TransportDropoff")
+  documentTemplates DocumentTemplate[]
 }
 
 /// Settings > Location Information > Hours Of Operation
@@ -1596,4 +1597,26 @@ model PaymentGateway {
   onlineMode       String   @default("SAVE_CARD")
   updatedAt        DateTime @updatedAt
   updatedById      String?
+}
+
+/// Settings > Rental Contracts & Invoices > Rentals & Invoices (AgreementFormsMain.aspx): printable / emailable HTML templates
+/// with ##code## placeholders (RentCentric's numbering, see packages/api/src/lib/template-fields.ts). Admins edit them.
+model DocumentTemplate {
+  id            String       @id @default(cuid())
+  legacyId      Int?         @unique
+  locationId    String?
+  location      Location?    @relation(fields: [locationId], references: [id])
+  name          String
+  /// AGREEMENT (rental printouts, invoices) | RESERVATION (confirmation) | QUOTE
+  kind          String       @default("AGREEMENT")
+  html          String
+  isActive      Boolean      @default(true)
+  isDefault     Boolean      @default(false)
+  autoPrint     Boolean      @default(false)
+  emailFriendly Boolean      @default(false)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  updatedById   String?
+
+  @@unique([locationId, name, kind])
 }

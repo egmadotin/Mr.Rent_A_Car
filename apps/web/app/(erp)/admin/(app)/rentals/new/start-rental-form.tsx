@@ -23,6 +23,7 @@ import { ConfirmAction } from "../../../../_components/confirm-action";
 import { FieldShell as F, FormErrorsContext, errorMessage, fieldErrorsOf } from "../../../../_components/form";
 import { OptionsGrid, emptyOptions, useBookingOptions, type BookingOptions } from "../../../../_components/options-grid";
 import { ReferralField } from "../../../../_components/referral-field";
+import { PrintoutSelect } from "../../../../_components/printout-select";
 import { SearchPicker } from "../../../../_components/search-picker";
 
 export type Values = Record<string, string | boolean>;
@@ -37,12 +38,6 @@ const RENTAL_CUSTOMER: CustomerLayout = [
   ["insurancePhone", "Insurance Phone"], ["insuranceFax", "Insurance Fax"],
 ];
 const REQUIRED = RENTAL_CUSTOMER.flatMap((c) => (typeof c !== "number" && c[2] ? [c] : []));
-
-/** "Please Select Rental Printout" — the agreement templates set up in RentCentric. */
-export const RENTAL_PRINTOUTS = [
-  "Bill Split Invoice", "Bill to Invoice Test", "Break Down", "Closing Test", "Closing Tests", "Customer Invoice", "Open Contract",
-  "Open Contract-march 2017", "Standard",
-];
 
 export type StartRentalInitial = { values: Values; options?: BookingOptions };
 /** Edit Rental: the agreement being edited (the vehicle changes only through Vehicle Exchange). */
@@ -84,7 +79,6 @@ export function StartRentalForm({
     fuelOut: "16",
     openedById: currentUserId,
     payType: "AUTHORIZATION",
-    printout: "Open Contract",
     ...initial?.values,
     ...initialBookingTimes(initial?.values),
     ...(typeof initial?.values.checkedInAt === "string" && initial.values.checkedInAt
@@ -107,6 +101,7 @@ export function StartRentalForm({
   }, [o]);
 
   const set = (name: string, value: string | boolean) => setV((s) => ({ ...s, [name]: value }));
+  const setPrintout = React.useCallback((name: string) => setV((s) => ({ ...s, printout: name })), []);
   const str = (name: string) => (typeof v[name] === "string" ? (v[name] as string) : "");
   const bind = (name: string) => ({
     id: name,
@@ -411,7 +406,7 @@ export function StartRentalForm({
             <div className="mt-6 flex flex-wrap items-end justify-end gap-4 border-t pt-4">
               {!editing && (
                 <F label="Please Select Rental Printout" name="printout" required className="w-64">
-                  <NativeSelect {...bind("printout")}>{RENTAL_PRINTOUTS.map((p) => <option key={p}>{p}</option>)}</NativeSelect>
+                  <PrintoutSelect locationId={str("pickupLocationId")} value={str("printout")} onChange={setPrintout} />
                 </F>
               )}
               <Button type="submit" size="lg" disabled={pending}>{pending && <Loader2Icon className="animate-spin" />}{editing ? "Save" : "Complete And Print Rental"}</Button>

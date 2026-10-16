@@ -2,8 +2,9 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangleIcon, PencilIcon, PinIcon } from "lucide-react";
+import { AlertTriangleIcon, PencilIcon, PinIcon, PrinterIcon } from "lucide-react";
 import { useTRPC } from "@mrac/api/client";
 import { Button } from "@mrac/ui/components/button";
 import { Card, CardContent } from "@mrac/ui/components/card";
@@ -40,6 +41,8 @@ export function RentalDetail({ rentalId }: { rentalId: string }) {
   const data = q.data as RentalData | undefined;
   const [dialog, setDialog] = React.useState<RentalDialog>(null);
   const [panel, setPanel] = React.useState<Panel>(null);
+  // after Start / End Rental: the printout chosen there ("Complete And Print Rental")
+  const printout = useSearchParams().get("print");
   const toggle = (p: Panel) => () => setPanel((cur) => (cur === p ? null : p));
 
   if (q.isLoading) return <div className="p-6 text-sm text-muted-foreground">Loading rental…</div>;
@@ -119,6 +122,12 @@ export function RentalDetail({ rentalId }: { rentalId: string }) {
 
       <div className="grid gap-6 p-4 md:p-6 xl:grid-cols-2">
         <div className="min-w-0 space-y-4">
+          {printout && (
+            <div role="status" className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-primary/40 bg-primary/5 p-3 text-sm">
+              <span>Ready to print: <b>{printout}</b></span>
+              <Button size="sm" asChild><Link href={`/admin/print/rentals/${r.id}?t=${encodeURIComponent(printout)}`} target="_blank"><PrinterIcon /> Print {printout}</Link></Button>
+            </div>
+          )}
           {popups.map((m) => (
             <div key={m.id} role="note" className="flex gap-2 rounded-lg border border-warning/50 bg-warning/10 p-3 text-sm">
               <PinIcon className="mt-0.5 size-4 shrink-0" /> {m.body}

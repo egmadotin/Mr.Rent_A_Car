@@ -40,7 +40,7 @@ const CATEGORIES: SettingsCategory[] = [
     { label: "Referral Import" }, { label: "Vehicle Import" }, { label: "Copy Location Setup" }, { label: "Renew Rental Agreements" },
   ] },
   { title: "Payment Settings", items: [{ label: "Payment Gateway", href: "/admin/settings/payment-gateway", desc: "Stripe keys (admins only), test / live, what online bookings do with the card" }, { label: "Payment Methods" }] },
-  { title: "Rental Contracts & Invoices", items: [{ label: "Rental Agreement Templates" }, { label: "Invoice Templates" }] },
+  { title: "Rental Contracts & Invoices", items: [{ label: "Rentals & Invoices", href: "/admin/settings/templates", desc: "Printouts: Open Contract, invoices, closing forms, reservation confirmation (editable HTML)" }] },
   { title: "Vehicle Setup", items: [
     { label: "Vehicle Types", href: "/admin/settings/vehicle-types", desc: "Classes, photos and which locations show them online" }, { label: "SIPP Codes" }, { label: "Makes & Models" }, { label: "Categories" }, { label: "Body Types" },
     { label: "Fuel Types" }, { label: "Vehicle Options" }, { label: "Engine Brands & Types" }, { label: "Damage Setup" },

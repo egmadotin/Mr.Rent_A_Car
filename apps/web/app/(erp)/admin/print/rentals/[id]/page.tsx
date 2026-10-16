@@ -3,18 +3,37 @@ import { LocalDateTime } from "@mrac/ui/components/local-time";
 import { date, fuel, fullName, money } from "@mrac/ui/lib/format";
 import { api } from "../../../../_lib/session";
 import { PrintButton } from "../../_components/print-button";
+import { TemplatePicker } from "../../_components/template-picker";
 
 export const metadata = { title: "Print rental" };
 
 /**
- * Printable rental agreement / invoice. VERIFY: legacy has customizable templates
- * (Settings > Rental Contracts & Invoices); this is the default layout until those are ported.
+ * "Print Rental/Invoice": the rental printed with a template from Settings > Rental Contracts & Invoices (`?t=` = the
+ * "Please Select Rental Printout" name; default = the location's default agreement template). Falls back to the built-in
+ * layout when no template exists.
  */
-export default async function PrintRentalPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function PrintRentalPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ t?: string }> }) {
   const { id } = await params;
-  const data = await (await api()).rental.byId({ rentalId: id }).catch(() => null);
+  const { t: templateName } = await searchParams;
+  const staff = await api();
+  const data = await staff.rental.byId({ rentalId: id }).catch(() => null);
   if (!data) notFound();
   const { rental: r, totals: t } = data;
+  const [doc, templates] = await Promise.all([
+    staff.template.renderRental({ rentalId: id, name: templateName || undefined }),
+    staff.template.list({ kind: "AGREEMENT", locationId: r.checkOutLocationId, activeOnly: true }),
+  ]);
+  if (doc.html)
+    return (
+      <div className="bg-white text-black">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b p-3 print:hidden">
+          <TemplatePicker current={doc.name ?? ""} names={templates.map((x) => x.name)} />
+          <PrintButton />
+        </div>
+        {/* staff-authored template HTML (Settings > Rentals & Invoices), filled with this rental's data */}
+        <div className="mx-auto max-w-[8.5in] p-4 print:p-0" dangerouslySetInnerHTML={{ __html: doc.html }} />
+      </div>
+    );
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 bg-background p-8 text-sm print:max-w-none print:p-0">
