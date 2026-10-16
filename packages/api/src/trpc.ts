@@ -3,6 +3,7 @@ import { transformer } from "./transformer";
 import { ZodError } from "zod";
 import { prisma } from "@mrac/db";
 import { auth, isStaff } from "@mrac/auth";
+import { can, permissionLabel } from "./lib/permissions";
 
 export async function createContext({ headers }: { headers: Headers }) {
   const session = await auth.api.getSession({ headers });
@@ -57,3 +58,41 @@ export const adminProcedure = staffProcedure.use(({ ctx, next }) => {
   if ((ctx.user as { role?: string | null }).role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Only admins can change this setting." });
   return next();
 });
+
+/**
+ * Staff who hold every listed permission (RentCentric user-group ticks; admins have all). The user's group is read
+ * once per request. Use for actions a group can be denied: delete, void, refund, edit closed rentals, settings …
+ */
+export const permitted = (...perms: string[]) =>
+  staffProcedure.use(async ({ ctx, next }) => {
+    const u = ctx.user as { id: string; role?: string | null };
+    if (u.role !== "admin") {
+      const me = await ctx.prisma.user.findUnique({ where: { id: u.id }, select: { role: true, userGroup: { select: { isActive: true, permissions: true } } } });
+      const missing = perms.filter((p) => !(me && can(me, p)));
+      if (missing.length) throw new TRPCError({ code: "FORBIDDEN", message: `You don't have permission for this (${missing.map(permissionLabel).join(", ")}). Ask an admin to change your user group.` });
+    }
+    return next();
+  });
+
+type PermCtx = { prisma: typeof prisma; user: { id: string } };
+
+async function groupOf(ctx: PermCtx) {
+  return ctx.prisma.user.findUnique({ where: { id: ctx.user.id }, select: { role: true, userGroup: { select: { isActive: true, permissions: true, maxDiscountType: true, maxDiscountValue: true } } } });
+}
+
+/** Inside a procedure, when the permission depends on the input (e.g. refund vs payment, closed vs open rental). */
+export async function requirePermission(ctx: PermCtx, permission: string) {
+  const me = await groupOf(ctx);
+  if (!me || !can(me, permission)) throw new TRPCError({ code: "FORBIDDEN", message: `You don't have permission for this (${permissionLabel(permission)}). Ask an admin to change your user group.` });
+}
+
+/** The user group's "Max Discount" (% or $); admins and groups without a maximum are not limited. */
+export async function requireDiscountAllowed(ctx: PermCtx, type: string | null | undefined, value: number | null | undefined) {
+  if (!value) return;
+  const me = await groupOf(ctx);
+  if (!me || me.role === "admin" || !me.userGroup?.maxDiscountValue) return;
+  const max = Number(me.userGroup.maxDiscountValue);
+  const sameKind = (me.userGroup.maxDiscountType ?? "PERCENT") === (type ?? "PERCENT");
+  if (sameKind && value > max)
+    throw new TRPCError({ code: "FORBIDDEN", message: `Your user group allows a discount of at most ${me.userGroup.maxDiscountType === "AMOUNT" ? `$${max}` : `${max}%`}.` });
+}

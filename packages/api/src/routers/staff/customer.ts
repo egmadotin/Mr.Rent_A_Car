@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { Prisma } from "@mrac/db";
-import { router, staffProcedure } from "../../trpc";
+import { router, staffProcedure, permitted } from "../../trpc";
 import { audit } from "../../lib/audit";
 
 const optStr = z.string().trim().max(2000).optional().nullable().transform((v) => v || null);
@@ -104,7 +104,7 @@ function toData(input: z.infer<typeof customerInput>, userId: string, wasVerifie
 }
 
 export const customerRouter = router({
-  list: staffProcedure
+  list: permitted("Customers")
     .input(
       z.object({
         search: z.string().optional(),
@@ -159,7 +159,7 @@ export const customerRouter = router({
     return { locations, regions, companies, referrals };
   }),
 
-  byId: staffProcedure.input(z.object({ customerId: z.string() })).query(async ({ ctx, input }) => {
+  byId: permitted("Customers").input(z.object({ customerId: z.string() })).query(async ({ ctx, input }) => {
     const c = await ctx.prisma.customer.findUnique({
       where: { id: input.customerId },
       include: {
@@ -200,7 +200,7 @@ export const customerRouter = router({
   }),
 
   /** Creation runs the duplicate check; pass ignoreDuplicates after the user confirms. */
-  create: staffProcedure
+  create: permitted("CustomersAdd")
     .input(z.object({ data: customerInput, ignoreDuplicates: z.boolean().default(false), enteredLocationId: z.string().optional() }))
     .mutation(async ({ ctx, input }) => {
       if (!input.ignoreDuplicates) {
@@ -226,7 +226,7 @@ export const customerRouter = router({
     .input(z.object({ firstName: z.string(), lastName: z.string(), phone: z.string().optional(), email: z.string().optional(), licenseNumber: z.string().optional() }))
     .query(({ ctx, input }) => (input.firstName.length < 1 || input.lastName.length < 2 ? [] : findDuplicates(ctx.prisma, input))),
 
-  update: staffProcedure.input(z.object({ customerId: z.string(), data: customerInput })).mutation(({ ctx, input }) =>
+  update: permitted("CustomersEdit").input(z.object({ customerId: z.string(), data: customerInput })).mutation(({ ctx, input }) =>
     ctx.prisma.$transaction(async (tx) => {
       const before = await tx.customer.findUniqueOrThrow({ where: { id: input.customerId } });
       const data = toData(input.data, ctx.user.id, before.identityVerified);
@@ -238,7 +238,7 @@ export const customerRouter = router({
     }),
   ),
 
-  setActive: staffProcedure.input(z.object({ customerId: z.string(), isActive: z.boolean() })).mutation(({ ctx, input }) =>
+  setActive: permitted("CustomersDelete").input(z.object({ customerId: z.string(), isActive: z.boolean() })).mutation(({ ctx, input }) =>
     ctx.prisma.$transaction(async (tx) => {
       const c = await tx.customer.update({ where: { id: input.customerId }, data: { isActive: input.isActive } });
       await audit(tx, "Customer", c.id, ctx.user.id, { Active: [!input.isActive, input.isActive] });

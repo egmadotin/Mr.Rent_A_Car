@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { adminProcedure, router, staffProcedure } from "../../trpc";
+import { adminProcedure, router, staffProcedure, permitted } from "../../trpc";
 import { audit } from "../../lib/audit";
 import { codesFor, quoteTemplateFields, renderTemplate, rentalTemplateFields, reservationTemplateFields } from "../../lib/template-fields";
 
@@ -34,7 +34,7 @@ export const templateRouter = router({
     .input(z.object({ kind: z.enum(KINDS).default("AGREEMENT") }).default({}))
     .query(({ input }) => Object.entries(codesFor(input.kind)).map(([code, name]) => ({ code, name })).sort((a, b) => a.name.localeCompare(b.name))),
 
-  save: adminProcedure
+  save: permitted("AgreementFormsEdit")
     .input(
       z.object({
         id: z.string().optional(),
@@ -61,7 +61,7 @@ export const templateRouter = router({
       }),
     ),
 
-  delete: adminProcedure.input(z.object({ id: z.string() })).mutation(async ({ ctx, input }) => {
+  delete: permitted("AgreementFormsDelete").input(z.object({ id: z.string() })).mutation(async ({ ctx, input }) => {
     await ctx.prisma.documentTemplate.delete({ where: { id: input.id } });
     await audit(ctx.prisma, "DocumentTemplate", input.id, ctx.user.id, { Deleted: [null, "yes"] });
     return { ok: true };

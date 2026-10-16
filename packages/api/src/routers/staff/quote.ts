@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { Prisma } from "@mrac/db";
-import { router, staffProcedure } from "../../trpc";
+import { router, staffProcedure, permitted } from "../../trpc";
 import { emailDocument } from "../../lib/email-document";
 import { audit } from "../../lib/audit";
 import { priceBooking } from "../../lib/pricing";
@@ -91,7 +91,7 @@ async function writeQuote(tx: Prisma.TransactionClient, userId: string, input: z
 
 export const quoteRouter = router({
   /** QuotesSearch.aspx: quick search (Quote # OR First Name OR Last Name) + Advanced Search. */
-  list: staffProcedure
+  list: permitted("CheckViewQuote")
     .input(
       z.object({
         search: z.string().optional(),
@@ -163,7 +163,7 @@ export const quoteRouter = router({
       };
     }),
 
-  byId: staffProcedure.input(z.object({ quoteId: z.string() })).query(async ({ ctx, input }) => {
+  byId: permitted("CheckViewQuote").input(z.object({ quoteId: z.string() })).query(async ({ ctx, input }) => {
     const q = await ctx.prisma.quote.findFirst({
       where: { id: input.quoteId, deletedAt: null },
       include: {
@@ -187,17 +187,17 @@ export const quoteRouter = router({
     return { quote: q, total: q.chargeLines.reduce((a, l) => a.add(l.total), D(0)) };
   }),
 
-  create: staffProcedure.input(quoteInput).mutation(async ({ ctx, input }) => ({
+  create: permitted("CheckAddQuote").input(quoteInput).mutation(async ({ ctx, input }) => ({
     id: await ctx.prisma.$transaction((tx) => writeQuote(tx, ctx.user.id, input)),
   })),
 
-  update: staffProcedure.input(z.object({ quoteId: z.string(), data: quoteInput })).mutation(async ({ ctx, input }) => {
+  update: permitted("CheckEditkOuote").input(z.object({ quoteId: z.string(), data: quoteInput })).mutation(async ({ ctx, input }) => {
     await ctx.prisma.quote.findFirstOrThrow({ where: { id: input.quoteId, deletedAt: null } });
     return { id: await ctx.prisma.$transaction((tx) => writeQuote(tx, ctx.user.id, input.data, input.quoteId)) };
   }),
 
   /** Legacy grid had an inline delete (x) with no confirmation; the UI now confirms. Soft delete. */
-  delete: staffProcedure.input(z.object({ quoteId: z.string() })).mutation(async ({ ctx, input }) => {
+  delete: permitted("CheckDeleteQuote").input(z.object({ quoteId: z.string() })).mutation(async ({ ctx, input }) => {
     await ctx.prisma.$transaction(async (tx) => {
       await tx.quote.update({ where: { id: input.quoteId }, data: { deletedAt: new Date() } });
       await audit(tx, "Quote", input.quoteId, ctx.user.id, { Deleted: [null, "yes"] });

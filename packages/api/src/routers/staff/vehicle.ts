@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { Prisma } from "@mrac/db";
-import { router, staffProcedure } from "../../trpc";
+import { router, staffProcedure, permitted } from "../../trpc";
 import { audit } from "../../lib/audit";
 import { VEHICLE_STATUS_VALUES } from "../../lib/vehicle-status";
 
@@ -179,7 +179,7 @@ export const vehicleRouter = router({
     };
   }),
 
-  create: staffProcedure.input(vehicleInput).mutation(async ({ ctx, input }) => {
+  create: permitted("VehiclesAdd").input(vehicleInput).mutation(async ({ ctx, input }) => {
     await checkModel(ctx.prisma, input.makeId, input.modelId);
     const { optionIds, data } = vehicleData(input);
     try {
@@ -197,7 +197,7 @@ export const vehicleRouter = router({
   }),
 
   /** Edit Vehicle (legacy VehicleSpecs.aspx): same fields as Add; every changed field is written to the audit log. */
-  update: staffProcedure.input(z.object({ vehicleId: z.string(), data: vehicleInput })).mutation(async ({ ctx, input }) => {
+  update: permitted("VehiclesEdit").input(z.object({ vehicleId: z.string(), data: vehicleInput })).mutation(async ({ ctx, input }) => {
     const before = await ctx.prisma.vehicle.findUnique({ where: { id: input.vehicleId }, include: { options: { select: { optionId: true } } } });
     if (!before) throw new TRPCError({ code: "NOT_FOUND", message: "Vehicle not found" });
     await checkModel(ctx.prisma, input.data.makeId, input.data.modelId);
@@ -226,7 +226,7 @@ export const vehicleRouter = router({
     return { id: before.id };
   }),
 
-  list: staffProcedure
+  list: permitted("Vehicles")
     .input(
       z.object({
         search: z.string().optional(),
@@ -278,7 +278,7 @@ export const vehicleRouter = router({
       return { total, rows };
     }),
 
-  byId: staffProcedure.input(z.object({ vehicleId: z.string() })).query(async ({ ctx, input }) => {
+  byId: permitted("Vehicles").input(z.object({ vehicleId: z.string() })).query(async ({ ctx, input }) => {
     const v = await ctx.prisma.vehicle.findUnique({
       where: { id: input.vehicleId },
       include: {

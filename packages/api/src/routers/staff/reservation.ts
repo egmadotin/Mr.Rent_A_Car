@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { Prisma } from "@mrac/db";
-import { router, staffProcedure } from "../../trpc";
+import { router, staffProcedure, permitted, requireDiscountAllowed, requirePermission } from "../../trpc";
 import { audit } from "../../lib/audit";
 import { withBookingGuard } from "../../lib/errors";
 import { priceBooking } from "../../lib/pricing";
@@ -220,7 +220,7 @@ export const reservationRouter = router({
    * (Reservation#, First/Last Name, Vehicle ID, Phone Number, Vehicle Type, Loc. Name, Company Name,
    * Pickup Date Begin/End, Loc. Out, Loc. In, Status, National ID/SSN). Sorted by Reservation# descending.
    */
-  list: staffProcedure
+  list: permitted("Reservations")
     .input(
       z.object({
         search: z.string().optional(),
@@ -409,16 +409,18 @@ export const reservationRouter = router({
       }),
     ),
 
-  create: staffProcedure.input(reservationInput).mutation(({ ctx, input }) =>
+  create: permitted("ReservationsAdd").input(reservationInput).mutation(({ ctx, input }) =>
     withBookingGuard(async () => {
+      await requireDiscountAllowed(ctx, input.discountType, input.discountValue);
       const id = await ctx.prisma.$transaction((tx) => writeBooking(tx, ctx.user.id, input));
       if (input.sendConfirmationEmail) await sendConfirmation(ctx.prisma, id, input.customer.email, ctx.user.id);
       return { id };
     }),
   ),
 
-  update: staffProcedure.input(z.object({ reservationId: z.string(), data: reservationInput })).mutation(({ ctx, input }) =>
+  update: permitted("ReservationsEdit").input(z.object({ reservationId: z.string(), data: reservationInput })).mutation(({ ctx, input }) =>
     withBookingGuard(async () => {
+      await requireDiscountAllowed(ctx, input.data.discountType, input.data.discountValue);
       const r = await ctx.prisma.reservation.findFirst({ where: { id: input.reservationId, deletedAt: null } });
       if (!r) throw new TRPCError({ code: "NOT_FOUND" });
       if (!(ACTIVE as readonly string[]).includes(r.status))
@@ -429,7 +431,7 @@ export const reservationRouter = router({
     }),
   ),
 
-  byId: staffProcedure.input(z.object({ reservationId: z.string() })).query(async ({ ctx, input }) => {
+  byId: permitted("Reservations").input(z.object({ reservationId: z.string() })).query(async ({ ctx, input }) => {
     const r = await ctx.prisma.reservation.findFirst({
       where: { id: input.reservationId, deletedAt: null },
       include: {
@@ -473,8 +475,9 @@ export const reservationRouter = router({
   // ── lifecycle ────────────────────────────────────────────────────────────────
   setStatus: staffProcedure
     .input(z.object({ reservationId: z.string(), status: z.enum(["TENTATIVE", "CONFIRMED", "CANCELLED", "NO_SHOW"]), reason: optStr }))
-    .mutation(({ ctx, input }) =>
-      withBookingGuard(() =>
+    .mutation(async ({ ctx, input }) => {
+      await requirePermission(ctx, input.status === "CANCELLED" ? "ReservationsDelete" : "ReservationsEdit");
+      return withBookingGuard(() =>
         ctx.prisma.$transaction(async (tx) => {
           const r = await tx.reservation.findFirst({ where: { id: input.reservationId, deletedAt: null } });
           if (!r) throw new TRPCError({ code: "NOT_FOUND" });
@@ -491,10 +494,10 @@ export const reservationRouter = router({
           if (input.reason) await tx.memo.create({ data: { reservationId: r.id, authorId: ctx.user.id, body: `${input.status === "CANCELLED" ? "Cancelled" : "Status changed"}: ${input.reason}` } });
           await audit(tx, "Reservation", r.id, ctx.user.id, { Status: [r.status, input.status] });
         }),
-      ),
-    ),
+      );
+    }),
 
-  delete: staffProcedure.input(z.object({ reservationId: z.string(), confirmNumber: z.coerce.number().int() })).mutation(({ ctx, input }) =>
+  delete: permitted("ReservationsDeleteReal").input(z.object({ reservationId: z.string(), confirmNumber: z.coerce.number().int() })).mutation(({ ctx, input }) =>
     ctx.prisma.$transaction(async (tx) => {
       const r = await tx.reservation.findFirstOrThrow({ where: { id: input.reservationId, deletedAt: null } });
       if (r.number !== input.confirmNumber) throw new TRPCError({ code: "BAD_REQUEST", message: "Reservation number doesn't match." });
@@ -505,7 +508,7 @@ export const reservationRouter = router({
     }),
   ),
 
-  duplicate: staffProcedure.input(z.object({ reservationId: z.string() })).mutation(({ ctx, input }) =>
+  duplicate: permitted("ReservationsAdd").input(z.object({ reservationId: z.string() })).mutation(({ ctx, input }) =>
     ctx.prisma.$transaction(async (tx) => {
       const r = await tx.reservation.findFirstOrThrow({ where: { id: input.reservationId }, include: { chargeLines: true } });
       const { id: _id, number: _n, legacyId: _l, createdAt: _c, updatedAt: _u, cancelledAt: _x, deletedAt: _d, quoteId: _q, chargeLines, vehicleId: _v, status: _s, confirmationEmailSentAt: _e, ...copy } = r;
@@ -519,7 +522,7 @@ export const reservationRouter = router({
   ),
 
   /** "Move Reservation": reassign the reservation to a different customer. */
-  moveToCustomer: staffProcedure.input(z.object({ reservationId: z.string(), customerId: z.string() })).mutation(({ ctx, input }) =>
+  moveToCustomer: permitted("ReservationsEdit").input(z.object({ reservationId: z.string(), customerId: z.string() })).mutation(({ ctx, input }) =>
     ctx.prisma.$transaction(async (tx) => {
       const r = await tx.reservation.findFirstOrThrow({ where: { id: input.reservationId, deletedAt: null } });
       const c = await tx.customer.findUniqueOrThrow({ where: { id: input.customerId } });
@@ -532,7 +535,7 @@ export const reservationRouter = router({
   ),
 
   /** "Start Rental" from a reservation: opens a Rental with the same booking, recalculated charges. */
-  startRental: staffProcedure
+  startRental: permitted("CheckOuts")
     .input(
       z.object({
         reservationId: z.string(),
@@ -641,13 +644,13 @@ export const reservationRouter = router({
       await ctx.prisma.memo.create({ data: { reservationId: input.reservationId, body: input.body, showAsPopup: input.showAsPopup, authorId: ctx.user.id } });
     }),
 
-  addBillSplit: staffProcedure.input(z.object({ reservationId: z.string() }).merge(billSplitInput)).mutation(async ({ ctx, input }) => {
+  addBillSplit: permitted("BillSplitAdd").input(z.object({ reservationId: z.string() }).merge(billSplitInput)).mutation(async ({ ctx, input }) => {
     const { reservationId, ...rest } = input;
     await ctx.prisma.reservation.findFirstOrThrow({ where: { id: reservationId, deletedAt: null } });
     await ctx.prisma.billSplit.create({ data: { ...billSplitData(rest), reservationId } });
   }),
 
-  removeBillSplit: staffProcedure.input(z.object({ billSplitId: z.string() })).mutation(async ({ ctx, input }) => {
+  removeBillSplit: permitted("BillSplitDelete").input(z.object({ billSplitId: z.string() })).mutation(async ({ ctx, input }) => {
     await ctx.prisma.billSplit.delete({ where: { id: input.billSplitId } });
   }),
 

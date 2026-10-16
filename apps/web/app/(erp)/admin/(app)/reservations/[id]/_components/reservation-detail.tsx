@@ -27,6 +27,7 @@ import {
 } from "../../../../../_components/form";
 import { PageHeader } from "../../../../../_components/page-header";
 import { BillSplitDialog, CLAIM_TYPES, TransportDialog } from "../../../../../_components/booking-dialogs";
+import { NO_PERMISSION, useCan } from "../../../../../_components/permissions";
 import { EmailDocumentDialog } from "../../../../../_components/email-document-dialog";
 import { ActionLink, DL } from "../../../../../_components/legacy-view";
 import { legacyDate } from "../../../../../_components/list-kit";
@@ -44,6 +45,7 @@ export function ReservationDetail({ reservationId, autoStartRental }: { reservat
   const q = useQuery(trpc.staff.reservation.byId.queryOptions({ reservationId }));
   const data = q.data as Data | undefined;
   const [dialog, setDialog] = React.useState<DialogName>(autoStartRental ? "start" : null);
+  const can = useCan();
   const [panel, setPanel] = React.useState<null | "payments" | "drivers" | "billsplit" | "transports">(null);
   const close = (o: boolean) => !o && setDialog(null);
 
@@ -72,7 +74,7 @@ export function ReservationDetail({ reservationId, autoStartRental }: { reservat
   // the RentCentric ReservationMain.aspx action links, two per row, in its order
   const links: React.ReactNode[] = [
     active ? (
-      <ActionLink key="s" onClick={() => setDialog("start")}>Start Rental</ActionLink>
+      <ActionLink key="s" onClick={() => setDialog("start")} disabled={!can("CheckOuts")} title={NO_PERMISSION}>Start Rental</ActionLink>
     ) : r.rental ? (
       <ActionLink key="s" href={`/admin/rentals/${r.rental.id}`}>Rental #{r.rental.raNumber}</ActionLink>
     ) : (
@@ -84,14 +86,14 @@ export function ReservationDetail({ reservationId, autoStartRental }: { reservat
     <ActionLink key="pd" href={`/admin/print/reservations/${r.id}`} newTab>Print Reservation Detail</ActionLink>,
     <ActionLink key="b" onClick={() => setPanel("billsplit")} active={panel === "billsplit"}>Bill Split ({r.billSplits.length})</ActionLink>,
     active ? (
-      <ActionLink key="c" onClick={() => setDialog("cancel")}>Cancel Reservation</ActionLink>
+      <ActionLink key="c" onClick={() => setDialog("cancel")} disabled={!can("ReservationsDelete")} title={NO_PERMISSION}>Cancel Reservation</ActionLink>
     ) : r.status === "CANCELLED" || r.status === "NO_SHOW" ? (
       <ActionLink key="c" onClick={() => setDialog("reinstate")}>Reinstate Reservation</ActionLink>
     ) : (
       <ActionLink key="c" disabled>Cancel Reservation</ActionLink>
     ),
     <ActionLink key="m" onClick={() => setDialog("move")} disabled={!active}>Move Reservation</ActionLink>,
-    <ActionLink key="del" onClick={() => setDialog("delete")} disabled={r.status === "CHECKED_OUT"}>Delete Reservation</ActionLink>,
+    <ActionLink key="del" onClick={() => setDialog("delete")} disabled={r.status === "CHECKED_OUT" || !can("ReservationsDeleteReal")} title={r.status === "CHECKED_OUT" ? undefined : NO_PERMISSION}>Delete Reservation</ActionLink>,
     <ActionLink
       key="dup"
       onClick={async () => {

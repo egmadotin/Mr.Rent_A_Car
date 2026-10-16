@@ -12,6 +12,7 @@ import { toast } from "@mrac/ui/components/sonner";
 import { Textarea } from "@mrac/ui/components/textarea";
 import { fullName, money } from "@mrac/ui/lib/format";
 import { errorMessage } from "../../../../../_components/form";
+import { NO_PERMISSION, useCan } from "../../../../../_components/permissions";
 import { EmailDocumentDialog } from "../../../../../_components/email-document-dialog";
 import { ActionLink, DL } from "../../../../../_components/legacy-view";
 import { legacyDate } from "../../../../../_components/list-kit";
@@ -42,6 +43,7 @@ export function RentalDetail({ rentalId }: { rentalId: string }) {
   const [dialog, setDialog] = React.useState<RentalDialog>(null);
   const [panel, setPanel] = React.useState<Panel>(null);
   const [emailing, setEmailing] = React.useState(false);
+  const can = useCan();
   // after Start / End Rental: the printout chosen there ("Complete And Print Rental")
   const printout = useSearchParams().get("print");
   const toggle = (p: Panel) => () => setPanel((cur) => (cur === p ? null : p));
@@ -67,7 +69,7 @@ export function RentalDetail({ rentalId }: { rentalId: string }) {
 
   // AgreementMain.aspx action links, two per row, in its order
   const links: React.ReactNode[] = [
-    <ActionLink key="end" href={`/admin/rentals/${r.id}/end`} disabled={!open} title="Only an open rental can be ended">End Rental</ActionLink>,
+    <ActionLink key="end" href={`/admin/rentals/${r.id}/end`} disabled={!open || !can("CheckIns")} title={!open ? "Only an open rental can be ended" : NO_PERMISSION}>End Rental</ActionLink>,
     <ActionLink key="pay" onClick={toggle("payments")} active={panel === "payments"}>Payments/Charges ({r.payments.length})</ActionLink>,
     <ActionLink key="drv" onClick={toggle("drivers")} active={panel === "drivers"}>Additional Drivers ({r.drivers.length})</ActionLink>,
     <ActionLink key="com" onClick={toggle("commissions")} active={panel === "commissions"}>Commissions ({r.commissions.length})</ActionLink>,
@@ -84,9 +86,9 @@ export function RentalDetail({ rentalId }: { rentalId: string }) {
     </ActionLink>,
     <ActionLink key="email" onClick={() => setEmailing(true)}>Email Agreement/Invoice</ActionLink>,
     <ActionLink key="adj" onClick={toggle("adjustments")} active={panel === "adjustments"}>Adjustments ({r.adjustments.length})</ActionLink>,
-    <ActionLink key="void" onClick={() => setDialog("void")} disabled={r.status === "VOIDED"} title="Already voided">Void Rental</ActionLink>,
+    <ActionLink key="void" onClick={() => setDialog("void")} disabled={r.status === "VOIDED" || !can("AgreementsCancel")} title={r.status === "VOIDED" ? "Already voided" : NO_PERMISSION}>Void Rental</ActionLink>,
     <ActionLink key="tt" onClick={toggle("tickets")} active={panel === "tickets"}>Traffic Tickets ({r.trafficTickets.length})</ActionLink>,
-    <ActionLink key="del" onClick={() => setDialog("delete")}>Delete Rental</ActionLink>,
+    <ActionLink key="del" onClick={() => setDialog("delete")} disabled={!can("AgreementsDelete")} title={NO_PERMISSION}>Delete Rental</ActionLink>,
     <ActionLink key="bs" onClick={toggle("billsplit")} active={panel === "billsplit"}>Bill Split ({r.billSplits.length})</ActionLink>,
     <ActionLink key="inv" onClick={toggle("invoices")} active={panel === "invoices"}>Invoices ({r.invoices.length})</ActionLink>,
     <ActionLink key="notes" onClick={toggle("notes")} active={panel === "notes"}>Notes ({notes.length})</ActionLink>,
@@ -98,8 +100,8 @@ export function RentalDetail({ rentalId }: { rentalId: string }) {
       <ActionLink key="res" disabled title="This rental was started without a reservation">Check Original Reservation</ActionLink>
     ),
     <ActionLink key="insp" disabled title="Available once vehicle inspections are built">Inspection Comparison</ActionLink>,
-    <ActionLink key="reopen" onClick={() => setDialog("reopen")} disabled={r.status !== "CLOSED"} title="Only a closed rental can be reopened">ReOpen Rental</ActionLink>,
-    <ActionLink key="unvoid" onClick={() => setDialog("unvoid")} disabled={r.status !== "VOIDED"} title="Only a voided rental can be unvoided">UnVoid Rental</ActionLink>,
+    <ActionLink key="reopen" onClick={() => setDialog("reopen")} disabled={r.status !== "CLOSED" || !can("chkAllowReOpenRentals")} title={r.status !== "CLOSED" ? "Only a closed rental can be reopened" : NO_PERMISSION}>ReOpen Rental</ActionLink>,
+    <ActionLink key="unvoid" onClick={() => setDialog("unvoid")} disabled={r.status !== "VOIDED" || !can("chkAllowUnVoidRentals")} title={r.status !== "VOIDED" ? "Only a voided rental can be unvoided" : NO_PERMISSION}>UnVoid Rental</ActionLink>,
     <ActionLink key="rate" onClick={() => setDialog("rate")}>Update Exchange Rate</ActionLink>,
     <ActionLink key="cl" onClick={toggle("claims")} active={panel === "claims"}>Claims</ActionLink>,
     <ActionLink key="cl2" onClick={toggle("claims")} active={panel === "claims"}>Claims V2</ActionLink>,

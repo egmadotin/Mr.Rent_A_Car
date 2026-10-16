@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { Prisma } from "@mrac/db";
-import { router, staffProcedure } from "../../trpc";
+import { router, staffProcedure, permitted } from "../../trpc";
 import { audit } from "../../lib/audit";
 
 /**
@@ -230,7 +230,7 @@ export const settingsRouter = router({
     if (!m) throw new TRPCError({ code: "NOT_FOUND" });
     return m;
   }),
-  miscSave: staffProcedure.input(z.object({ id: z.string().optional(), data: miscInput })).mutation(({ ctx, input }) =>
+  miscSave: permitted("SurchanrgesEdit").input(z.object({ id: z.string().optional(), data: miscInput })).mutation(({ ctx, input }) =>
     ctx.prisma.$transaction(async (tx) => {
       const { vehicleTypeIds, ...d } = input.data;
       const data = moneyFields(d, ["rate", "hourlyRate", "weeklyRate", "monthlyRate", "extraDailyRate"]) as Prisma.MiscChargeUncheckedCreateInput;
@@ -260,7 +260,7 @@ export const settingsRouter = router({
     if (!i) throw new TRPCError({ code: "NOT_FOUND" });
     return i;
   }),
-  insuranceSave: staffProcedure.input(z.object({ id: z.string().optional(), data: insuranceInput })).mutation(({ ctx, input }) =>
+  insuranceSave: permitted("InsurancesEdit").input(z.object({ id: z.string().optional(), data: insuranceInput })).mutation(({ ctx, input }) =>
     ctx.prisma.$transaction(async (tx) => {
       const { vehicleTypeIds, ...d } = input.data;
       const data = moneyFields(d, ["dailyRate", "hourlyRate", "weeklyRate", "monthlyRate", "extraDailyRate", "deductible"]) as Prisma.InsuranceUncheckedCreateInput;
@@ -299,7 +299,7 @@ export const settingsRouter = router({
     if (!r) throw new TRPCError({ code: "NOT_FOUND" });
     return r;
   }),
-  rateSave: staffProcedure
+  rateSave: permitted("RatesEdit")
     .input(z.object({ id: z.string().optional(), data: rateInput, values: z.array(rateValueInput).default([]) }))
     .mutation(({ ctx, input }) =>
       ctx.prisma.$transaction(async (tx) => {
@@ -333,7 +333,7 @@ export const settingsRouter = router({
       include: { _count: { select: { vehiclesRental: { where: { isActive: true } }, vehicleTypes: { where: { displayOnline: true, isActive: true } } } } },
     }),
   ),
-  locationSave: staffProcedure.input(z.object({ id: z.string(), data: locationInput })).mutation(async ({ ctx, input }) => {
+  locationSave: permitted("LocationsEdit").input(z.object({ id: z.string(), data: locationInput })).mutation(async ({ ctx, input }) => {
     const before = await ctx.prisma.location.findUnique({ where: { id: input.id } });
     if (!before) throw new TRPCError({ code: "NOT_FOUND", message: "Location not found" });
     const { latitude, longitude, ...rest } = input.data;
@@ -364,7 +364,7 @@ export const settingsRouter = router({
     if (!t) throw new TRPCError({ code: "NOT_FOUND", message: "Vehicle type not found" });
     return { type: t, locations };
   }),
-  vehicleTypeSave: staffProcedure.input(z.object({ id: z.string(), data: vehicleTypeInput })).mutation(async ({ ctx, input }) => {
+  vehicleTypeSave: permitted("VehiclesEdit").input(z.object({ id: z.string(), data: vehicleTypeInput })).mutation(async ({ ctx, input }) => {
     const before = await ctx.prisma.vehicleType.findUnique({ where: { id: input.id }, include: { locations: true } });
     if (!before) throw new TRPCError({ code: "NOT_FOUND", message: "Vehicle type not found" });
     const { locations, deposit, ...rest } = input.data;
@@ -398,7 +398,7 @@ export const settingsRouter = router({
   seasonList: staffProcedure.query(({ ctx }) =>
     ctx.prisma.season.findMany({ orderBy: { startDate: "asc" }, include: { _count: { select: { rates: true } } } }),
   ),
-  seasonSave: staffProcedure
+  seasonSave: permitted("RatesEdit")
     .input(z.object({ id: z.string().optional(), name: req("Name"), startDate: z.coerce.date(), endDate: z.coerce.date() }))
     .mutation(async ({ ctx, input }) => {
       const { id, ...data } = input;
@@ -408,7 +408,7 @@ export const settingsRouter = router({
   taxList: staffProcedure.query(({ ctx }) =>
     ctx.prisma.tax.findMany({ orderBy: { name: "asc" }, include: { locations: { select: { location: { select: { id: true, name: true } } } } } }),
   ),
-  taxSave: staffProcedure
+  taxSave: permitted("Settings")
     .input(
       z.object({
         id: z.string().optional(),

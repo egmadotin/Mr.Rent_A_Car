@@ -38,3 +38,6 @@ export type SessionUser = Session["user"];
 export function isStaff(user: { kind?: string | null } | null | undefined) {
   return user?.kind === "STAFF";
 }
+
+/** Password hashing for staff accounts created / reset in Settings > Users. */
+export { hashPassword } from "better-auth/crypto";

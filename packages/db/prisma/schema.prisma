@@ -111,11 +111,20 @@ model Verification {
 }
 
 /// Staff permission group (Settings > Users). VERIFY: permission keys once Settings > Users is audited.
+/// Settings > Users > User Groups (AdminGroupsModify.aspx). `permissions` holds RentCentric's checkbox ids
+/// (see packages/api/src/lib/permissions.ts). Users with the admin role ("Full Admin") can do everything.
 model UserGroup {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  permissions String[]
-  users       User[]
+  id                String        @id @default(cuid())
+  legacyId          Int?          @unique
+  name              String        @unique
+  isActive          Boolean       @default(true)
+  /// "Location:" — null = ALL locations
+  locationId        String?
+  /// "Max Discount: % / $"
+  maxDiscountType   DiscountType?
+  maxDiscountValue  Decimal?      @db.Decimal(10, 2)
+  permissions       String[]
+  users             User[]
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

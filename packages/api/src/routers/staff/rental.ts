@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { Prisma } from "@mrac/db";
-import { router, staffProcedure } from "../../trpc";
+import { router, staffProcedure, permitted, requireDiscountAllowed, requirePermission } from "../../trpc";
 import { audit } from "../../lib/audit";
 import { rentalTotals } from "../../lib/totals";
 import { withBookingGuard } from "../../lib/errors";
@@ -121,7 +121,7 @@ export const rentalRouter = router({
    * Exchanged, Vehicle ID, License Plate, Vehicle Make, Vehicle Type, Location Name, Loc. Out, Loc. In, Ticket Date,
    * Status, Credit Card #, Claim#, RO#, PO#, SSN, Rate Type, Invoice#). Sorted by pickup date.
    */
-  list: staffProcedure
+  list: permitted("Agreements")
     .input(
       z.object({
         status: z.enum(["OPEN", "CLOSED", "VOIDED"]).optional(),
@@ -225,7 +225,7 @@ export const rentalRouter = router({
       return { total, rows };
     }),
 
-  byId: staffProcedure.input(id).query(async ({ ctx, input }) => {
+  byId: permitted("Agreements").input(id).query(async ({ ctx, input }) => {
     const r = await ctx.prisma.rental.findFirst({
       where: { id: input.rentalId, deletedAt: null },
       include: {
@@ -299,7 +299,7 @@ export const rentalRouter = router({
   // ── Lifecycle ───────────────────────────────────────────────────────────────
 
   /** "End Rental" — check the vehicle in. VERIFY field list against the live check-in screen. */
-  end: staffProcedure
+  end: permitted("CheckIns")
     .input(
       id.extend({
         checkedInAt: z.coerce.date(),
@@ -319,7 +319,7 @@ export const rentalRouter = router({
       }),
     ),
 
-  reopen: staffProcedure.input(id).mutation(({ ctx, input }) =>
+  reopen: permitted("chkAllowReOpenRentals").input(id).mutation(({ ctx, input }) =>
     ctx.prisma.$transaction(async (tx) => {
       const r = await loadRental(tx, input.rentalId);
       if (r.status !== "CLOSED") throw new TRPCError({ code: "BAD_REQUEST", message: "Only closed rentals can be reopened." });
@@ -332,7 +332,7 @@ export const rentalRouter = router({
     }),
   ),
 
-  void: staffProcedure.input(id.extend({ reason: z.string().trim().min(3) })).mutation(({ ctx, input }) =>
+  void: permitted("AgreementsCancel").input(id.extend({ reason: z.string().trim().min(3) })).mutation(({ ctx, input }) =>
     ctx.prisma.$transaction(async (tx) => {
       const r = await loadRental(tx, input.rentalId);
       if (r.status === "VOIDED") throw new TRPCError({ code: "BAD_REQUEST", message: "Rental is already void." });
@@ -344,7 +344,7 @@ export const rentalRouter = router({
     }),
   ),
 
-  unvoid: staffProcedure.input(id).mutation(({ ctx, input }) =>
+  unvoid: permitted("chkAllowUnVoidRentals").input(id).mutation(({ ctx, input }) =>
     withBookingGuard(() => ctx.prisma.$transaction(async (tx) => {
       const r = await loadRental(tx, input.rentalId);
       if (r.status !== "VOIDED") throw new TRPCError({ code: "BAD_REQUEST", message: "Rental is not void." });
@@ -362,7 +362,7 @@ export const rentalRouter = router({
   ),
 
   /** Soft delete. Requires typing the RA number in the UI. */
-  delete: staffProcedure.input(id.extend({ confirmRaNumber: z.coerce.number().int() })).mutation(({ ctx, input }) =>
+  delete: permitted("AgreementsDelete").input(id.extend({ confirmRaNumber: z.coerce.number().int() })).mutation(({ ctx, input }) =>
     ctx.prisma.$transaction(async (tx) => {
       const r = await loadRental(tx, input.rentalId);
       if (r.raNumber !== input.confirmRaNumber)
@@ -390,7 +390,7 @@ export const rentalRouter = router({
    * Start a Rental (CheckOut3.aspx?DoAction=New): a walk-in rental without a reservation. The renter is always saved as a
    * customer (the form requires licence details); charges come from the same options grid as quotes / reservations.
    */
-  startWalkIn: staffProcedure
+  startWalkIn: permitted("CheckOuts")
     .input(
       rentalFields
         .extend({
@@ -413,6 +413,7 @@ export const rentalRouter = router({
     .mutation(({ ctx, input }) =>
       withBookingGuard(() =>
         ctx.prisma.$transaction(async (tx) => {
+          await requireDiscountAllowed(ctx, input.discountType, input.discountValue);
           if (input.companyId && !input.allowUndesired) {
             const co = await tx.company.findUnique({ where: { id: input.companyId } });
             if (co?.isUndesired) throw new TRPCError({ code: "CONFLICT", message: "UNDESIRED_COMPANY" });
@@ -488,7 +489,7 @@ export const rentalRouter = router({
    * (closed rentals), Fuel Charge and Upgrade Type / Amount. Re-prices the rental; traffic tickets, admin charges,
    * damages, prepaid fuel and adjustments stay as they are. The vehicle itself changes through Vehicle Exchange.
    */
-  update: staffProcedure
+  update: permitted("AgreementsEdit")
     .input(
       rentalFields
         .extend({
@@ -509,6 +510,9 @@ export const rentalRouter = router({
       withBookingGuard(() =>
         ctx.prisma.$transaction(async (tx) => {
           const r = await loadRental(tx, input.rentalId);
+          if (input.close) await requirePermission(ctx, "CheckIns");
+          if (r.status === "CLOSED") await requirePermission(ctx, "ClosedAgreementsEdit");
+          if (input.discountValue !== (r.discountValue == null ? null : Number(r.discountValue))) await requireDiscountAllowed(ctx, input.discountType, input.discountValue);
           if (input.companyId && input.companyId !== r.companyId && !input.allowUndesired) {
             const co = await tx.company.findUnique({ where: { id: input.companyId } });
             if (co?.isUndesired) throw new TRPCError({ code: "CONFLICT", message: "UNDESIRED_COMPANY" });
@@ -623,6 +627,7 @@ export const rentalRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      if (input.transactionType === "REFUND") await requirePermission(ctx, "Transactions");
       const r = await loadRental(ctx.prisma, input.rentalId);
       const { rentalId, amount, ...rest } = input;
       await ctx.prisma.payment.create({
@@ -630,7 +635,7 @@ export const rentalRouter = router({
       });
     }),
 
-  addTrafficTicket: staffProcedure
+  addTrafficTicket: permitted("TrafficTicketsAdd")
     .input(
       id.extend({
         ticketDate: z.coerce.date(),
@@ -655,14 +660,14 @@ export const rentalRouter = router({
       }),
     ),
 
-  removeTrafficTicket: staffProcedure.input(z.object({ ticketId: z.string() })).mutation(({ ctx, input }) =>
+  removeTrafficTicket: permitted("TrafficTicketsDelete").input(z.object({ ticketId: z.string() })).mutation(({ ctx, input }) =>
     ctx.prisma.$transaction(async (tx) => {
       const t = await tx.trafficTicket.delete({ where: { id: input.ticketId } });
       await syncTicketLine(tx, t.rentalId);
     }),
   ),
 
-  addAdjustment: staffProcedure
+  addAdjustment: permitted("CKAllowAdjustments")
     .input(
       id.extend({
         kind: z.enum(CHARGE_KINDS),
@@ -683,7 +688,7 @@ export const rentalRouter = router({
       }),
     ),
 
-  addCommission: staffProcedure
+  addCommission: permitted("CommissionsAdd")
     .input(id.extend({ amount: money.positive(), referralId: optStr, userId: optStr }))
     .mutation(async ({ ctx, input }) => {
       if (!input.referralId && !input.userId)
@@ -694,17 +699,17 @@ export const rentalRouter = router({
       });
     }),
 
-  addBillSplit: staffProcedure.input(id.merge(billSplitInput)).mutation(async ({ ctx, input }) => {
+  addBillSplit: permitted("BillSplitAdd").input(id.merge(billSplitInput)).mutation(async ({ ctx, input }) => {
     const { rentalId, ...rest } = input;
     await loadRental(ctx.prisma, rentalId);
     await ctx.prisma.billSplit.create({ data: { ...billSplitData(rest), rentalId } });
   }),
 
-  removeBillSplit: staffProcedure.input(z.object({ billSplitId: z.string() })).mutation(async ({ ctx, input }) => {
+  removeBillSplit: permitted("BillSplitDelete").input(z.object({ billSplitId: z.string() })).mutation(async ({ ctx, input }) => {
     await ctx.prisma.billSplit.delete({ where: { id: input.billSplitId } });
   }),
 
-  addClaim: staffProcedure
+  addClaim: permitted("ClaimsAdd")
     .input(
       id.extend({
         claimDate: z.coerce.date(),
@@ -749,6 +754,7 @@ export const rentalRouter = router({
   addMemo: staffProcedure
     .input(id.extend({ kind: z.enum(["MEMO", "NOTE"]), body: z.string().trim().min(1).max(4000), showAsPopup: z.boolean().default(false) }))
     .mutation(async ({ ctx, input }) => {
+      if (input.kind === "NOTE") await requirePermission(ctx, "AddNotesCheckbox");
       await loadRental(ctx.prisma, input.rentalId);
       await ctx.prisma.memo.create({
         data: { rentalId: input.rentalId, kind: input.kind, body: input.body, showAsPopup: input.showAsPopup, authorId: ctx.user.id },
