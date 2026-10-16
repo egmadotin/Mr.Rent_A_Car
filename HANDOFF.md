@@ -37,6 +37,9 @@ docker compose exec dev sh -c "tail -f /tmp/next.log"   # follow the log (Ctrl+C
 ```
 
 - Restart: `docker compose restart dev`, then the `pnpm dev` line again.
+- **Fast local testing (production mode)**: dev mode compiles each page on first open (1–3 min each on this PC, <1 GB free RAM), so clicks seem dead. For clicking around, build once and serve:
+  `docker compose exec -T dev sh -c "cd apps/web && npx next build --no-lint"` then `docker compose exec -d dev sh -c "cd apps/web && npx next start -p 3001 > /tmp/next.log 2>&1"`. Pages then open instantly; after code changes, rebuild (or switch back to `pnpm dev`). Stop the server with `docker compose restart dev`.
+- Dev file watching ignores `packages/db/prisma/legacy`, migrations, `.git`, `.next`, `.claude` (next.config.ts) — the large legacy JSON files were triggering slow re-scans.
 - **Dev staff login**: `staff@mrac.test`. The password is in `packages/db/prisma/seed.ts` (it's a test value).
 - Don't `pnpm install` on the host.
 - **Typecheck**: `docker compose exec -T dev sh -c "cd apps/web && npx --no-install tsc --noEmit"` (ignore TS6053 / `.next/types` noise).
