@@ -70,7 +70,16 @@ async function main() {
     });
     updated++;
   }
-  console.log(`tax rules imported for ${updated} location taxes`);
+  // every tax's code at each location (amount taxes too), for invoices
+  const { all } = JSON.parse(readFileSync(join(__dirname, "legacy", "tax_rules.json"), "utf8")) as { all: { loc: number; taxId: number; name: string; code: string; active: boolean }[] };
+  let coded = 0;
+  for (const r of all.filter((x) => x.active)) {
+    const locationId = LOCATIONS[String(r.loc)];
+    const tax = taxes.find((t) => norm(t.name) === norm(r.name));
+    if (!locationId || !tax) continue;
+    coded += (await prisma.locationTax.updateMany({ where: { locationId, taxId: tax.id }, data: { code: r.code } })).count;
+  }
+  console.log(`tax rules imported for ${updated} location taxes, codes for ${coded}`);
   if (unmatched.length) console.log(`unmatched (${unmatched.length}):\n  ${unmatched.slice(0, 30).join("\n  ")}`);
 }
 

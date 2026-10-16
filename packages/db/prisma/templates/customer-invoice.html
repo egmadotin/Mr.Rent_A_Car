@@ -1,0 +1,102 @@
+<!-- Customer Invoice — rebuilt from RentCentric's built-in printout (Customer Invoice.pdf). Placeholders: ##FieldName## or ##code##. -->
+<style type="text/css">
+  .ci { font-family: Verdana, Arial, sans-serif; font-size: 12px; color: #000; }
+  .ci table { border-collapse: collapse; width: 100%; }
+  .ci td { vertical-align: top; padding: 1px 2px; }
+  .ci .r { text-align: right; }
+  .ci .title { font-size: 26px; font-weight: bold; font-style: italic; }
+  .ci .small { font-size: 11px; }
+  .ci h3 { font-size: 15px; margin: 6px 0; }
+</style>
+<div class="ci">
+  <table>
+    <tr>
+      <td style="width: 55%;">
+        <img alt="" src="https://www5.rentcentric.com/Client6270/images/LocationID116mr%20rent%20logo-75-rentcentric-2016.jpg" /><br />
+        <div style="margin: 8px 0 0 18px;">
+          ##LocationName##<br />
+          ##LocationAddress##<br />
+          ##LocationCity##, ##LocationState## ##LocationZIP##<br />
+          PH#&nbsp;&nbsp; ##LocationPhone## &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; FAX#&nbsp; ##LocationFax##<br />
+          ##GSTNumber##
+        </div>
+        <div style="margin: 24px 0 0 18px;">
+          ##CustomerLastName##, ##CustomerFirstName##<br />
+          ##CustomerAddress##<br />
+          ##CustomerCity##, ##CustomerStateCode## ##CustomerZIP##
+        </div>
+      </td>
+      <td>
+        <div class="title">Customer Invoice</div>
+        <table style="margin-top: 10px; width: auto;">
+          <tr><td>Invoice<br />Date:</td><td style="padding-left: 24px;">##CurrentDate##</td></tr>
+        </table>
+        <div style="margin-top: 18px;">
+          ##CustomerLastName##, ##CustomerFirstName##<br />
+          ##CustomerAddress##<br />
+          ##CustomerCity##, ##CustomerStateCode## ##CustomerZIP##
+        </div>
+        <div style="margin-top: 22px;">PH&nbsp;&nbsp; ##CustomerPhone##</div>
+        <div style="margin-top: 6px;">License Information:<br />##DrviserLicenseNumber##<br />##DriverLicenseStateCode##&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ##LicenseExpiry##</div>
+        <div style="margin-top: 22px;">RA#:&nbsp;&nbsp; ##RANumber##</div>
+      </td>
+    </tr>
+  </table>
+
+  <table style="margin-top: 18px;">
+    <tr>
+      <td style="width: 50%;">
+        <table>
+          <tr><td>Vehicle ID<br />##AssignedID##</td><td>Vehicle Type<br />##Year## ##Make## ##Model##</td><td>Plate<br />##VehicleLicenseNumber##</td></tr>
+        </table>
+        <table style="width: auto; margin-left: 30px;">
+          <tr><td class="r">##TotalHours##</td><td>Hour(s)</td><td>@</td><td class="r">##HourlyRate##</td><td>=</td><td class="r">##HourlyTotal##</td></tr>
+          <tr><td class="r">##TotalDayes##</td><td>Day(s)</td><td>@</td><td class="r">##DailyRate##</td><td>=</td><td class="r">##DailyTotal##</td></tr>
+          <tr><td class="r">##ExtraDayes##</td><td>Extra Day(s)</td><td>@</td><td class="r">##ExtraDailyRate##</td><td>=</td><td class="r">##ExtraDailyTotal##</td></tr>
+          <tr><td class="r">##TotalWeeks##</td><td>Week(s)</td><td>@</td><td class="r">##Weeklyrate##</td><td>=</td><td class="r">##WeeklyTotal##</td></tr>
+          <tr><td class="r">##TotalMonthes##</td><td>Month(s)</td><td>@</td><td class="r">##Monthlyrate##</td><td>=</td><td class="r">##MonthlyTotal##</td></tr>
+        </table>
+      </td>
+      <td>
+        <table>
+          <tr><td>Date Rented<br />##DateRented##</td><td>Date Returned<br />##DateReturned##</td></tr>
+        </table>
+        <table style="width: auto; margin: 14px 0 0 0;">
+          <tr><td class="r">Odometer Out</td><td>##OdometerOut##</td></tr>
+          <tr><td class="r">Odometer In</td><td>##OdometerIn##</td></tr>
+          <tr><td class="r">Total Driven</td><td>##TotalKMDriven##</td></tr>
+        </table>
+        <h3>STATEMENT OF CHARGES</h3>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <table class="small">
+          <tr><td>Rate Charge</td><td class="r">##RateCharge##</td></tr>
+          <tr><td>Extra Miles</td><td class="r">##KMExceedCharge##</td></tr>
+          <tr><td>EST TOTAL TIME &amp; MILEAGE</td><td class="r">##TotalTimeAndMileAges##</td></tr>
+          <tr><td>traffic amount</td><td class="r">##TrafficAmount##</td></tr>
+          <tr><td>total payments</td><td class="r">##Renterpayments##</td></tr>
+          ##InvoiceOptionRows##
+        </table>
+        <div style="margin-top: 6px; font-weight: bold;">Please Make Check Payable To and Remit To:</div>
+        <div style="font-weight: bold; font-size: 14px;">##LocationName##<br />##LocationAddress##<br />##LocationCity##, ##LocationState## ##LocationZIP##</div>
+      </td>
+      <td>
+        <table class="small">
+          <tr><td>One Way Fee</td><td class="r">##OneWayAmount##</td></tr>
+          <tr><td>Discount</td><td class="r">##DiscountInBrackets##</td></tr>
+          ##InvoiceTaxRows##
+          <tr><td>Fuel Charge</td><td class="r">##FuelAmount##</td></tr>
+          <tr><td style="padding-top: 10px;">Total Charges</td><td class="r" style="padding-top: 10px;">##TotalEstimatedCharges##</td></tr>
+        </table>
+        <div style="margin-top: 10px; font-weight: bold;">DUE UPON RECEIPT</div>
+        <table>
+          <tr><td style="font-weight: bold;">Please Pay This Amount:</td><td class="r">##Balance##</td></tr>
+        </table>
+        <div style="font-weight: bold;">Total Payments</div>
+        <table class="small">##PaymentRows##</table>
+      </td>
+    </tr>
+  </table>
+</div>

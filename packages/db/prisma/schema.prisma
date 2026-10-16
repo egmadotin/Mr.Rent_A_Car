@@ -744,6 +744,8 @@ model LocationTax {
 
   /// RentCentric TaxID at this location (TaxesModify.aspx)
   legacyId      Int?     @unique
+  /// RentCentric tax code at this location, printed on invoices ("GST 5%", "PVRT $1.5@Day G")
+  code          String?
   /// false = no "Apply to" rules imported: the % applies to the whole subtotal (old behaviour)
   hasRules      Boolean  @default(false)
   /// "Apply to" ticks: TIME, MILEAGE, MISC (all), INSURANCE (all), TAX (all taxable), FUEL, DAMAGE, ONE_WAY, OTHER1..OTHER4

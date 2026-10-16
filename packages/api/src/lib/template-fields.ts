@@ -5,10 +5,25 @@ import { rentalTotals } from "./totals";
 type Db = Prisma.TransactionClient;
 type Fields = Record<string, string>;
 
-const money = (v: unknown) => (v == null || v === "" ? "" : `$${Number(v).toFixed(2)}`);
+/** RentCentric money: "$2,248.75", negatives "-$20.00". */
+const money = (v: unknown) => {
+  if (v == null || v === "") return "";
+  const n = Number(v);
+  return `${n < 0 ? "-" : ""}$${Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
 const num = (v: unknown) => (v == null ? "" : String(Number(v)));
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+/** RentCentric's template date formats (seen on its printed contracts). */
+function rc(d: Date | null | undefined, tz: string, style: "HH:mm" | "ddd, MMM d, yyyy" | "MM/dd/yyyy" | "M/d/yyyy h:mm:ss tt") {
+  if (!d) return "";
+  const p = (o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat("en-US", { timeZone: tz, ...o }).format(d);
+  if (style === "HH:mm") return p({ hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+  if (style === "ddd, MMM d, yyyy") return p({ weekday: "short", month: "short", day: "numeric", year: "numeric" });
+  if (style === "MM/dd/yyyy") return p({ month: "2-digit", day: "2-digit", year: "numeric" });
+  return p({ month: "numeric", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit" }).replace(",", "");
+}
 
 function fmt(d: Date | null | undefined, tz: string, part: "date" | "time" | "both") {
   if (!d) return "";
@@ -31,9 +46,10 @@ export function renderTemplate(html: string, fields: Fields, kind = "AGREEMENT",
 }
 
 /** Fields whose values are HTML (not escaped when rendered). */
-export const HTML_FIELDS = new Set(["ChargesSummaryTable", "Invoice\\chargesSummary"]);
+export const HTML_FIELDS = new Set(["ChargesSummaryTable", "Invoice\\chargesSummary", "InvoiceOptionRows", "InvoiceTaxRows", "PaymentRows"]);
 
 type Line = {
+  taxId?: string | null;
   name: string;
   kind: string;
   units: unknown;
@@ -43,7 +59,7 @@ type Line = {
   insurance?: { code: string | null; deductible: unknown } | null;
   miscCharge?: { code: string | null } | null;
 };
-type Pay = { method: string; amount: unknown; transactionType: string; cardLast4: string | null; authorizationCode: string | null; creditCard?: { brand: string; expMonth: number; expYear: number } | null };
+type Pay = { takenAt?: Date; method: string; amount: unknown; transactionType: string; cardLast4: string | null; authorizationCode: string | null; creditCard?: { brand: string; expMonth: number; expYear: number } | null };
 type Person = { firstName: string; lastName: string; address1?: string | null; address2?: string | null; city?: string | null; province?: string | null; postal?: string | null; country?: string | null; phone?: string | null; birthDate?: Date | null; licenseNumber?: string | null; licenseProvince?: string | null; licenseExpiry?: Date | null };
 type Loc = { name: string; address1: string | null; address2: string | null; city: string | null; province: string | null; postal: string | null; phone: string | null; fax: string | null; timeZone: string; hours?: { dayOfWeek: number; opensAt: string | null; closesAt: string | null; isClosed: boolean }[] };
 type Company = { name: string; code: string | null; address1: string | null; address2: string | null; city: string | null; province: string | null; postal: string | null; country: string | null; phone: string | null; fax: string | null; contactName: string | null } | null;
@@ -53,7 +69,7 @@ type Doc = {
   raNumber?: number | null;
   status: string;
   location: Loc;
-  returnLocation: { name: string };
+  returnLocation: { name: string; address1?: string | null };
   out: Date;
   dueIn: Date;
   in?: Date | null;
@@ -80,6 +96,10 @@ type Doc = {
   fuelOut?: number | null;
   fuelIn?: number | null;
   drivers?: Person[];
+  /** the location's tax codes ("GST 5%") by tax id */
+  taxCodes?: Record<string, string>;
+  /** the rate's per-unit prices for the vehicle type (printed even when that unit isn't used) */
+  rateTable?: { hourly: unknown; daily: unknown; extraDaily: unknown; weekly: unknown; monthly: unknown } | null;
 };
 
 /** The legacy charge table (ChargesSummaryTable / Invoice\chargesSummary): Charge, Unit, Rate, Total, then totals and payments. */
@@ -111,24 +131,25 @@ function docFields(d: Doc): Fields {
   set("RepairOrderNumber", d.roNumber);
   set("AgreementPONumber", d.poNumber);
   set("RentalStatus", d.status);
-  set("LabelRentalStatus", d.status);
+  // printed contracts show "Rental In" once closed, "Rental Out" while open
+  set("LabelRentalStatus", d.status === "CLOSED" ? "Rental In" : d.status === "OPEN" ? "Rental Out" : d.status);
   set("Referral", d.referral);
   set("OpenedBy", d.openedBy);
   set("AdminName", d.openedBy);
   set("ClosedBy", d.closedBy);
   set("Memo", d.memo);
   set("FlightNumber", d.flightNumber);
-  set("DropOffLocation", d.returnLocation.name);
+  set("DropOffLocation", d.returnLocation.address1 || d.returnLocation.name);
   set("CurrentDate", fmt(new Date(), tz, "date"));
   // dates
   const back = d.in ?? d.dueIn;
   set("DateOut", fmt(d.out, tz, "both"));
   set("DateIn", fmt(d.in ?? d.dueIn, tz, "both"));
-  set("DateDueIn", fmt(d.dueIn, tz, "both"));
-  set("CheckOutTime", fmt(d.out, tz, "time"));
-  set("DateOutWithoutTime", fmt(d.out, tz, "date"));
-  set("CheckInTime", fmt(back, tz, "time"));
-  set("DateInWithoutTime", fmt(back, tz, "date"));
+  set("DateDueIn", rc(d.dueIn, tz, "M/d/yyyy h:mm:ss tt"));
+  set("CheckOutTime", rc(d.out, tz, "HH:mm"));
+  set("DateOutWithoutTime", rc(d.out, tz, "ddd, MMM d, yyyy"));
+  set("CheckInTime", rc(back, tz, "HH:mm"));
+  set("DateInWithoutTime", rc(back, tz, "MM/dd/yyyy"));
   set("RentalDays", Math.max(1, Math.ceil((+back - +d.out) / 86_400_000)));
   // odometer / fuel
   set("OdometerOut", d.odometerOut);
@@ -210,7 +231,7 @@ function docFields(d: Doc): Fields {
   set("CompanyPhone", co?.phone);
   set("CompanyFax", co?.fax);
   set("CompanyContactName", co?.contactName);
-  set("BillToCompany", co?.name);
+  set("BillToCompany", co?.name ?? "None");
 
   // charges by unit (legacy names: Hourly / Daily / Extra Daily / Weekly / Monthly)
   const time = (name: string) => d.lines.find((l) => l.kind === "TIME" && l.name.toLowerCase() === name.toLowerCase());
@@ -222,17 +243,21 @@ function docFields(d: Doc): Fields {
     ["Monthly", "TotalMonthes", "Monthlyrate", "MonthlyTotal"],
   ] as const) {
     const l = time(label);
-    set(unitsKey, l ? num(l.units) : "");
-    set(rateKey, l ? money(l.rate) : "");
-    set(totalKey, l ? money(l.total) : "");
+    const tableRate = d.rateTable?.[({ Hourly: "hourly", Daily: "daily", "Extra Daily": "extraDaily", Weekly: "weekly", Monthly: "monthly" } as const)[label]];
+    set(unitsKey, l ? num(l.units) : "0");
+    set(rateKey, l ? money(l.rate) : tableRate != null ? money(tableRate) : "");
+    set(totalKey, l ? money(l.total) : "$0.00");
   }
   const mileage = d.lines.filter((l) => l.kind === "MILEAGE");
   const allowed = mileage.find((l) => !Number(l.total));
   set("TotalMilesAllowed", allowed ? num(allowed.units) : "");
   const extraKm = mileage.find((l) => Number(l.total));
-  set("KMEExceed", extraKm ? num(extraKm.units) : "");
-  set("KMMilesCharged", extraKm ? money(extraKm.rate) : "");
-  set("KMExceedCharge", extraKm ? money(extraKm.total) : "");
+  // "Extra KMs": km driven beyond the allowance, printed even when the extra-km rate is $0
+  const driven = d.odometerIn != null && d.odometerOut != null ? d.odometerIn - d.odometerOut : null;
+  const over = extraKm ? Number(extraKm.units) : driven != null && allowed ? Math.max(0, driven - Number(allowed.units)) : 0;
+  set("KMEExceed", over);
+  set("KMMilesCharged", money(extraKm ? extraKm.rate : 0));
+  set("KMExceedCharge", money(extraKm ? extraKm.total : 0));
   set("TotalTimeAndMileAges", money(totals.timeAndKm));
   set("TotalTimeAndMileAgesInLocalCurrency", money(totals.timeAndKm));
   const sumOf = (...kinds: string[]) => d.lines.filter((l) => kinds.includes(l.kind)).reduce((a, l) => a + Number(l.total), 0);
@@ -264,7 +289,7 @@ function docFields(d: Doc): Fields {
     set(`MiscCharge${i + 1}Amount`, money(l.total));
   });
   d.lines.filter((l) => l.kind === "TAX").slice(0, 8).forEach((l, i) => {
-    set(`Tax${i + 1}Code`, l.tax?.kind === "AMOUNT" ? money(l.rate) : `${Number(l.rate)}%`);
+    set(`Tax${i + 1}Code`, (l.taxId && d.taxCodes?.[l.taxId]) || (l.tax?.kind === "AMOUNT" ? money(l.rate) : `${Number(l.rate)}%`));
     set(`Tax${i + 1}Name`, l.name);
     set(`Tax${i + 1}Amount`, money(l.total));
   });
@@ -287,6 +312,29 @@ function docFields(d: Doc): Fields {
   set("AuthCode", auth?.authorizationCode);
   set("Auth", auth ? money(auth.amount) : "");
   set("CCExpiry", auth?.creditCard ? `${String(auth.creditCard.expMonth).padStart(2, "0")}/${auth.creditCard.expYear}` : "");
+  set("LicenseExpiry", c.licenseExpiry ? fmt(c.licenseExpiry, "UTC", "date") : "");
+  set("CustomerLicenseExpiry", f.LicenseExpiry);
+  // Customer Invoice "Statement of Charges": one row per protection / misc charge (by code) and per tax (by code)
+  const row = (a: string, b: string) => `<tr><td>${esc(a)}</td><td style="text-align:right">${esc(b)}</td></tr>`;
+  f.InvoiceOptionRows = d.lines
+    .filter((l) => l.kind === "PROTECTION" || l.kind === "MISC")
+    .map((l) => row(l.insurance?.code ?? l.miscCharge?.code ?? l.name, money(l.total)))
+    .join("");
+  f.InvoiceTaxRows = d.lines
+    .filter((l) => l.kind === "TAX")
+    .map((l) => row((l.taxId && d.taxCodes?.[l.taxId]) || l.name, money(l.total)))
+    .join("");
+  f.PaymentRows = d.payments
+    .map((p) => row(`${p.takenAt ? fmt(p.takenAt, tz, "both") : ""} ${p.method}${p.cardLast4 ? ` XXXX${p.cardLast4}` : ""}`.trim(), money(p.transactionType === "REFUND" ? -Number(p.amount) : p.amount)))
+    .join("");
+  set("RateCharge", money(d.lines.filter((l) => l.kind === "TIME").reduce((a, l) => a + Number(l.total), 0)));
+  // Customer Invoice style: short dates, $0.00 instead of blank, discount in brackets
+  set("DateRented", fmt(d.out, tz, "date"));
+  set("DateReturned", fmt(d.in ?? null, tz, "date"));
+  set("TrafficAmount", money(sumOf("TRAFFIC_TICKETS")));
+  set("OneWayAmount", money(sumOf("ONE_WAY")));
+  set("FuelAmount", money(sumOf("FUEL", "PREPAID_FUEL")));
+  set("DiscountInBrackets", sumOf("DISCOUNT") ? `(${money(Math.abs(sumOf("DISCOUNT")))})` : "$0.00");
   f.ChargesSummaryTable = chargesTable(d.lines, totals, d.payments);
   f["Invoice\\chargesSummary"] = f.ChargesSummaryTable;
   return f;
@@ -295,6 +343,12 @@ function docFields(d: Doc): Fields {
 const lineInclude = { tax: { select: { kind: true } }, insurance: { select: { code: true, deductible: true } }, miscCharge: { select: { code: true } } } satisfies Prisma.ChargeLineInclude;
 const lineOrder = [{ sortOrder: "asc" }, { id: "asc" }] satisfies Prisma.ChargeLineOrderByWithRelationInput[];
 const locInclude = { hours: true } satisfies Prisma.LocationInclude;
+/** A location's tax codes by tax id. */
+async function taxCodesAt(db: Db, locationId: string) {
+  const rows = await db.locationTax.findMany({ where: { locationId, code: { not: null } }, select: { taxId: true, code: true } });
+  return Object.fromEntries(rows.map((x) => [x.taxId, x.code!]));
+}
+
 const vehicleOf = (v: { assignedId: string; year: number | null; make: { name: string }; model: { name: string }; licenseNumber: string | null; vin: string | null; colour: string | null; doors: number | null } | null) =>
   v ? { assignedId: v.assignedId, year: v.year, make: v.make.name, model: v.model.name, licenseNumber: v.licenseNumber, vin: v.vin, colour: v.colour, doors: v.doors } : null;
 
@@ -311,7 +365,7 @@ export async function rentalTemplateFields(db: Db, rentalId: string) {
       referral: true,
       openedBy: { select: { name: true } },
       closedBy: { select: { name: true } },
-      rate: true,
+      rate: { include: { values: true } },
       chargeLines: { orderBy: lineOrder, include: lineInclude },
       payments: { orderBy: { takenAt: "asc" }, include: { creditCard: true } },
       drivers: { include: { customer: true } },
@@ -320,6 +374,8 @@ export async function rentalTemplateFields(db: Db, rentalId: string) {
     },
   });
   return docFields({
+    taxCodes: await taxCodesAt(db, r.checkOutLocationId),
+    rateTable: r.rate?.values.find((x) => x.vehicleTypeId === r.vehicleTypeId && !x.seasonId) ?? r.rate?.values.find((x) => x.vehicleTypeId === r.vehicleTypeId) ?? null,
     raNumber: r.raNumber,
     status: r.status === "OPEN" ? "OPEN" : r.status === "CLOSED" ? "CLOSED" : "VOID",
     location: r.checkOutLocation,
@@ -375,6 +431,7 @@ export async function reservationTemplateFields(db: Db, reservationId: string) {
     },
   });
   const f = docFields({
+    taxCodes: await taxCodesAt(db, r.pickupLocationId),
     raNumber: r.number,
     status: r.status,
     location: r.pickupLocation,
@@ -488,6 +545,7 @@ export async function quoteTemplateFields(db: Db, quoteId: string) {
   });
   const [first, ...rest] = (q.contactName ?? "").split(" ");
   const f = docFields({
+    taxCodes: await taxCodesAt(db, q.pickupLocationId),
     raNumber: q.number,
     status: "QUOTE",
     location: q.pickupLocation,
