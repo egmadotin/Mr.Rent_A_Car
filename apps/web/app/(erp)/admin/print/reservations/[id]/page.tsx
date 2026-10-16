@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { LocalDateTime } from "@mrac/ui/components/local-time";
 import { api } from "../../../../_lib/session";
 import { PrintButton } from "../../_components/print-button";
+import { TemplatePicker } from "../../_components/template-picker";
+import { TemplatePrint } from "../../_components/template-print";
 import { InfoRows, PrintChargeTable, PrintFooter, PrintHeader, PrintPage, PrintSection, VehicleCard } from "../../_components/print-kit";
 
 export const metadata = { title: "Print reservation" };
@@ -10,9 +12,17 @@ export const metadata = { title: "Print reservation" };
  * Matches RentCentric "Print Reservation Detail" (ReservationEmailPrint.aspx): header, Reservation
  * (Res Number, Date, Opened By, customer), Your Vehicle, Your Time and Place, charges, payments, balance, footer.
  */
-export default async function PrintReservationPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function PrintReservationPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ t?: string }> }) {
   const { id } = await params;
-  const data = await (await api()).reservation.byId({ reservationId: id }).catch(() => null);
+  // ?t=<template name>: printed with a reservation template from Settings > Rentals & Invoices; otherwise the standard layout
+  const { t: templateName } = await searchParams;
+  const staff = await api();
+  const templates = await staff.template.list({ kind: "RESERVATION", activeOnly: true });
+  if (templateName) {
+    const doc = await staff.template.render({ kind: "RESERVATION", id, name: templateName });
+    if (doc.html) return <TemplatePrint html={doc.html} current={templateName} names={[...new Set(templates.map((x) => x.name))]} builtIn="Reservation Detail (standard)" />;
+  }
+  const data = await staff.reservation.byId({ reservationId: id }).catch(() => null);
   if (!data) notFound();
   const r = data.reservation;
   const tz = r.pickupLocation.timeZone;
@@ -24,7 +34,7 @@ export default async function PrintReservationPage({ params }: { params: Promise
 
   return (
     <PrintPage>
-      <div className="flex justify-end print:hidden"><PrintButton /></div>
+      <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">{templates.length > 0 ? <TemplatePicker current="" names={[...new Set(templates.map((x) => x.name))]} builtIn="Reservation Detail (standard)" /> : <span />}<PrintButton /></div>
       <PrintHeader location={r.pickupLocation} title="Reservation" number={r.number} date={<LocalDateTime value={r.createdAt} timeZone={tz} />} />
 
       <div className="grid grid-cols-2 gap-4">

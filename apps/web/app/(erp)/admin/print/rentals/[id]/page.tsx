@@ -3,7 +3,7 @@ import { LocalDateTime } from "@mrac/ui/components/local-time";
 import { date, fuel, fullName, money } from "@mrac/ui/lib/format";
 import { api } from "../../../../_lib/session";
 import { PrintButton } from "../../_components/print-button";
-import { TemplatePicker } from "../../_components/template-picker";
+import { TemplatePrint } from "../../_components/template-print";
 
 export const metadata = { title: "Print rental" };
 
@@ -20,20 +20,10 @@ export default async function PrintRentalPage({ params, searchParams }: { params
   if (!data) notFound();
   const { rental: r, totals: t } = data;
   const [doc, templates] = await Promise.all([
-    staff.template.renderRental({ rentalId: id, name: templateName || undefined }),
+    staff.template.render({ kind: "AGREEMENT", id, name: templateName || undefined }),
     staff.template.list({ kind: "AGREEMENT", locationId: r.checkOutLocationId, activeOnly: true }),
   ]);
-  if (doc.html)
-    return (
-      <div className="bg-white text-black">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b p-3 print:hidden">
-          <TemplatePicker current={doc.name ?? ""} names={templates.map((x) => x.name)} />
-          <PrintButton />
-        </div>
-        {/* staff-authored template HTML (Settings > Rentals & Invoices), filled with this rental's data */}
-        <div className="mx-auto max-w-[8.5in] p-4 print:p-0" dangerouslySetInnerHTML={{ __html: doc.html }} />
-      </div>
-    );
+  if (doc.html) return <TemplatePrint html={doc.html} current={doc.name ?? ""} names={templates.map((x) => x.name)} />;
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 bg-background p-8 text-sm print:max-w-none print:p-0">

@@ -2,14 +2,24 @@ import { notFound } from "next/navigation";
 import { LocalDateTime } from "@mrac/ui/components/local-time";
 import { api } from "../../../../_lib/session";
 import { PrintButton } from "../../_components/print-button";
+import { TemplatePicker } from "../../_components/template-picker";
+import { TemplatePrint } from "../../_components/template-print";
 import { InfoRows, PrintChargeTable, PrintFooter, PrintHeader, PrintPage, PrintSection, VehicleCard } from "../../_components/print-kit";
 
 export const metadata = { title: "Print quote" };
 
 /** Matches RentCentric PrintQuoteRW.aspx: header, quote details, Your Vehicle, Your Time and Place, charges, footer. */
-export default async function PrintQuotePage({ params }: { params: Promise<{ id: string }> }) {
+export default async function PrintQuotePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ t?: string }> }) {
   const { id } = await params;
-  const data = await (await api()).quote.byId({ quoteId: id }).catch(() => null);
+  // ?t=<template name>: printed with a quote template from Settings > Rentals & Invoices; otherwise the standard layout
+  const { t: templateName } = await searchParams;
+  const staff = await api();
+  const templates = await staff.template.list({ kind: "QUOTE", activeOnly: true });
+  if (templateName) {
+    const doc = await staff.template.render({ kind: "QUOTE", id, name: templateName });
+    if (doc.html) return <TemplatePrint html={doc.html} current={templateName} names={[...new Set(templates.map((x) => x.name))]} builtIn="Print Quote (standard)" />;
+  }
+  const data = await staff.quote.byId({ quoteId: id }).catch(() => null);
   if (!data) notFound();
   const q = data.quote;
   const vt = q.vehicleType;
@@ -21,7 +31,7 @@ export default async function PrintQuotePage({ params }: { params: Promise<{ id:
 
   return (
     <PrintPage>
-      <div className="flex justify-end print:hidden"><PrintButton /></div>
+      <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">{templates.length > 0 ? <TemplatePicker current="" names={[...new Set(templates.map((x) => x.name))]} builtIn="Print Quote (standard)" /> : <span />}<PrintButton /></div>
       <PrintHeader
         location={q.pickupLocation}
         title="Quote"

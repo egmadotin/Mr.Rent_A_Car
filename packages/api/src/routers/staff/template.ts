@@ -2,8 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { adminProcedure, router, staffProcedure } from "../../trpc";
 import { audit } from "../../lib/audit";
-import { TEMPLATE_CODES } from "../../lib/template-codes";
-import { HTML_FIELDS, renderTemplate, rentalTemplateFields } from "../../lib/template-fields";
+import { codesFor, quoteTemplateFields, renderTemplate, rentalTemplateFields, reservationTemplateFields } from "../../lib/template-fields";
 
 const KINDS = ["AGREEMENT", "RESERVATION", "QUOTE"] as const;
 
@@ -31,7 +30,9 @@ export const templateRouter = router({
   }),
 
   /** The placeholder list for the editor (RentCentric's field tree: code → name). */
-  fields: staffProcedure.query(() => Object.entries(TEMPLATE_CODES).map(([code, name]) => ({ code, name })).sort((a, b) => a.name.localeCompare(b.name))),
+  fields: staffProcedure
+    .input(z.object({ kind: z.enum(KINDS).default("AGREEMENT") }).default({}))
+    .query(({ input }) => Object.entries(codesFor(input.kind)).map(([code, name]) => ({ code, name })).sort((a, b) => a.name.localeCompare(b.name))),
 
   save: adminProcedure
     .input(
@@ -67,26 +68,51 @@ export const templateRouter = router({
   }),
 
   /**
-   * A rental printed with a template: by id, by name (the "Please Select Rental Printout" choice), or the location's
-   * default agreement template. Returns the filled HTML.
+   * A rental (AGREEMENT), reservation (RESERVATION) or quote (QUOTE) printed with a template: by template id, by name (the
+   * "Please Select … Printout" choice) or the location's default for that kind; `html` previews unsaved template HTML.
+   * The document is found by id or by its number (RA # / reservation # / quote #).
    */
-  renderRental: staffProcedure
-    .input(z.object({ rentalId: z.string().optional(), raNumber: z.coerce.number().int().optional(), templateId: z.string().optional(), name: z.string().optional(), html: z.string().optional() }))
+  render: staffProcedure
+    .input(
+      z.object({
+        kind: z.enum(KINDS),
+        id: z.string().optional(),
+        number: z.coerce.number().int().optional(),
+        templateId: z.string().optional(),
+        name: z.string().optional(),
+        html: z.string().optional(),
+      }),
+    )
     .query(async ({ ctx, input }) => {
-      const r = await ctx.prisma.rental.findFirst({ where: input.rentalId ? { id: input.rentalId } : { raNumber: input.raNumber ?? -1 }, select: { id: true, checkOutLocationId: true } });
-      if (!r) throw new TRPCError({ code: "NOT_FOUND", message: "Rental not found" });
-      const scope = { kind: "AGREEMENT", OR: [{ locationId: r.checkOutLocationId }, { locationId: null }] };
-      const t = input.html != null
-        ? null
-        : input.templateId
-          ? await ctx.prisma.documentTemplate.findUnique({ where: { id: input.templateId } })
-          : await ctx.prisma.documentTemplate.findFirst({
-              where: { ...scope, isActive: true, ...(input.name ? { name: input.name } : { isDefault: true }) },
-              orderBy: { locationId: "desc" },
-            }) ??
-            (await ctx.prisma.documentTemplate.findFirst({ where: { kind: "AGREEMENT", isActive: true, ...(input.name ? { name: input.name } : { isDefault: true }) } }));
-      if (input.html == null && !t) return { name: null, html: null };
-      const fields = await rentalTemplateFields(ctx.prisma, r.id);
-      return { name: t?.name ?? "Preview", html: renderTemplate(input.html ?? t!.html, fields, HTML_FIELDS) };
+      const byNum = (field: string) => (input.id ? { id: input.id } : { [field]: input.number ?? -1 });
+      const doc =
+        input.kind === "AGREEMENT"
+          ? await ctx.prisma.rental.findFirst({ where: byNum("raNumber"), select: { id: true, checkOutLocationId: true } }).then((r) => r && { id: r.id, locationId: r.checkOutLocationId })
+          : input.kind === "RESERVATION"
+            ? await ctx.prisma.reservation.findFirst({ where: byNum("number"), select: { id: true, pickupLocationId: true } }).then((r) => r && { id: r.id, locationId: r.pickupLocationId })
+            : await ctx.prisma.quote.findFirst({ where: byNum("number"), select: { id: true, pickupLocationId: true } }).then((r) => r && { id: r.id, locationId: r.pickupLocationId });
+      if (!doc) return { name: null, html: null, notFound: true };
+      const pick = (where: object) =>
+        ctx.prisma.documentTemplate.findFirst({
+          where: { kind: input.kind, isActive: true, ...(input.name ? { name: input.name } : { isDefault: true }), ...where },
+          orderBy: { locationId: "desc" },
+        });
+      const t =
+        input.html != null
+          ? null
+          : input.templateId
+            ? await ctx.prisma.documentTemplate.findUnique({ where: { id: input.templateId } })
+            : (await pick({ OR: [{ locationId: doc.locationId }, { locationId: null }] })) ??
+              // no default at this location: its first active template of that kind, then any location's default
+              (input.name ? null : await ctx.prisma.documentTemplate.findFirst({ where: { kind: input.kind, isActive: true, locationId: doc.locationId }, orderBy: { name: "asc" } })) ??
+              (await pick({}));
+      if (input.html == null && !t) return { name: null, html: null, notFound: false };
+      const fields =
+        input.kind === "AGREEMENT"
+          ? await rentalTemplateFields(ctx.prisma, doc.id)
+          : input.kind === "RESERVATION"
+            ? await reservationTemplateFields(ctx.prisma, doc.id)
+            : await quoteTemplateFields(ctx.prisma, doc.id);
+      return { name: t?.name ?? "Preview", html: renderTemplate(input.html ?? t!.html, fields, input.kind), notFound: false };
     }),
 });

@@ -34,7 +34,7 @@ export function TemplateEditor({ initial, locations, canEdit }: { initial: T; lo
   const [ra, setRa] = React.useState("");
   const [previewHtml, setPreviewHtml] = React.useState<string | null>(null);
   const area = React.useRef<HTMLTextAreaElement>(null);
-  const fields = useQuery(trpc.staff.template.fields.queryOptions()).data ?? [];
+  const fields = useQuery(trpc.staff.template.fields.queryOptions({ kind: v.kind as "AGREEMENT" })).data ?? [];
   const set = <K extends keyof T>(k: K, val: T[K]) => setV((s) => ({ ...s, [k]: val }));
   const shown = q.trim() ? fields.filter((f) => `${f.name} ${f.code}`.toLowerCase().includes(q.trim().toLowerCase())) : fields;
 
@@ -51,10 +51,11 @@ export function TemplateEditor({ initial, locations, canEdit }: { initial: T; lo
   }
 
   async function preview() {
-    if (!ra) return toast.error("Enter a Rental # to preview with.");
+    const what = v.kind === "AGREEMENT" ? "Rental" : v.kind === "RESERVATION" ? "Reservation" : "Quote";
+    if (!ra) return toast.error(`Enter a ${what} # to preview with.`);
     try {
-      const r = await client.staff.template.renderRental.query({ raNumber: Number(ra), html: v.html });
-      if (!r.html) return toast.error(`Rental #${ra} not found.`);
+      const r = await client.staff.template.render.query({ kind: v.kind as "AGREEMENT", number: Number(ra), html: v.html });
+      if (!r.html) return toast.error(`${what} #${ra} not found.`);
       setPreviewHtml(r.html);
     } catch (e) {
       toast.error(errorMessage(e));
@@ -146,7 +147,7 @@ export function TemplateEditor({ initial, locations, canEdit }: { initial: T; lo
 
         <div className="flex flex-wrap items-center gap-3">
           {canEdit && <Button type="submit" disabled={saving}>{saving ? <Loader2Icon className="animate-spin" /> : <SaveIcon />} Save</Button>}
-          <Input value={ra} onChange={(e) => setRa(e.target.value)} placeholder="Rental #" className="w-28" aria-label="Rental number to preview with" />
+          <Input value={ra} onChange={(e) => setRa(e.target.value)} placeholder={v.kind === "AGREEMENT" ? "Rental #" : v.kind === "RESERVATION" ? "Reservation #" : "Quote #"} className="w-32" aria-label="Number to preview with" />
           <Button type="button" variant="outline" onClick={preview}><EyeIcon /> Preview</Button>
           {canEdit && v.id && (
             <Button type="button" variant="ghost" className="ml-auto text-destructive" onClick={() => setDeleting(true)}><Trash2Icon /> Delete</Button>
@@ -155,7 +156,7 @@ export function TemplateEditor({ initial, locations, canEdit }: { initial: T; lo
 
         {previewHtml && (
           <Card className="gap-2">
-            <CardHeader><CardTitle className="text-base">Preview — Rental #{ra}</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-base">Preview — #{ra}</CardTitle></CardHeader>
             <CardContent>
               {/* staff-authored template filled with a rental's data */}
               <div className="overflow-auto rounded-md border bg-white p-4 text-black" dangerouslySetInnerHTML={{ __html: previewHtml }} />
