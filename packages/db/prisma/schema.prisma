@@ -1618,5 +1618,5 @@ model DocumentTemplate {
   updatedAt     DateTime     @updatedAt
   updatedById   String?
 
-  @@unique([locationId, name, kind])
+  @@index([locationId, kind])
 }
