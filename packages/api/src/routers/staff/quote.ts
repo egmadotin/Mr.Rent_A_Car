@@ -6,6 +6,7 @@ import { emailDocument } from "../../lib/email-document";
 import { audit } from "../../lib/audit";
 import { priceBooking } from "../../lib/pricing";
 import { bookingOptionsInput, staffPricingOptions } from "../../lib/booking-options";
+import { storedRateOverride } from "../../lib/rate-override";
 
 const D = (n: number) => new Prisma.Decimal(n);
 const optStr = z.string().trim().max(500).optional().nullable().transform((v) => v || null);
@@ -64,6 +65,7 @@ async function writeQuote(tx: Prisma.TransactionClient, userId: string, input: z
     companyId: input.companyId,
     vehicleTypeId: input.vehicleTypeId,
     rateId: input.rateId,
+    rateOverride: storedRateOverride(input.options.rateOverride),
     discountType: input.discountType ?? null,
     discountValue: input.discountValue == null ? null : D(input.discountValue),
     referralId: input.referralId,

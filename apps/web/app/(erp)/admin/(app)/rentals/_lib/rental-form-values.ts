@@ -1,6 +1,7 @@
 // Server-safe: the Start a Rental form's values for an existing rental (Edit Rental and End Rental pages).
 import type { RouterOutputs, Wire } from "@mrac/api";
 import { customerValues, optionsFromChargeLines } from "../../../../_components/booking-values";
+import type { RateOverride } from "../../../../_components/rate-details";
 
 type Rental = Awaited<RouterOutputs["staff"]["rental"]["byId"]>["rental"];
 const s = (x: string | null | undefined) => x ?? "";
@@ -12,7 +13,7 @@ export function rentalFormInitial(r: Rental | Wire<Rental>, { ending = false }: 
   const days = Math.max(1, Math.ceil((+new Date(end) - +new Date(r.checkOutAt)) / 86_400_000));
   // re-priced lines only: adjustments, tickets etc. are kept by the API and aren't options
   const priced = r.chargeLines.filter((l) => !l.name.startsWith("Adjustment — "));
-  const options = optionsFromChargeLines(priced, r.excludedTaxIds, days);
+  const options = { ...optionsFromChargeLines(priced, r.excludedTaxIds, days), rateOverride: r.rateOverride as RateOverride | null };
   const fuel = priced.find((l) => l.kind === "FUEL");
   const upgrade = priced.find((l) => l.kind === "UPGRADE");
   const latestMemo = r.memos.find((m) => m.kind === "MEMO");

@@ -46,7 +46,10 @@ export const bookingRouter = router({
             // value for the season containing the date, else the date-range value
             const v = r.values.find((x) => x.seasonId && seasonIds.includes(x.seasonId)) ?? r.values.find((x) => !x.seasonId);
             const inRange = r.validFor === "SEASON" ? !!v?.seasonId : (!r.effectiveDate || r.effectiveDate <= day) && (!r.endDate || r.endDate >= day);
-            return v && inRange ? { id: r.id, code: r.code, daily: v.daily?.toFixed(2) ?? null, displayOnline: r.displayOnline } : null;
+            const n = (x: { toFixed(d: number): string } | null) => x?.toFixed(2) ?? null;
+            // `values`: shown in the "Rate (i)" Rate Details dialog
+            const values = { hourly: n(v?.hourly ?? null), daily: n(v?.daily ?? null), extraDaily: n(v?.extraDaily ?? null), weekly: n(v?.weekly ?? null), monthly: n(v?.monthly ?? null), fuelCharge: n(r.fuelChargePerUnit), kmHourly: v?.kmHourly ?? null, kmDaily: v?.kmAllowed ?? null, kmWeekly: v?.kmWeekly ?? null, kmMonthly: v?.kmMonthly ?? null, kmCharge: n(v?.extraKmCharge ?? r.extraKmCharge) };
+            return v && inRange ? { id: r.id, code: r.code, daily: v.daily?.toFixed(2) ?? null, displayOnline: r.displayOnline, values } : null;
           })
           .filter((x): x is NonNullable<typeof x> => !!x),
         insurances: insurances.filter(fitsLength).map((i) => ({

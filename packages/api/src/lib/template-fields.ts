@@ -1,3 +1,4 @@
+import { applyRateOverride, readRateOverride } from "./rate-override";
 import type { Prisma } from "@mrac/db";
 import { RESERVATION_TEMPLATE_CODES, TEMPLATE_CODES } from "./template-codes";
 import { rentalTotals } from "./totals";
@@ -381,7 +382,7 @@ export async function rentalTemplateFields(db: Db, rentalId: string) {
   });
   return docFields({
     taxCodes: await taxCodesAt(db, r.checkOutLocationId),
-    rateTable: r.rate?.values.find((x) => x.vehicleTypeId === r.vehicleTypeId && !x.seasonId) ?? r.rate?.values.find((x) => x.vehicleTypeId === r.vehicleTypeId) ?? null,
+    rateTable: applyRateOverride(r.rate?.values.find((x) => x.vehicleTypeId === r.vehicleTypeId && !x.seasonId) ?? r.rate?.values.find((x) => x.vehicleTypeId === r.vehicleTypeId), readRateOverride(r.rateOverride)) ?? null,
     raNumber: r.raNumber,
     status: r.status === "OPEN" ? "OPEN" : r.status === "CLOSED" ? "CLOSED" : "VOID",
     location: r.checkOutLocation,

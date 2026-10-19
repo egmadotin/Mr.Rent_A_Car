@@ -64,9 +64,24 @@ export function CustomerFields({ layout, bind, onFind, children }: { layout: Cus
   );
 }
 
-/** The "Customer Notes" box under the profile fields (saved as a customer memo). */
-export function CustomerNotes({ bind }: { bind: Bind }) {
-  return <F label="Customer Notes" name="customerMemo" className="sm:col-span-2"><Textarea rows={3} {...bind("customerMemo")} /></F>;
+/**
+ * The "Customer Notes" box under the profile fields (saved as a customer memo), and RentCentric's "Add More Information"
+ * button beside it: the customer's other details (CustomerInfoMore.aspx — gender, title, referral, employer, passport,
+ * memberships, preferred / undesired …) are on the full customer form, opened in a new tab.
+ */
+export function CustomerNotes({ bind, customerId }: { bind: Bind; customerId?: string | null }) {
+  return (
+    <>
+      <F label="Customer Notes" name="customerMemo" className="sm:col-span-2"><Textarea rows={3} {...bind("customerMemo")} /></F>
+      <div className="flex items-start pt-6">
+        {customerId ? (
+          <Button asChild className="w-full"><a href={`/admin/customers/${customerId}/edit`} target="_blank" rel="noreferrer">Add More Information</a></Button>
+        ) : (
+          <Button type="button" className="w-full" disabled title="Find or save the customer first">Add More Information</Button>
+        )}
+      </div>
+    </>
+  );
 }
 
 type Match = {

@@ -16,6 +16,7 @@ import { CompanySearch } from "../../../../_components/company-search";
 import { FieldShell as F, FormErrorsContext, errorMessage, fieldErrorsOf } from "../../../../_components/form";
 import { OptionsGrid, emptyOptions, useBookingOptions, type BookingOptions } from "../../../../_components/options-grid";
 import { ReferralField } from "../../../../_components/referral-field";
+import { RateDetailsButton } from "../../../../_components/rate-details";
 
 type Values = Record<string, string>;
 export type QuoteFormInitial = { quoteId?: string; values: Values; options?: BookingOptions; customerLabel?: string };
@@ -126,10 +127,13 @@ export function QuoteForm({ initial, defaultLocationId }: { initial?: QuoteFormI
               <NativeSelect {...bind("vehicleTypeId")}><option value="">Please Select</option>{opt(o.vehicleTypes)}</NativeSelect>
             </F>
             <F label="Rate" name="rateId" required>
-              <NativeSelect {...bind("rateId")}>
-                <option value="">Please Select</option>
-                {rates.map((r) => <option key={r.id} value={r.id}>{r.code}{r.daily ? ` (${money(r.daily)})` : ""}</option>)}
-              </NativeSelect>
+              <div className="flex items-center gap-1">
+                <NativeSelect {...bind("rateId")}>
+                  <option value="">Please Select</option>
+                  {rates.map((r) => <option key={r.id} value={r.id}>{r.code}{r.daily ? ` (${money(r.daily)})` : ""}</option>)}
+                </NativeSelect>
+                <RateDetailsButton rateValues={rates.find((r) => r.id === v.rateId)?.values} value={opts.rateOverride} onChange={(rateOverride) => setOpts((o) => ({ ...o, rateOverride }))} disabled={!v.rateId} />
+              </div>
             </F>
             <DiscountField bind={bind} error={errors.discountValue?.[0]} />
             <F label="Referral" name="referralId"><ReferralField referrals={o.referrals} value={v.referralId ?? ""} onChange={(id) => set("referralId", id)} /></F>

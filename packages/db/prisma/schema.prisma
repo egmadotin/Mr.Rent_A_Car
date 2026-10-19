@@ -996,6 +996,8 @@ model Quote {
   vehicleType      VehicleType   @relation(fields: [vehicleTypeId], references: [id])
   rateId           String?
   rate             Rate?         @relation(fields: [rateId], references: [id])
+  /// "Rate (i)" Rate Details: this booking's own rate values, replacing the rate's (RateDetails.aspx) — see lib/rate-override.ts
+  rateOverride Json?
   companyId        String?
   company          Company?      @relation(fields: [companyId], references: [id])
   discountType     DiscountType?
@@ -1064,6 +1066,8 @@ model Reservation {
   vehicle          Vehicle?    @relation(fields: [vehicleId], references: [id])
   rateId           String?
   rate             Rate?       @relation(fields: [rateId], references: [id])
+  /// "Rate (i)" Rate Details: this booking's own rate values, replacing the rate's (RateDetails.aspx) — see lib/rate-override.ts
+  rateOverride Json?
   companyId        String?
   company          Company?    @relation(fields: [companyId], references: [id])
 
@@ -1194,6 +1198,8 @@ model Rental {
 
   rateId           String?
   rate             Rate?         @relation(fields: [rateId], references: [id])
+  /// "Rate (i)" Rate Details: this booking's own rate values, replacing the rate's (RateDetails.aspx) — see lib/rate-override.ts
+  rateOverride Json?
   discountType     DiscountType?
   discountValue    Decimal?      @db.Decimal(10, 2)
   discountReasonId String?

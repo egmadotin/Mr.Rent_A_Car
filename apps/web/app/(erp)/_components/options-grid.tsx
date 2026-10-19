@@ -8,12 +8,15 @@ import { Input } from "@mrac/ui/components/input";
 import { NativeSelect } from "@mrac/ui/components/native-select";
 import { money } from "@mrac/ui/lib/format";
 import { cn } from "@mrac/ui/lib/utils";
+import type { RateOverride } from "./rate-details";
 
 export type BookingOptions = {
   insuranceIds: string[];
   miscCharges: { miscChargeId: string; quantity: number }[];
   excludedTaxIds: string[];
   otherCharges: { amount: number; detail?: string | null; description?: string | null }[];
+  /** "Rate (i)" Rate Details (see rate-details.tsx) */
+  rateOverride?: RateOverride | null;
 };
 export const emptyOptions = (): BookingOptions => ({ insuranceIds: [], miscCharges: [], excludedTaxIds: [], otherCharges: [] });
 

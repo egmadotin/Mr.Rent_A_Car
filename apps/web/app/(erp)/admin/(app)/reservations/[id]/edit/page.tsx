@@ -3,6 +3,7 @@ import { PageHeader } from "../../../../../_components/page-header";
 import { api } from "../../../../../_lib/session";
 import { optionsFromChargeLines } from "../../../../../_components/booking-values";
 import { ReservationForm } from "../../_components/reservation-form";
+import type { RateOverride } from "../../../../../_components/rate-details";
 
 export const metadata = { title: "Edit reservation" };
 
@@ -20,7 +21,7 @@ export default async function EditReservationPage({ params }: { params: Promise<
 
   // the options grid selection, rebuilt from the stored charge lines
   const days = Math.max(1, Math.floor((+r.returnAt - +r.pickupAt) / 86_400_000));
-  const options = optionsFromChargeLines(r.chargeLines, r.excludedTaxIds, days);
+  const options = { ...optionsFromChargeLines(r.chargeLines, r.excludedTaxIds, days), rateOverride: r.rateOverride as RateOverride | null };
 
   const s = (x: string | null | undefined) => x ?? "";
   return (

@@ -8,6 +8,7 @@ import { withBookingGuard } from "../../lib/errors";
 import { billSplitData, billSplitInput, transportInput } from "../../lib/bill-split";
 import { priceBooking } from "../../lib/pricing";
 import { bookingOptionsInput, staffPricingOptions } from "../../lib/booking-options";
+import { storedRateOverride } from "../../lib/rate-override";
 import { customerInput, upsertBookingCustomer } from "../../lib/customer-input";
 
 const D = (n: number) => new Prisma.Decimal(n);
@@ -452,6 +453,7 @@ export const rentalRouter = router({
               fuelOut: input.fuelOut,
               prepaidFuel: input.prepaidFuel,
               rateId: input.rateId,
+              rateOverride: storedRateOverride(input.options.rateOverride),
               discountType: input.discountValue ? input.discountType ?? null : null,
               discountValue: input.discountValue ? D(input.discountValue) : null,
               discountReasonId: input.discountReasonId,
@@ -560,6 +562,7 @@ export const rentalRouter = router({
               fuelOut: input.fuelOut,
               prepaidFuel: input.prepaidFuel,
               rateId: input.rateId,
+              rateOverride: storedRateOverride(input.options.rateOverride),
               discountType: input.discountValue ? input.discountType ?? null : null,
               discountValue: input.discountValue ? D(input.discountValue) : null,
               discountReasonId: input.discountReasonId,

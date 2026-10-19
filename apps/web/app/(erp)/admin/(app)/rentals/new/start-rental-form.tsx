@@ -25,6 +25,7 @@ import { OptionsGrid, emptyOptions, useBookingOptions, type BookingOptions } fro
 import { ReferralField } from "../../../../_components/referral-field";
 import { PrintoutSelect } from "../../../../_components/printout-select";
 import { SearchPicker } from "../../../../_components/search-picker";
+import { RateDetailsButton } from "../../../../_components/rate-details";
 
 export type Values = Record<string, string | boolean>;
 
@@ -286,7 +287,7 @@ export function StartRentalForm({
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="max-w-xs space-y-1.5"><Label htmlFor="swipe">Swipe</Label><Input id="swipe" autoComplete="off" /></div>
-                <CustomerFields layout={RENTAL_CUSTOMER} bind={bind} onFind={checkMatching}><CustomerNotes bind={bind} /></CustomerFields>
+                <CustomerFields layout={RENTAL_CUSTOMER} bind={bind} onFind={checkMatching}><CustomerNotes bind={bind} customerId={customerId} /></CustomerFields>
                 <MatchList matches={customerId ? [] : matches.data} onUse={applyCustomer} />
                 <div className="flex justify-end">
                   <Button type="button" onClick={saveCustomerTab}>Save And Goto Rental Tab &gt;&gt;</Button>
@@ -329,10 +330,13 @@ export function StartRentalForm({
                       {company?.isUndesired && <p className="flex items-center gap-1 text-xs text-destructive"><AlertTriangleIcon className="size-3.5" /> {company.name} is on the undesired list.</p>}
                     </div>
                     <F label="Rate" name="rateId" required>
-                      <NativeSelect {...bind("rateId")}>
-                        <option value="">Please Select</option>
-                        {rates.map((r) => <option key={r.id} value={r.id}>{r.code}{r.daily ? ` (${money(r.daily)})` : ""}</option>)}
-                      </NativeSelect>
+                      <div className="flex items-center gap-1">
+                        <NativeSelect {...bind("rateId")}>
+                          <option value="">Please Select</option>
+                          {rates.map((r) => <option key={r.id} value={r.id}>{r.code}{r.daily ? ` (${money(r.daily)})` : ""}</option>)}
+                        </NativeSelect>
+                        <RateDetailsButton rateValues={rates.find((r) => r.id === v.rateId)?.values} value={opts.rateOverride} onChange={(rateOverride) => setOpts((o) => ({ ...o, rateOverride }))} disabled={!v.rateId} />
+                      </div>
                     </F>
                     <div className="grid grid-cols-[1fr_1fr] gap-2">
                       <DiscountField bind={bind} label="Discount" noBlank error={errors.discountValue?.[0]} />

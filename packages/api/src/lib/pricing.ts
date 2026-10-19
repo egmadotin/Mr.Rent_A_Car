@@ -1,5 +1,6 @@
 import { Prisma } from "@mrac/db";
 import { BUSINESS_TZ, localDateAsUtc, monthDayIn, weekdayIn } from "./tz";
+import { applyRateOverride, type RateOverride } from "./rate-override";
 
 type Tx = Prisma.TransactionClient;
 const D = (n: number | Prisma.Decimal) => new Prisma.Decimal(n);
@@ -47,6 +48,8 @@ export type PricingInput = {
   upgrade?: { type: "FLAT" | "DAILY"; amount: number } | null;
   /** Edit Rental "Fuel Charge" (manual amount) */
   fuelCharge?: number | null;
+  /** "Rate (i)" Rate Details: the booking's own rate values (blank ones keep the rate's) */
+  rateOverride?: RateOverride | null;
 };
 
 /**
@@ -208,8 +211,8 @@ export async function priceBooking(tx: Tx, input: PricingInput) {
     : null;
   // seasonal rates: the value row for the season containing the pickup date; else the date-range row
   const seasonIds = rate ? await seasonsAt(tx, input.pickupAt, tz) : [];
-  const rv = rate?.values.find((v) => v.seasonId && seasonIds.includes(v.seasonId)) ?? rate?.values.find((v) => !v.seasonId);
-  if (input.rateId && !rv) warnings.push("The selected rate has no price for this vehicle type.");
+  const rv = applyRateOverride(rate?.values.find((v) => v.seasonId && seasonIds.includes(v.seasonId)) ?? rate?.values.find((v) => !v.seasonId), input.rateOverride);
+  if (input.rateId && !rv?.daily && !rv?.hourly) warnings.push("The selected rate has no price for this vehicle type.");
   // "Min/Max+Regular" = standard daily/hourly pricing limited to a rental-length window (applied when the rate is picked)
   if (rate && !["Standard", "Min/Max+Regular"].includes(rate.rateType)) {
     approximate = true;

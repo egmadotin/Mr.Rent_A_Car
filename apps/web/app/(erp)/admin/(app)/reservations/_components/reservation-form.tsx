@@ -25,6 +25,7 @@ import { legacyDate } from "../../../../_components/list-kit";
 import { OptionsGrid, emptyOptions, useBookingOptions, type BookingOptions } from "../../../../_components/options-grid";
 import { ReferralField } from "../../../../_components/referral-field";
 import { SearchPicker } from "../../../../_components/search-picker";
+import { RateDetailsButton } from "../../../../_components/rate-details";
 
 type Values = Record<string, string | boolean>;
 
@@ -304,7 +305,7 @@ export function ReservationForm({
               <CardHeader><CardTitle className="text-base">Primary Driver</CardTitle></CardHeader>
               <CardContent className="space-y-4">
                 <div className="max-w-xs space-y-1.5"><Label htmlFor="swipe">Swipe</Label><Input id="swipe" autoComplete="off" /></div>
-                <CustomerFields layout={RESERVE_CUSTOMER} bind={bind} onFind={checkMatching}><CustomerNotes bind={bind} /></CustomerFields>
+                <CustomerFields layout={RESERVE_CUSTOMER} bind={bind} onFind={checkMatching}><CustomerNotes bind={bind} customerId={customerId} /></CustomerFields>
                 <MatchList matches={customerId ? [] : matches.data} onUse={applyCustomer} />
                 <div className="flex justify-end">
                   <Button type="button" onClick={saveCustomerTab}>Save and Goto Reservation Tab &gt;&gt;</Button>
@@ -373,10 +374,13 @@ export function ReservationForm({
                       {company?.isUndesired && <p className="flex items-center gap-1 text-xs text-destructive"><AlertTriangleIcon className="size-3.5" /> {company.name} is on the undesired list.</p>}
                     </div>
                     <F label="Rate" name="rateId" required>
-                      <NativeSelect {...bind("rateId")}>
-                        <option value="" />
-                        {rates.map((r) => <option key={r.id} value={r.id}>{r.code}{r.daily ? ` (${money(r.daily)})` : ""}</option>)}
-                      </NativeSelect>
+                      <div className="flex items-center gap-1">
+                        <NativeSelect {...bind("rateId")}>
+                          <option value="" />
+                          {rates.map((r) => <option key={r.id} value={r.id}>{r.code}{r.daily ? ` (${money(r.daily)})` : ""}</option>)}
+                        </NativeSelect>
+                        <RateDetailsButton rateValues={rates.find((r) => r.id === v.rateId)?.values} value={opts.rateOverride} onChange={(rateOverride) => setOpts((o) => ({ ...o, rateOverride }))} disabled={!v.rateId} />
+                      </div>
                     </F>
                     <F label="Vehicle" name="vehicleId">
                       <SearchPicker id="vehicleId" items={vehicles} value={str("vehicleId")} onChange={(id) => set("vehicleId", id)} disabled={!validWindow || !str("vehicleTypeId")} emptyText="No free vehicle of this type for these dates" />

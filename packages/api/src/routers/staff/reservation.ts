@@ -6,6 +6,7 @@ import { audit } from "../../lib/audit";
 import { withBookingGuard } from "../../lib/errors";
 import { priceBooking } from "../../lib/pricing";
 import { bookingOptionsInput, staffPricingOptions } from "../../lib/booking-options";
+import { storedRateOverride } from "../../lib/rate-override";
 import { customerInput, upsertBookingCustomer } from "../../lib/customer-input";
 import { billSplitData, billSplitInput, transportInput } from "../../lib/bill-split";
 import { emailDocument } from "../../lib/email-document";
@@ -145,6 +146,7 @@ async function writeBooking(
     vehicleTypeId: input.vehicleTypeId,
     vehicleId: input.vehicleId,
     rateId: input.rateId,
+    ...(input.options ? { rateOverride: storedRateOverride(input.options.rateOverride) } : {}),
     companyId: input.companyId,
     discountType: input.discountType ?? null,
     discountValue: input.discountValue == null ? null : D(input.discountValue),
@@ -512,7 +514,7 @@ export const reservationRouter = router({
     ctx.prisma.$transaction(async (tx) => {
       const r = await tx.reservation.findFirstOrThrow({ where: { id: input.reservationId }, include: { chargeLines: true } });
       const { id: _id, number: _n, legacyId: _l, createdAt: _c, updatedAt: _u, cancelledAt: _x, deletedAt: _d, quoteId: _q, chargeLines, vehicleId: _v, status: _s, confirmationEmailSentAt: _e, ...copy } = r;
-      const dup = await tx.reservation.create({ data: { ...copy, status: "TENTATIVE", vehicleId: null, createdById: ctx.user.id } });
+      const dup = await tx.reservation.create({ data: { ...copy, rateOverride: copy.rateOverride ?? Prisma.DbNull, status: "TENTATIVE", vehicleId: null, createdById: ctx.user.id } });
       await tx.chargeLine.createMany({
         data: chargeLines.map(({ id: _i, quoteId: _qq, rentalId: _r, reservationId: _rr, ...l }) => ({ ...l, reservationId: dup.id })),
       });
@@ -577,6 +579,7 @@ export const reservationRouter = router({
               odometerOut: input.odometerOut,
               fuelOut: input.fuelOut,
               rateId: r.rateId,
+              rateOverride: r.rateOverride ?? Prisma.DbNull,
               discountType: r.discountType,
               discountValue: r.discountValue,
               discountReasonId: r.discountReasonId,
