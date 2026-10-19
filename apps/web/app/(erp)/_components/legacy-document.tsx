@@ -38,9 +38,10 @@ export function LegacyDocument({ html, className, fitPage }: { html: string; cla
     const fit = () => {
       el.style.zoom = "";
       el.style.width = `${PAGE_W}px`;
-      const z = Math.min(1, PAGE_H / el.scrollHeight, PAGE_W / el.scrollWidth);
-      // 3% to spare: scaled text rounds a little taller than measured
-      if (z < 1) el.style.zoom = String(Math.max(z * 0.97, 0.5));
+      // aim for 95% of the page: printed text lays out a little taller than on screen, and a contract that only just
+      // fits on screen (YYC Open Contract: 974 of 977px) otherwise pushes its last line onto a second page
+      const z = Math.min(1, (PAGE_H * 0.95) / el.scrollHeight, PAGE_W / el.scrollWidth);
+      if (z < 1) el.style.zoom = String(Math.max(z, 0.5));
     };
     const reset = () => {
       el.style.zoom = "";
