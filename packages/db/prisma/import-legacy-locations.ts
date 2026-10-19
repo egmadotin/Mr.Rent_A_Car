@@ -39,6 +39,9 @@ const TZ: [RegExp, string][] = [
   [/Pacific/i, "America/Vancouver"],
 ];
 
+/** "2.99" → 2.99; blank → null */
+const money = (v: unknown) => (v == null || String(v).trim() === "" || Number.isNaN(Number(v)) ? null : Number(v));
+
 async function main() {
   const rows = JSON.parse(readFileSync(join(__dirname, "legacy/locations.json"), "utf8")) as Record<string, Row>;
   for (const [legacyId, r] of Object.entries(rows)) {
@@ -70,7 +73,13 @@ async function main() {
         longitude: coord(r.txtLon, 180),
         minimumAge: int(r.MinimumAge),
         underAge: int(r.UnderAge),
+        legalName: str(r.LegalName),
+        gstNumber: str(r.GSTNumber),
         quoteExpiresAfter: int(r.txtQuoteExpiresAfter) ?? 0,
+        refuelPrice: money(r.txtConvenienceReFuel),
+        dieselRefuelPrice: money(r.txtDieselConvenienceReFuel),
+        prepaidFuelPrice: money(r.txtPrePaidFuel),
+        dieselPrepaidFuelPrice: money(r.txtDieselPrePaidFuel),
         memo: str(r.Memo),
         timeZone: TZ.find(([re]) => re.test(String(r.LocationTimeZone)))?.[1] ?? undefined,
         isOffsite: /offsite/i.test(String(r.LocationName)),

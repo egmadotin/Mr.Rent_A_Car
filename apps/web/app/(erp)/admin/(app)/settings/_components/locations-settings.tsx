@@ -77,6 +77,8 @@ function LocationDialog({ l }: { l: Location }) {
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Location name" name="name" required defaultValue={l.name} full hint="Shown to customers, e.g. “Richmond - 7780 River Road, V6X 1X7”." />
         <Field label="Location code" name="code" defaultValue={s(l.code)} />
+        <Field label="Legal name" name="legalName" defaultValue={s(l.legalName)} hint="Heads the printed contract." />
+        <Field label="GST number" name="gstNumber" defaultValue={s(l.gstNumber)} hint="Printed on the Customer Invoice." />
         <SelectField label="Time zone" name="timeZone" placeholder={false} defaultValue={l.timeZone} options={[{ value: "America/Vancouver", label: "Pacific time" }, { value: "America/Edmonton", label: "Mountain time" }]} />
         <Field label="Address" name="address1" defaultValue={s(l.address1)} />
         <Field label="Address 2" name="address2" defaultValue={s(l.address2)} />
@@ -94,6 +96,10 @@ function LocationDialog({ l }: { l: Location }) {
         <Field label="Longitude" name="longitude" type="number" step="0.000001" defaultValue={s(l.longitude)} />
         <Field label="Minimum age" name="minimumAge" type="number" min={0} defaultValue={s(l.minimumAge)} />
         <Field label="Under age" name="underAge" type="number" min={0} defaultValue={s(l.underAge)} hint="Renters younger than this pay the under-age charge." />
+        <Field label="Convenience refuel ($/L)" name="refuelPrice" type="number" min={0} step="0.01" defaultValue={s(l.refuelPrice)} hint="Printed as “ReFuel: $…/L” on the contract." />
+        <Field label="Diesel convenience refuel ($/L)" name="dieselRefuelPrice" type="number" min={0} step="0.01" defaultValue={s(l.dieselRefuelPrice)} />
+        <Field label="Prepaid fuel ($/L)" name="prepaidFuelPrice" type="number" min={0} step="0.01" defaultValue={s(l.prepaidFuelPrice)} />
+        <Field label="Diesel prepaid fuel ($/L)" name="dieselPrepaidFuelPrice" type="number" min={0} step="0.01" defaultValue={s(l.dieselPrepaidFuelPrice)} />
         <Field label="Location note" name="hoursNote" defaultValue={s(l.hoursNote)} full hint="Shown on the public Our Locations page, e.g. “24 hour key drop box”." />
         <TextareaField label="Memo" name="memo" rows={2} defaultValue={s(l.memo)} full />
         <div className="flex flex-wrap gap-6 sm:col-span-2">

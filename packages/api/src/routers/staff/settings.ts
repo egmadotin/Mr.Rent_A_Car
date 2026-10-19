@@ -19,6 +19,7 @@ const calc = z.enum(["HOUR_24", "CALENDAR_DAY", "FLAT", "PERCENT"]);
 const req = (label: string) => z.string({ required_error: `${label} is required` }).trim().min(1, `${label} is required`);
 
 const optInt = z.preprocess((v) => (v === "" || v == null ? null : Number(v)), z.number().int().min(0).nullable());
+const optPrice = z.preprocess((v) => (v === "" || v == null ? null : Number(v)), z.number().min(0, "Can't be negative").nullable());
 const coord = (max: number) => z.preprocess((v) => (v === "" || v == null ? null : Number(v)), z.number().min(-max).max(max).nullable());
 
 /** Settings > Locations (LocationsModify.aspx), the fields the new system uses. */
@@ -41,6 +42,12 @@ const locationInput = z.object({
   longitude: coord(180),
   minimumAge: optInt,
   underAge: optInt,
+  legalName: optStr,
+  gstNumber: optStr,
+  refuelPrice: optPrice,
+  dieselRefuelPrice: optPrice,
+  prepaidFuelPrice: optPrice,
+  dieselPrepaidFuelPrice: optPrice,
   timeZone: z.enum(["America/Vancouver", "America/Edmonton"]),
   hoursNote: optStr,
   memo: optStr,

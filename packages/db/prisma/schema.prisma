@@ -162,7 +162,14 @@ model Location {
   longitude           Decimal? @db.Decimal(9, 6)
   minimumAge          Int?
   underAge            Int? /// renters younger than this pay the underage charge
+  legalName           String? /// "Legal Name" on Location settings; heads the printed contract
+  gstNumber           String? /// "GST Number" on Location settings; printed under the address on the Customer Invoice
   quoteExpiresAfter   Int      @default(0) /// days; a quote shows "Expired" after this (0 = never)
+  /// Location settings fuel prices (per litre): "Convenience ReFuel" (printed as ReFuel on the contract) and prepaid, gas / diesel
+  refuelPrice            Decimal? @db.Decimal(10, 2)
+  dieselRefuelPrice      Decimal? @db.Decimal(10, 2)
+  prepaidFuelPrice       Decimal? @db.Decimal(10, 2)
+  dieselPrepaidFuelPrice Decimal? @db.Decimal(10, 2)
   memo                String?
 
   vehicleTypes VehicleTypeLocation[]

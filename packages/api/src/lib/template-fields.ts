@@ -61,7 +61,7 @@ type Line = {
 };
 type Pay = { takenAt?: Date; method: string; amount: unknown; transactionType: string; cardLast4: string | null; authorizationCode: string | null; creditCard?: { brand: string; expMonth: number; expYear: number } | null };
 type Person = { firstName: string; lastName: string; address1?: string | null; address2?: string | null; city?: string | null; province?: string | null; postal?: string | null; country?: string | null; phone?: string | null; birthDate?: Date | null; licenseNumber?: string | null; licenseProvince?: string | null; licenseExpiry?: Date | null };
-type Loc = { name: string; address1: string | null; address2: string | null; city: string | null; province: string | null; postal: string | null; phone: string | null; fax: string | null; timeZone: string; hours?: { dayOfWeek: number; opensAt: string | null; closesAt: string | null; isClosed: boolean }[] };
+type Loc = { refuelPrice?: unknown; legalName?: string | null; gstNumber?: string | null; name: string; address1: string | null; address2: string | null; city: string | null; province: string | null; postal: string | null; phone: string | null; fax: string | null; timeZone: string; hours?: { dayOfWeek: number; opensAt: string | null; closesAt: string | null; isClosed: boolean }[] };
 type Company = { name: string; code: string | null; address1: string | null; address2: string | null; city: string | null; province: string | null; postal: string | null; country: string | null; phone: string | null; fax: string | null; contactName: string | null } | null;
 
 /** One rental / reservation / quote in the shape the template fields are built from. */
@@ -160,6 +160,8 @@ function docFields(d: Doc): Fields {
   set("FuelLevelOut", d.fuelOut != null ? `${d.fuelOut}/16` : "");
   set("FuelLevelIn", d.fuelIn != null ? `${d.fuelIn}/16` : "");
   set("UsedFuel", d.fuelIn != null && d.fuelOut != null ? `${Math.max(0, d.fuelOut - d.fuelIn)}/16` : "");
+  // "ReFuel: $ ##310##/L" — the location's Convenience ReFuel price per litre
+  set("FuelRate", d.location.refuelPrice != null ? Number(d.location.refuelPrice).toFixed(2) : "");
   // customer
   set("CustomerFirstName", c.firstName);
   set("CustomerLastName", c.lastName);
@@ -196,7 +198,9 @@ function docFields(d: Doc): Fields {
   set("LocationZIP", loc.postal);
   set("LocationPhone", loc.phone);
   set("LocationFax", loc.fax);
-  set("LocationWebSite", "www.mrrentacar.com");
+  set("LocationWebSite", "http://www.mrrentacar.com");
+  set("LegalLocationName", loc.legalName ?? "Mr Rent A Car");
+  set("GSTNumber", loc.gstNumber);
   set("LocationFullAddress", [loc.address1, loc.city, loc.province, loc.postal].filter(Boolean).join(", "));
   set(
     "LocationHours",
@@ -268,7 +272,7 @@ function docFields(d: Doc): Fields {
   set("DiscountPercentage", d.discountType === "PERCENT" && d.discountValue ? `${Number(d.discountValue)}%` : "");
   set("FuelCharge", optMoney(sumOf("FUEL", "PREPAID_FUEL")));
   set("Damages", optMoney(sumOf("DAMAGES")));
-  set("TrafficTicket", optMoney(sumOf("TRAFFIC_TICKETS")));
+  set("TrafficTicket", money(sumOf("TRAFFIC_TICKETS"))); // "Traffic Tickets $0.00" on the contract
   set("OneWayFee", optMoney(sumOf("ONE_WAY")));
   set("TotalMiscCharges", optMoney(sumOf("MISC")));
   set("TotalTaxes", optMoney(sumOf("TAX")));
