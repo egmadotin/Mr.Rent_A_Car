@@ -7,7 +7,7 @@
   .ci .b { font-weight: bold; }
   .ci .s { font-size: 10px; }
   .ci .title { font-size: 26px; font-weight: bold; font-style: italic; margin-top: 4px; white-space: nowrap; }
-  .ci .rows td { height: 27px; vertical-align: middle; font-size: 11px; }
+  .ci .rows td { height: 20px; vertical-align: middle; font-size: 11px; }
   .ci .rows td.m { font-size: 12px; }
   .ci .units td { line-height: 15px; }
 </style>
@@ -23,7 +23,7 @@
           PH#&nbsp;&nbsp; ##LocationPhone## &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; FAX#&nbsp; ##LocationFax##<br />
           ##GSTNumber##
         </div>
-        <div style="margin: 38px 0 0 20px; line-height: 19px;">
+        <div style="margin: 18px 0 0 20px; line-height: 16px;">
           ##CustomerLastName##, ##CustomerFirstName##<br />
           ##CustomerAddress##<br />
           ##CustomerCity##, ##CustomerStateCode## ##CustomerZIP##
@@ -31,25 +31,25 @@
       </td>
       <td>
         <div class="title">Customer Invoice</div>
-        <table style="margin-top: 18px;">
+        <table style="margin-top: 10px;">
           <tr><td style="width: 75px;">Invoice<br />Date:</td><td>##CurrentDate##</td></tr>
         </table>
-        <div style="margin-top: 36px; line-height: 22px;">
+        <div style="margin-top: 16px; line-height: 16px;">
           ##CustomerLastName##, ##CustomerFirstName##<br />
           ##CustomerAddress##<br />
           ##CustomerCity##, ##CustomerStateCode## ##CustomerZIP##
         </div>
-        <div style="margin-top: 42px;">PH&nbsp;&nbsp;&nbsp; ##CustomerPhone##</div>
+        <div style="margin-top: 14px;">PH&nbsp;&nbsp;&nbsp; ##CustomerPhone##</div>
         <div style="margin-top: 8px; line-height: 15px;">
           License Information:<br />##DrviserLicenseNumber##<br />
           <table><tr><td style="width: 75px; white-space: nowrap; padding-right: 12px;">##DriverLicenseStateCode##</td><td>##LicenseExpiry##</td></tr></table>
         </div>
-        <div style="margin-top: 30px;">RA#:&nbsp;&nbsp;&nbsp; ##RANumber##</div>
+        <div style="margin-top: 12px;">RA#:&nbsp;&nbsp;&nbsp; ##RANumber##</div>
       </td>
     </tr>
   </table>
 
-  <table style="width: 660px; margin-top: 36px;">
+  <table style="width: 660px; margin-top: 18px;">
     <tr>
       <td style="width: 365px;">
         <table style="width: 365px;">
@@ -67,7 +67,7 @@
         <table style="width: 295px;">
           <tr><td style="width: 198px; padding-top: 6px;">Date Rented<br />##DateRented##</td><td>Date Returned<br />##DateReturned##</td></tr>
         </table>
-        <table style="margin-top: 28px; line-height: 15px;">
+        <table style="margin-top: 12px; line-height: 15px;">
           <tr><td class="r" style="width: 90px;">Odometer Out</td><td style="padding-left: 12px;">##OdometerOut##</td></tr>
           <tr><td class="r">Odometer In</td><td style="padding-left: 12px;">##OdometerIn##</td></tr>
           <tr><td class="r">Total Driven</td><td style="padding-left: 12px;">##TotalKMDriven##</td></tr>
@@ -78,7 +78,7 @@
 
   <table style="width: 660px; margin-top: 4px;">
     <tr>
-      <td style="width: 305px; padding-top: 30px;">
+      <td style="width: 305px; padding-top: 22px;">
         <table class="rows" style="width: 305px;">
           <tr><td>Rate Charge</td><td class="r">##RateCharge##</td></tr>
           <tr><td class="m">Extra Miles</td><td class="r">##KMExceedCharge##</td></tr>
@@ -101,9 +101,9 @@
         </table>
         <table style="width: 280px; line-height: 20px;">
           <tr><td>Fuel Charge</td><td class="r s">##FuelAmount##</td></tr>
-          <tr><td style="padding-top: 22px;">Total Charges</td><td class="r s" style="padding-top: 22px;">##TotalEstimatedCharges##</td></tr>
+          <tr><td style="padding-top: 10px;">Total Charges</td><td class="r s" style="padding-top: 10px;">##TotalEstimatedCharges##</td></tr>
         </table>
-        <div class="b" style="margin-top: 22px; font-size: 13px;">DUE UPON RECEIPT</div>
+        <div class="b" style="margin-top: 12px; font-size: 13px;">DUE UPON RECEIPT</div>
         <table style="width: 280px; margin-top: 8px;">
           <tr><td class="b" style="font-size: 13px;">Please Pay This Amount:</td><td class="r">##Balance##</td></tr>
         </table>

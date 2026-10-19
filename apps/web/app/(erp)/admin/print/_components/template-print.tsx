@@ -2,8 +2,12 @@ import { LegacyDocument } from "../../../_components/legacy-document";
 import { PrintButton } from "./print-button";
 import { TemplatePicker } from "./template-picker";
 
-/** Prints only the document, on white, without the ERP's full-height body or patterned background adding a blank page. */
-const PRINT_CSS = `@media print { html, body { min-height: 0 !important; height: auto !important; background: #fff !important; } }`;
+/**
+ * One Letter page with 1cm margins (LegacyDocument scales to it), only the document, on white — no full-height body or
+ * patterned background adding a blank page.
+ */
+const PRINT_CSS = `@page { size: letter; margin: 1cm; }
+@media print { html, body { min-height: 0 !important; height: auto !important; margin: 0 !important; padding: 0 !important; background: #fff !important; } }`;
 
 /** A document printed with a staff-authored template (Settings > Rentals & Invoices), with the printout picker on top. */
 export function TemplatePrint({ html, current, names, builtIn }: { html: string; current: string; names: string[]; builtIn?: string }) {
@@ -14,7 +18,9 @@ export function TemplatePrint({ html, current, names, builtIn }: { html: string;
         <TemplatePicker current={current} names={names} builtIn={builtIn} />
         <PrintButton />
       </div>
-      <LegacyDocument html={html} className="mx-auto max-w-[8in] p-4 print:max-w-none print:p-0" />
+      <div className="mx-auto max-w-[8in] p-4 print:max-w-none print:p-0">
+        <LegacyDocument html={html} fitPage />
+      </div>
     </div>
   );
 }
