@@ -105,6 +105,8 @@ Test data in the local DB only: rental #3 + customer "Walkin Tester" (from the S
 
 ## Still to do (re-checked Oct 19)
 
+> Full module-by-module done / left list against RentCentric's menus: **STATUS.md** (Oct 20).
+
 Built since the old list: Settings > Locations, Users, User Groups, Master Rates, Seasons, Taxes, Misc Charges, Insurance Coverage, Payment Gateway, Rentals & Invoices (templates), Vehicle Types, Email Setup, and (Oct 19) Companies / Corporates, Company Type, Makes & Models, Categories, Body Types, Fuel Types, Engine Brands, Engine Types, Vehicle Options, Customer Areas/Regions, Hours Of Operation, Equipment, Discount / Rental Reasons, Payment Details (`routers/staff/setup.ts`, `settings/_components/setup-settings.tsx`, pick lists at `/admin/settings/lists/<slug>`). Deletes refuse records in use (pick-list links are optional, so the database alone would silently clear them).
 
 1. **Rentals / reservations / quotes — open items**:
