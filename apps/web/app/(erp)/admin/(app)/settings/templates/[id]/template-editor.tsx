@@ -12,6 +12,7 @@ import { Input } from "@mrac/ui/components/input";
 import { NativeSelect } from "@mrac/ui/components/native-select";
 import { toast } from "@mrac/ui/components/sonner";
 import { FormAlert } from "../../../../../_components/booking-kit";
+import { LegacyDocument } from "../../../../../_components/legacy-document";
 import { ConfirmAction } from "../../../../../_components/confirm-action";
 import { FieldShell as F, FormErrorsContext, errorMessage, fieldErrorsOf } from "../../../../../_components/form";
 
@@ -159,7 +160,7 @@ export function TemplateEditor({ initial, locations, canEdit }: { initial: T; lo
             <CardHeader><CardTitle className="text-base">Preview — #{ra}</CardTitle></CardHeader>
             <CardContent>
               {/* staff-authored template filled with a rental's data */}
-              <div className="overflow-auto rounded-md border bg-white p-4 text-black" dangerouslySetInnerHTML={{ __html: previewHtml }} />
+              <LegacyDocument html={previewHtml} className="overflow-auto rounded-md border bg-white p-4" />
             </CardContent>
           </Card>
         )}

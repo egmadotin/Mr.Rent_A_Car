@@ -1,15 +1,20 @@
+import { LegacyDocument } from "../../../_components/legacy-document";
 import { PrintButton } from "./print-button";
 import { TemplatePicker } from "./template-picker";
+
+/** Prints only the document, on white, without the ERP's full-height body or patterned background adding a blank page. */
+const PRINT_CSS = `@media print { html, body { min-height: 0 !important; height: auto !important; background: #fff !important; } }`;
 
 /** A document printed with a staff-authored template (Settings > Rentals & Invoices), with the printout picker on top. */
 export function TemplatePrint({ html, current, names, builtIn }: { html: string; current: string; names: string[]; builtIn?: string }) {
   return (
-    <div className="bg-white text-black">
+    <div className="min-h-dvh bg-white text-black print:min-h-0">
+      <style>{PRINT_CSS}</style>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b p-3 print:hidden">
         <TemplatePicker current={current} names={names} builtIn={builtIn} />
         <PrintButton />
       </div>
-      <div className="mx-auto max-w-[8.5in] p-4 print:p-0" dangerouslySetInnerHTML={{ __html: html }} />
+      <LegacyDocument html={html} className="mx-auto max-w-[8in] p-4 print:max-w-none print:p-0" />
     </div>
   );
 }
