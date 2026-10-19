@@ -103,24 +103,26 @@ Next steps, in order:
 
 Test data in the local DB only: rental #3 + customer "Walkin Tester" (from the Start a Rental test).
 
-## Still to do
+## Still to do (re-checked Oct 19)
 
-1. **Finish the public booking test** (above). Then cross-check the public flow against mrrentacar.com once more:
-   - **Fleet filters**: the live site filters by type, luggage, doors and seats; ours has seats and bags only. Consider adding doors and type.
-   - **Customer Login modal**: on the live site, but no backend is known. Ask the client; not built.
-2. **Spec redesign item 6**: search across Reports and Settings; a real chart on the dashboard. **Reports (~57) and Settings (17 categories) are not built at all.** The sidebar links 404.
-3. **Vehicle detail module**: the legacy ~16 actions (Accidents, Damage, Maintenance, Repairs, Carwash, Insurances, Status Change, Deactivate, Problems, Services, Customer Reported Damages, Inspection, Checklist, Images/Documents). Capture their fields read-only from the live ERP first (`VehicleMain.aspx`).
-4. **Not built yet**:
-   - Company management screens (the model exists).
-   - Rate editor (the model exists; capture per-type value columns from `RatesModifyNew2.aspx` after ticking a type).
-   - Seasons, Equipment, Users/UserGroups.
-   - Edit/delete for payments, adjustments and commissions.
-   - Rental "Inspection Comparison".
-   - S3 uploads (scanned IDs, vehicle photos).
-   - Email/SMS (buttons are disabled with tooltips).
-5. **Pricing**: only the "Standard" rate type is exact. Others are approximate and the UI shows a warning (`lib/pricing.ts`).
-6. **Data migration** from RentCentric (CSV import, per spec). Every model has a `legacyId` field. The `registrationChannel` mapping bug noted in the spec still needs fixing.
-7. **Deployment** (AWS ECS Fargate, RDS ca-central-1, S3) is not set up. Code is on GitHub at egmadotin/Mr.Rent_A_Car (commit as EGMA, no Claude co-author line).
+Built since the old list: Settings > Locations, Users, User Groups, Master Rates, Seasons, Taxes, Misc Charges, Insurance Coverage, Payment Gateway, Rentals & Invoices (templates), Vehicle Types, Email Setup, and (Oct 19) Companies / Corporates, Company Type, Makes & Models, Categories, Body Types, Fuel Types, Engine Brands, Engine Types, Vehicle Options, Customer Areas/Regions, Hours Of Operation, Equipment, Discount / Rental Reasons, Payment Details (`routers/staff/setup.ts`, `settings/_components/setup-settings.tsx`, pick lists at `/admin/settings/lists/<slug>`). Deletes refuse records in use (pick-list links are optional, so the database alone would silently clear them).
+
+1. **Rentals / reservations / quotes — open items** (need RentCentric open, read-only, to copy the fields):
+   - "Add More Information" and "Drivers / Add More Drivers" on the Customer tab (drivers exist on the detail pages).
+   - "Add/Edit Other Charges >>" (quote, reservation, rental forms); Credit Card (+) saved cards; Rate (i) info.
+   - Edit/delete of payments, adjustments and commissions; Capture / Refund links on payments (with Stripe).
+   - Payment methods per location (YYC adds Cheque, Direct Bill Company); Settings > Payment Methods.
+   - Reservation Inspection / rental Inspection Comparison and Damage (need vehicle inspections + damage records).
+   - Long Term Rental / Invoicing Period (hidden in RentCentric by default).
+2. **Vehicle detail module**: the ~16 legacy actions (Accidents, Damage, Maintenance, Repairs, Carwash, Insurances, Status Change, Deactivate, Problems, Services, Customer Reported Damages, Inspection, Checklist, Images/Documents).
+3. **Settings not built**: Add Location / Offsite Locations / Upload Logo; Rate tools (Batch Update, Values Update, Blocking, Utilization, Rates Calendar, Overbooking, Rates Setup, One Way Rates, Pay Now Discounts); Partner Login Setup; Import tools; Payment Methods; SIPP Codes; Damage Setup; Self Service / Car Share; Claims Management; Commissions / Financial; Website Design / Webpages / Widget; SMS Notification; Point Of Sale; Email Marketing; Tasks Messages.
+4. **Reports**: none of RentCentric's ~57 reports are built (the Reports page is a design placeholder).
+5. **Printouts**: Standard and Bill Split Invoice need a client sample; reservation / quote printouts not yet compared with RentCentric visually.
+6. **Public site**: fleet filters (doors, type); Customer Login modal (ask the client).
+7. **Pricing**: only the "Standard" rate type is exact.
+8. **Data migration** from RentCentric (customers, reservations, rentals history); assign staff to user groups; enforce group Location.
+9. **Client inputs pending**: Stripe test keys, SMTP account, SMS provider, price master sheet.
+10. **Deployment** (Neon / AWS) not set up.
 
 ## Verification method used
 

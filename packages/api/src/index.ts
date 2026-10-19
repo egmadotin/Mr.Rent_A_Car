@@ -14,6 +14,7 @@ import { paymentGatewayRouter } from "./routers/staff/payment-gateway";
 import { templateRouter } from "./routers/staff/template";
 import { emailRouter } from "./routers/staff/email";
 import { usersRouter } from "./routers/staff/users";
+import { setupRouter } from "./routers/staff/setup";
 
 export const staffRouter = router({
   meta: metaRouter,
@@ -29,6 +30,7 @@ export const staffRouter = router({
   template: templateRouter,
   email: emailRouter,
   users: usersRouter,
+  setup: setupRouter,
 });
 
 export const appRouter = router({
