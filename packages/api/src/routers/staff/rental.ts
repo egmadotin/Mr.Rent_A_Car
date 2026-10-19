@@ -115,6 +115,11 @@ async function syncTicketLine(tx: Prisma.TransactionClient, rentalId: string) {
     });
 }
 
+/** The charge line an adjustment created ("Adjustment — <name>", same kind and amount). */
+async function adjustmentLine(tx: Prisma.TransactionClient, a: { rentalId: string; kind: string; name: string; amount: Prisma.Decimal }) {
+  return tx.chargeLine.findFirst({ where: { rentalId: a.rentalId, kind: a.kind as never, name: `Adjustment — ${a.name}`, total: a.amount } });
+}
+
 export const rentalRouter = router({
   /**
    * AgreementsSearch.aspx ("Rent"): quick search (Rental # OR First Name OR Last Name) + Advanced Search
@@ -638,6 +643,45 @@ export const rentalRouter = router({
       });
     }),
 
+  /** Edit a payment (rental or reservation) — RentCentric "Edit Transactions". */
+  updatePayment: permitted("TransactionsEdit")
+    .input(
+      z.object({
+        paymentId: z.string(),
+        method: z.enum(PAYMENT_METHODS),
+        transactionType: z.enum(["PAYMENT", "AUTHORIZATION", "REFUND"]),
+        amount: money.positive(),
+        authorizationCode: optStr,
+        transactionCode: optStr,
+        takenAt: z.coerce.date(),
+      }),
+    )
+    .mutation(({ ctx, input }) =>
+      ctx.prisma.$transaction(async (tx) => {
+        const { paymentId, amount, ...rest } = input;
+        const before = await tx.payment.findUnique({ where: { id: paymentId } });
+        if (!before) throw new TRPCError({ code: "NOT_FOUND", message: "Payment not found" });
+        if (input.transactionType === "REFUND" && before.transactionType !== "REFUND") await requirePermission(ctx, "Transactions");
+        if (before.rentalId) await loadRental(tx, before.rentalId);
+        await tx.payment.update({ where: { id: paymentId }, data: { ...rest, amount: D(amount) } });
+        await audit(tx, before.rentalId ? "Rental" : "Reservation", (before.rentalId ?? before.reservationId)!, ctx.user.id, {
+          [`Payment ${before.method} ${before.transactionType}`]: [before.amount.toFixed(2), `${input.method} ${input.transactionType} ${amount.toFixed(2)}`],
+        });
+      }),
+    ),
+  /** Delete a payment (rental or reservation) — RentCentric "Delete Transactions". */
+  deletePayment: permitted("TransactionsDelete").input(z.object({ paymentId: z.string() })).mutation(({ ctx, input }) =>
+    ctx.prisma.$transaction(async (tx) => {
+      const p = await tx.payment.findUnique({ where: { id: input.paymentId } });
+      if (!p) throw new TRPCError({ code: "NOT_FOUND", message: "Payment not found" });
+      if (p.rentalId) await loadRental(tx, p.rentalId);
+      await tx.payment.delete({ where: { id: p.id } });
+      await audit(tx, p.rentalId ? "Rental" : "Reservation", (p.rentalId ?? p.reservationId)!, ctx.user.id, {
+        [`Payment ${p.method} ${p.transactionType}`]: [p.amount.toFixed(2), "deleted"],
+      });
+    }),
+  ),
+
   addTrafficTicket: permitted("TrafficTicketsAdd")
     .input(
       id.extend({
@@ -690,6 +734,50 @@ export const rentalRouter = router({
         await audit(tx, "Rental", rentalId, ctx.user.id, { [`Adjustment ${input.name}`]: [null, amount.toFixed(2)] });
       }),
     ),
+
+  /** Edit an adjustment and its "Adjustment — …" charge line. */
+  updateAdjustment: permitted("CKAllowAdjustments")
+    .input(z.object({ adjustmentId: z.string(), name: z.string().trim().min(1), amount: money }))
+    .mutation(({ ctx, input }) =>
+      ctx.prisma.$transaction(async (tx) => {
+        const a = await tx.adjustment.findUnique({ where: { id: input.adjustmentId } });
+        if (!a) throw new TRPCError({ code: "NOT_FOUND", message: "Adjustment not found" });
+        await loadRental(tx, a.rentalId);
+        const line = await adjustmentLine(tx, a);
+        await tx.adjustment.update({ where: { id: a.id }, data: { name: input.name, amount: D(input.amount) } });
+        const data = { name: `Adjustment — ${input.name}`, rate: D(input.amount), total: D(input.amount) };
+        if (line) await tx.chargeLine.update({ where: { id: line.id }, data });
+        else await tx.chargeLine.create({ data: { ...data, rentalId: a.rentalId, kind: a.kind, miscChargeId: a.miscChargeId, units: D(1), sortOrder: 6 } });
+        await audit(tx, "Rental", a.rentalId, ctx.user.id, { [`Adjustment ${a.name}`]: [a.amount.toFixed(2), `${input.name} ${input.amount.toFixed(2)}`] });
+      }),
+    ),
+  deleteAdjustment: permitted("CKAllowAdjustments").input(z.object({ adjustmentId: z.string() })).mutation(({ ctx, input }) =>
+    ctx.prisma.$transaction(async (tx) => {
+      const a = await tx.adjustment.findUnique({ where: { id: input.adjustmentId } });
+      if (!a) throw new TRPCError({ code: "NOT_FOUND", message: "Adjustment not found" });
+      await loadRental(tx, a.rentalId);
+      const line = await adjustmentLine(tx, a);
+      if (line) await tx.chargeLine.delete({ where: { id: line.id } });
+      await tx.adjustment.delete({ where: { id: a.id } });
+      await audit(tx, "Rental", a.rentalId, ctx.user.id, { [`Adjustment ${a.name}`]: [a.amount.toFixed(2), "deleted"] });
+    }),
+  ),
+
+  updateCommission: permitted("CommissionsEdit")
+    .input(z.object({ commissionId: z.string(), amount: money.positive(), referralId: optStr, userId: optStr }))
+    .mutation(async ({ ctx, input }) => {
+      if (!input.referralId && !input.userId) throw new TRPCError({ code: "BAD_REQUEST", message: "Choose a referral or a staff member." });
+      const c = await ctx.prisma.commission.findUnique({ where: { id: input.commissionId } });
+      if (!c) throw new TRPCError({ code: "NOT_FOUND", message: "Commission not found" });
+      await loadRental(ctx.prisma, c.rentalId);
+      await ctx.prisma.commission.update({ where: { id: c.id }, data: { amount: D(input.amount), referralId: input.referralId, userId: input.userId } });
+    }),
+  deleteCommission: permitted("CommissionsDelete").input(z.object({ commissionId: z.string() })).mutation(async ({ ctx, input }) => {
+    const c = await ctx.prisma.commission.findUnique({ where: { id: input.commissionId } });
+    if (!c) throw new TRPCError({ code: "NOT_FOUND", message: "Commission not found" });
+    await loadRental(ctx.prisma, c.rentalId);
+    await ctx.prisma.commission.delete({ where: { id: c.id } });
+  }),
 
   addCommission: permitted("CommissionsAdd")
     .input(id.extend({ amount: money.positive(), referralId: optStr, userId: optStr }))

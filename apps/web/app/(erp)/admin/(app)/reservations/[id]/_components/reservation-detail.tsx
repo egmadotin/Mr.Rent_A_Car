@@ -32,6 +32,7 @@ import { EmailDocumentDialog } from "../../../../../_components/email-document-d
 import { ActionLink, DL } from "../../../../../_components/legacy-view";
 import { legacyDate } from "../../../../../_components/list-kit";
 import { PrintChargeTable } from "../../../../print/_components/print-kit";
+import { PaymentRowActions } from "../../../../../_components/payment-row-actions";
 
 type Data = Wire<RouterOutputs["staff"]["reservation"]["byId"]>;
 type DialogName = null | "start" | "cancel" | "delete" | "noshow" | "move" | "reinstate" | "email";
@@ -234,6 +235,7 @@ export function ReservationDetail({ reservationId, autoStartRental }: { reservat
                         <TableCell>{PAYMENT_METHOD_OPTIONS.find((m) => m.value === p.method)?.label ?? p.method}</TableCell>
                         <TableCell>{p.transactionType === "PAYMENT" ? "Payment (Credit)" : p.transactionType === "REFUND" ? "Refund" : "Authorization"}</TableCell>
                         <TableCell className="text-right tabular-nums">{money(p.amount)}</TableCell>
+                        <TableCell className="w-20"><PaymentRowActions p={p} onChanged={() => run(Promise.resolve())} /></TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

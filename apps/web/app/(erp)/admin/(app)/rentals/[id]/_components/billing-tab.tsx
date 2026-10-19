@@ -11,6 +11,9 @@ import { date, dateTime, money, toDateTimeLocal, fromDateTimeLocal } from "@mrac
 import { ConfirmAction } from "../../../../../_components/confirm-action";
 import { Field, FormDialog, PAYMENT_METHOD_OPTIONS, SelectField } from "../../../../../_components/form";
 import { BillSplitDialog, CLAIM_TYPES } from "../../../../../_components/booking-dialogs";
+import { PaymentRowActions } from "../../../../../_components/payment-row-actions";
+import { useCan } from "../../../../../_components/permissions";
+import { RowActions } from "../../../../../_components/row-actions";
 import { Empty, Section } from "./section-kit";
 import { useRentalActions, type RentalData } from "./use-rental";
 
@@ -21,6 +24,8 @@ export function BillingTab({ data, show }: { data: RentalData; show?: string }) 
   const trpc = useTRPC();
   const opts = useQuery(trpc.staff.rental.formOptions.queryOptions()).data;
   const { api, run } = useRentalActions(r.id);
+  const can = useCan();
+  const refresh = () => run(Promise.resolve());
   const [removeSplit, setRemoveSplit] = React.useState<string | null>(null);
   const companies = (opts?.companies ?? []).map((c) => ({ value: c.id, label: c.code ? `${c.name} (${c.code})` : c.name }));
 
@@ -96,6 +101,7 @@ export function BillingTab({ data, show }: { data: RentalData; show?: string }) 
                   <TableHead>Paid by</TableHead>
                   <TableHead>Taken by</TableHead>
                   <TableHead className="text-right">Amount</TableHead>
+                  <TableHead className="w-20" />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -115,6 +121,7 @@ export function BillingTab({ data, show }: { data: RentalData; show?: string }) 
                     <TableCell>{p.company?.name ?? "Renter"}</TableCell>
                     <TableCell className="text-muted-foreground">{p.takenBy?.name ?? "—"}</TableCell>
                     <TableCell className="text-right tabular-nums">{money(p.amount)}</TableCell>
+                    <TableCell><PaymentRowActions p={p} onChanged={refresh} /></TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -220,6 +227,7 @@ export function BillingTab({ data, show }: { data: RentalData; show?: string }) 
                   <TableHead>Referral / user</TableHead>
                   <TableHead className="text-right">Amount</TableHead>
                   <TableHead>Entered</TableHead>
+                  <TableHead className="w-20" />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -229,6 +237,20 @@ export function BillingTab({ data, show }: { data: RentalData; show?: string }) 
                     <TableCell className="text-right tabular-nums">{money(c.amount)}</TableCell>
                     <TableCell className="text-muted-foreground">
                       {date(c.enteredAt)} · {c.enteredBy?.name ?? "—"}
+                    </TableCell>
+                    <TableCell>
+                      <RowActions
+                        label={`commission of ${money(c.amount)}`}
+                        canEdit={can("CommissionsEdit")}
+                        canDelete={can("CommissionsDelete")}
+                        editTitle="Edit commission"
+                        onSave={(v) => run(api.updateCommission.mutate({ commissionId: c.id, amount: Number(v.amount), referralId: v.referralId as string | undefined, userId: v.userId as string | undefined }))}
+                        onDelete={() => run(api.deleteCommission.mutate({ commissionId: c.id }))}
+                      >
+                        <Field label="Amount" name="amount" type="number" step="0.01" min="0.01" required defaultValue={Number(c.amount).toFixed(2)} />
+                        <SelectField label="Referral" name="referralId" options={(opts?.referrals ?? []).map((x) => ({ value: x.id, label: x.name }))} placeholder="— None —" defaultValue={c.referralId ?? ""} />
+                        <SelectField label="…or staff member" name="userId" options={(opts?.staff ?? []).map((x) => ({ value: x.id, label: x.name }))} placeholder="— None —" defaultValue={c.userId ?? ""} />
+                      </RowActions>
                     </TableCell>
                   </TableRow>
                 ))}

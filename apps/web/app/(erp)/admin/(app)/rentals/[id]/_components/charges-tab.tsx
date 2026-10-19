@@ -9,6 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { dateTime, money } from "@mrac/ui/lib/format";
 import { cn } from "@mrac/ui/lib/utils";
 import { Field, FormDialog, PAYMENT_METHOD_OPTIONS, SelectField } from "../../../../../_components/form";
+import { useCan } from "../../../../../_components/permissions";
+import { RowActions } from "../../../../../_components/row-actions";
 import { Empty, Section } from "./section-kit";
 import { useRentalActions, type RentalData } from "./use-rental";
 import { isPercentLine } from "@mrac/ui/lib/charge-lines";
@@ -109,6 +111,7 @@ export function ChargesTab({ data, show }: { data: RentalData; show?: string }) 
   const trpc = useTRPC();
   const opts = useQuery(trpc.staff.rental.formOptions.queryOptions()).data;
   const { api, run } = useRentalActions(r.id);
+  const can = useCan();
   const items = [...ADJUSTMENT_ITEMS, ...(opts?.miscCharges ?? []).map((m) => ({ value: `MISC:${m.id}`, label: m.name }))];
 
   return (
@@ -161,6 +164,7 @@ export function ChargesTab({ data, show }: { data: RentalData; show?: string }) 
                   <TableHead>Item</TableHead>
                   <TableHead className="text-right">Amount</TableHead>
                   <TableHead>Entered</TableHead>
+                  <TableHead className="w-20" />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -170,6 +174,18 @@ export function ChargesTab({ data, show }: { data: RentalData; show?: string }) 
                     <TableCell className="text-right tabular-nums">{money(a.amount)}</TableCell>
                     <TableCell className="text-muted-foreground">
                       {dateTime(a.enteredAt)} · {a.enteredBy?.name ?? "—"}
+                    </TableCell>
+                    <TableCell>
+                      <RowActions
+                        label={`adjustment ${a.name}`}
+                        canEdit={can("CKAllowAdjustments")}
+                        canDelete={can("CKAllowAdjustments")}
+                        editTitle={`Edit adjustment — ${a.name}`}
+                        onSave={(v) => run(api.updateAdjustment.mutate({ adjustmentId: a.id, name: a.name, amount: Number(v.amount) }))}
+                        onDelete={() => run(api.deleteAdjustment.mutate({ adjustmentId: a.id }))}
+                      >
+                        <Field label="Amount" name="amount" type="number" step="0.01" required defaultValue={Number(a.amount).toFixed(2)} hint="Negative to credit the customer." />
+                      </RowActions>
                     </TableCell>
                   </TableRow>
                 ))}
