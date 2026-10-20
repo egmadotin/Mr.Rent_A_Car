@@ -17,9 +17,10 @@ import { CheckField, Field, FormDialog, PAYMENT_METHOD_OPTIONS, SelectField, Tex
 import { ActionLink } from "../../../../_components/legacy-view";
 import { NO_PERMISSION, useCan } from "../../../../_components/permissions";
 import { RowActions } from "../../../../_components/row-actions";
+import { InspectionComparisonPanel, InspectionsPanel, ReportedDamagesPanel } from "../../../../_components/inspections";
 
 type Kind = "maintenance" | "repair" | "problem" | "carwash" | "damage" | "accident" | "service" | "insurance";
-type Panel = Kind | "status" | "history" | "rentals" | "reservations";
+type Panel = Kind | "status" | "history" | "rentals" | "reservations" | "reported" | "comparison" | "inspection";
 type V = Record<string, unknown>;
 
 const STATUS_LABEL: Record<string, string> = {
@@ -138,9 +139,9 @@ export function VehicleActions({ vehicleId, isActive, status }: { vehicleId: str
     ["Carwash", "carwash"],
     ["Rentals", "rentals"],
     ["Reservations", "reservations"],
-    ["Customer Reported Damages", null, notBuilt],
-    ["Inspection Comparison", null, notBuilt],
-    ["Vehicle Inspection", null, notBuilt],
+    ["Customer Reported Damages", "reported"],
+    ["Inspection Comparison", "comparison"],
+    ["Vehicle Inspection", "inspection"],
     ["Vehicle Checklist", null, notBuilt],
   ];
 
@@ -176,6 +177,10 @@ export function VehicleActions({ vehicleId, isActive, status }: { vehicleId: str
           }
         }}
       />
+
+      {panel === "reported" && <ReportedDamagesPanel vehicleId={vehicleId} />}
+      {panel === "comparison" && <InspectionComparisonPanel vehicleId={vehicleId} />}
+      {panel === "inspection" && <InspectionsPanel vehicleId={vehicleId} />}
 
       {data && panel === "maintenance" && (
         <RecordPanel

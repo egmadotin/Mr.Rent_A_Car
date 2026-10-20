@@ -18,3 +18,6 @@ dist
 packages/db/prisma/legacy/tools/
 # local npm cache override
 .npmrc.native-windows-unused
+
+# uploaded photos / documents (local file storage)
+.uploads/

@@ -6,7 +6,8 @@
     ".": "./src/index.ts",
     "./client": "./src/client.tsx",
     "./server": "./src/server.ts",
-    "./vehicle-status": "./src/lib/vehicle-status.ts"
+    "./vehicle-status": "./src/lib/vehicle-status.ts",
+    "./storage": "./src/lib/storage.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

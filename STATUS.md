@@ -1,6 +1,6 @@
 # Mr Rent A Car — rebuild status
 
-**Updated:** October 20, 2026 (dashboard done).
+**Updated:** October 21, 2026 (drivers in forms, inspections, file storage).
 
 **What this compares:**
 - Our new system: the ERP at `/admin` and the public website.
@@ -21,12 +21,12 @@ The RentCentric menus, vehicle page and customer page were re-read on Oct 20. No
 | Area | Status |
 |---|---|
 | Quotes (list, add, edit, view, email, print) | ✅ |
-| Reservations (list, add, edit, view, 14 actions, email, print) | ✅ (inspection 🟡) |
-| Rentals (list, start, edit, end, view, 23 actions, print, email) | ✅ (inspection / damage 🟡) |
+| Reservations (list, add, edit, view, 14 actions, email, print) | ✅ |
+| Rentals (list, start, edit, end, view, 23 actions, print, email) | ✅ |
 | Contracts and invoices (templates, printouts, editor) | ✅ (Standard and Bill Split invoice 🔑) |
 | Pricing (rates, seasons, taxes, insurance, misc charges, overrides) | ✅ Standard rate type exact; other rate types approximate |
 | Customers (list, add, edit, view and its actions) | ✅ |
-| Vehicles (list, add, edit, summary) | ✅ vehicle page actions (🟡 Ownership, Condition, inspections, checklist, images not yet) |
+| Vehicles (list, add, edit, summary) | ✅ vehicle page actions (🟡 Ownership, Condition, checklist, images not yet) |
 | Users, user groups and permissions | ✅ (group location limit not enforced) |
 | Settings | 🟡 about 34 of RentCentric's ~100 setting pages built (section 7) |
 | Reports | 🟡 28 of 64 built (see section 8) |
@@ -35,6 +35,7 @@ The RentCentric menus, vehicle page and customer page were re-read on Oct 20. No
 | Email | ✅ built, 🔑 needs the client's email (SMTP) account |
 | Card payments (Stripe) | ✅ built, 🔑 needs Stripe keys |
 | Data migration from RentCentric | 🟡 setup data copied; customers / bookings history not yet |
+| File storage (photos, documents) | 🟡 local disk (`.uploads/`, staff-only `/api/files`); needs an S3-compatible store when deployed. New route: restart the server (start.bat) once to pick it up |
 | Hosting / deployment | ⬜ |
 
 ---
@@ -66,7 +67,7 @@ The RentCentric menus, vehicle page and customer page were re-read on Oct 20. No
 | ReservationMain: Payments/Charges | edit and delete payments added Oct 20 | ✅ |
 | ReservationMain: Drivers, Bill Split, Pickup/Drop-off | | ✅ |
 | Print Invoice, E-Mail Reservation | | ✅ 🔑 SMTP |
-| Reservation Inspection | | ⬜ needs vehicle inspections (section 6) |
+| Reservation Inspection | the reservation's inspections + Add Inspection (with photos) | ✅ |
 | Confirmation email on save | | ✅ 🔑 SMTP |
 
 ## 4. Rentals
@@ -87,7 +88,7 @@ The RentCentric menus, vehicle page and customer page were re-read on Oct 20. No
 | AgreementMain: Exchange Vehicle, Pickup/Drop-off, Memo and history | | ✅ |
 | AgreementMain: Void, UnVoid, Reopen, Delete | | ✅ |
 | Long-term invoices | | ✅ |
-| Inspection Comparison, Damage | | ⬜ needs vehicle inspections and damage (section 6) |
+| Inspection Comparison | pickup vs return inspection photos for the rental, + the rental's inspections | ✅ |
 | Capture / Refund on card payments | | 🔑 Stripe |
 | Payment methods per location (YYC: Cheque, Direct Bill Company) | | ✅ |
 
@@ -118,10 +119,10 @@ The RentCentric menus, vehicle page and customer page were re-read on Oct 20. No
 | ↳ Technical Log | | — RentCentric's own page is broken (Parser Error) |
 | ↳ Maintenance, Problems, Repairs, Vehicle Services, Carwash | | ✅ |
 | ↳ Damage (with Damage Locations / Conditions settings), Accidents | | ✅ (damage photo needs file storage) |
-| ↳ Customer Reported Damages, Inspection Comparison, Vehicle Inspection | | ⬜ |
+| ↳ Customer Reported Damages, Inspection Comparison, Vehicle Inspection | | ✅ Oct 21 — RentCentric only lists these (its apps fill them); ours adds an Add form with photos |
 | ↳ Vehicle Claims, Vehicle Checklist | | ⬜ |
 | ↳ Rentals, Reservations (this vehicle's) | | ✅ |
-| ↳ Notes, Images, Documents | | ⬜ (needs file storage, S3) |
+| ↳ Notes, Images, Documents | | ⬜ (file storage now exists — local disk; S3 driver needed at deployment) |
 | Fleet calendar | `/admin/calendar` | ✅ |
 
 ## 7. Settings
@@ -311,7 +312,7 @@ Built (Oct 20, same filters, columns and totals as RentCentric, 31-day limit on 
 
 1. ~~Vehicle page actions~~ (done Oct 20, except Ownership, Condition, inspections, checklist):
    - Maintenance, Repairs, Problems, Damage, Carwash, Status Change, History, Deactivate.
-   - Then Inspection, Checklist and Customer Reported Damages, which unlock Reservation Inspection and rental Inspection Comparison.
+   - ~~Inspection and Customer Reported Damages~~ done Oct 21 (Reservation Inspection and rental Inspection Comparison with them); Checklist next.
 2. **Dashboard lists:** leaving and returning today, vehicles requiring service; the Tasks module.
 3. **Core reports:**
    - Daily Business Report, Daily Cash Summary Report, Month to Date Report.

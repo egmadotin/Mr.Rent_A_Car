@@ -29,6 +29,7 @@ import { BillSplitDialog, CLAIM_TYPES, TransportDialog } from "../../../../../_c
 import { NO_PERMISSION, useCan } from "../../../../../_components/permissions";
 import { EmailDocumentDialog } from "../../../../../_components/email-document-dialog";
 import { ActionLink, DL } from "../../../../../_components/legacy-view";
+import { InspectionsPanel } from "../../../../../_components/inspections";
 import { legacyDate } from "../../../../../_components/list-kit";
 import { PrintChargeTable } from "../../../../print/_components/print-kit";
 import { PaymentRowActions } from "../../../../../_components/payment-row-actions";
@@ -48,7 +49,7 @@ export function ReservationDetail({ reservationId, autoStartRental }: { reservat
   const pm = usePaymentMethods(data?.reservation.pickupLocationId);
   const [dialog, setDialog] = React.useState<DialogName>(autoStartRental ? "start" : null);
   const can = useCan();
-  const [panel, setPanel] = React.useState<null | "payments" | "drivers" | "billsplit" | "transports">(null);
+  const [panel, setPanel] = React.useState<null | "payments" | "drivers" | "billsplit" | "transports" | "inspection">(null);
   const close = (o: boolean) => !o && setDialog(null);
 
   const refresh = () =>
@@ -72,7 +73,6 @@ export function ReservationDetail({ reservationId, autoStartRental }: { reservat
 
   const tz = r.pickupLocation.timeZone;
   const status = r.status === "CHECKED_OUT" ? "Honored" : r.status.replace("_", " ").toLowerCase().replace(/^\w/, (x) => x.toUpperCase());
-  const notBuilt = "Not available yet: vehicle inspections are built with the Vehicles module.";
   // the RentCentric ReservationMain.aspx action links, two per row, in its order
   const links: React.ReactNode[] = [
     active ? (
@@ -113,7 +113,7 @@ export function ReservationDetail({ reservationId, autoStartRental }: { reservat
     <ActionLink key="t" onClick={() => setPanel("transports")} active={panel === "transports"}>Pickup/Drop-off ({r.transports.length})</ActionLink>,
     <ActionLink key="e1" onClick={() => setDialog("email")}>E-Mail Reservation Details</ActionLink>,
     <ActionLink key="e2" onClick={() => setDialog("email")}>Email Reservation Form/Invoice</ActionLink>,
-    <ActionLink key="ins" disabled title={notBuilt}>Reservation Inspection</ActionLink>,
+    <ActionLink key="ins" onClick={() => setPanel("inspection")} active={panel === "inspection"}>Reservation Inspection</ActionLink>,
   ];
 
   return (
@@ -246,6 +246,7 @@ export function ReservationDetail({ reservationId, autoStartRental }: { reservat
           )}
 
           {panel === "drivers" && <DriversCard data={data} run={run} />}
+          {panel === "inspection" && <InspectionsPanel title="Reservation Inspection" reservationId={r.id} vehicleId={r.vehicleId} empty="There is no inspection for this reservation !" />}
 
           {panel === "billsplit" && (
             <Card className="gap-2 pb-0">

@@ -23,12 +23,13 @@ import { ClaimsTab } from "./claims-tab";
 import { DriversTab } from "./drivers-tab";
 import { ActivityTab, NotesTab } from "./notes-tab";
 import { OverviewTab } from "./overview-tab";
+import { InspectionComparisonPanel, InspectionsPanel } from "../../../../../_components/inspections";
 import { RentalDialogs, type RentalDialog } from "./rental-dialogs";
 import { useRentalActions, type RentalData } from "./use-rental";
 
 type Panel =
   | null | "payments" | "drivers" | "commissions" | "exchange" | "adjustments" | "tickets" | "billsplit" | "invoices" | "notes"
-  | "transports" | "log" | "claims" | "memos";
+  | "transports" | "log" | "claims" | "memos" | "inspection";
 
 
 /**
@@ -99,7 +100,7 @@ export function RentalDetail({ rentalId }: { rentalId: string }) {
     ) : (
       <ActionLink key="res" disabled title="This rental was started without a reservation">Check Original Reservation</ActionLink>
     ),
-    <ActionLink key="insp" disabled title="Available once vehicle inspections are built">Inspection Comparison</ActionLink>,
+    <ActionLink key="insp" onClick={toggle("inspection")} active={panel === "inspection"}>Inspection Comparison</ActionLink>,
     <ActionLink key="reopen" onClick={() => setDialog("reopen")} disabled={r.status !== "CLOSED" || !can("chkAllowReOpenRentals")} title={r.status !== "CLOSED" ? "Only a closed rental can be reopened" : NO_PERMISSION}>ReOpen Rental</ActionLink>,
     <ActionLink key="unvoid" onClick={() => setDialog("unvoid")} disabled={r.status !== "VOIDED" || !can("chkAllowUnVoidRentals")} title={r.status !== "VOIDED" ? "Only a voided rental can be unvoided" : NO_PERMISSION}>UnVoid Rental</ActionLink>,
     <ActionLink key="rate" onClick={() => setDialog("rate")}>Update Exchange Rate</ActionLink>,
@@ -199,6 +200,12 @@ export function RentalDetail({ rentalId }: { rentalId: string }) {
           {panel === "memos" && <NotesTab data={data} show="memos" />}
           {panel === "transports" && <OverviewTab data={data} show="transports" />}
           {panel === "log" && <ActivityTab data={data} />}
+          {panel === "inspection" && (
+            <>
+              <InspectionComparisonPanel rentalId={r.id} />
+              <InspectionsPanel title="Inspections" rentalId={r.id} vehicleId={r.vehicle.id} />
+            </>
+          )}
 
           <MemoBox rentalId={r.id} latest={memos[0]?.body ?? ""} count={memos.length} onHistory={toggle("memos")} />
         </div>

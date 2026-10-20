@@ -114,17 +114,17 @@ model Verification {
 /// Settings > Users > User Groups (AdminGroupsModify.aspx). `permissions` holds RentCentric's checkbox ids
 /// (see packages/api/src/lib/permissions.ts). Users with the admin role ("Full Admin") can do everything.
 model UserGroup {
-  id                String        @id @default(cuid())
-  legacyId          Int?          @unique
-  name              String        @unique
-  isActive          Boolean       @default(true)
+  id               String        @id @default(cuid())
+  legacyId         Int?          @unique
+  name             String        @unique
+  isActive         Boolean       @default(true)
   /// "Location:" — null = ALL locations
-  locationId        String?
+  locationId       String?
   /// "Max Discount: % / $"
-  maxDiscountType   DiscountType?
-  maxDiscountValue  Decimal?      @db.Decimal(10, 2)
-  permissions       String[]
-  users             User[]
+  maxDiscountType  DiscountType?
+  maxDiscountValue Decimal?      @db.Decimal(10, 2)
+  permissions      String[]
+  users            User[]
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -134,37 +134,37 @@ model UserGroup {
 /// Live DB has 6: Richmond, Burnaby, Vancouver Admin Office, Surrey, YYC Offsite, YVR Offsite
 /// (+ Coquitlam in the location switcher).
 model Location {
-  id        String  @id @default(cuid())
-  legacyId  Int?    @unique
-  name      String
-  address1  String?
-  address2  String?
-  city      String?
-  province  String?
-  postal    String?
-  country   String? @default("CA")
-  phone     String?
-  fax       String?
-  email     String?
-  isOffsite Boolean @default(false)
-  isLegacy  Boolean @default(false)
+  id                     String   @id @default(cuid())
+  legacyId               Int?     @unique
+  name                   String
+  address1               String?
+  address2               String?
+  city                   String?
+  province               String?
+  postal                 String?
+  country                String?  @default("CA")
+  phone                  String?
+  fax                    String?
+  email                  String?
+  isOffsite              Boolean  @default(false)
+  isLegacy               Boolean  @default(false)
   /// IANA zone for all times at this location (bookings are local wall-clock time)
-  timeZone  String  @default("America/Vancouver")
-  hoursNote String? /// e.g. "24 hour key drop box" (public Our Locations page)
-  isActive  Boolean @default(true)
+  timeZone               String   @default("America/Vancouver")
+  hoursNote              String? /// e.g. "24 hour key drop box" (public Our Locations page)
+  isActive               Boolean  @default(true)
   // legacy Settings > Locations (LocationsModify.aspx)
-  code                String? /// "Location Code", e.g. MRRMD
-  displayOnline       Boolean  @default(false) /// "Web Customer": offered on the public site
-  tollFree            String?
-  closestIntersection String?
-  closestAirport      String?
-  latitude            Decimal? @db.Decimal(9, 6)
-  longitude           Decimal? @db.Decimal(9, 6)
-  minimumAge          Int?
-  underAge            Int? /// renters younger than this pay the underage charge
-  legalName           String? /// "Legal Name" on Location settings; heads the printed contract
-  gstNumber           String? /// "GST Number" on Location settings; printed under the address on the Customer Invoice
-  quoteExpiresAfter   Int      @default(0) /// days; a quote shows "Expired" after this (0 = never)
+  code                   String? /// "Location Code", e.g. MRRMD
+  displayOnline          Boolean  @default(false) /// "Web Customer": offered on the public site
+  tollFree               String?
+  closestIntersection    String?
+  closestAirport         String?
+  latitude               Decimal? @db.Decimal(9, 6)
+  longitude              Decimal? @db.Decimal(9, 6)
+  minimumAge             Int?
+  underAge               Int? /// renters younger than this pay the underage charge
+  legalName              String? /// "Legal Name" on Location settings; heads the printed contract
+  gstNumber              String? /// "GST Number" on Location settings; printed under the address on the Customer Invoice
+  quoteExpiresAfter      Int      @default(0) /// days; a quote shows "Expired" after this (0 = never)
   /// Location settings fuel prices (per litre): "Convenience ReFuel" (printed as ReFuel on the contract) and prepaid, gas / diesel
   /// Settings > Default Payment Method: a built-in method (VISA, CASH …) or "OTHER:<name>"
   defaultPaymentMethod   String?
@@ -172,7 +172,7 @@ model Location {
   dieselRefuelPrice      Decimal? @db.Decimal(10, 2)
   prepaidFuelPrice       Decimal? @db.Decimal(10, 2)
   dieselPrepaidFuelPrice Decimal? @db.Decimal(10, 2)
-  memo                String?
+  memo                   String?
 
   vehicleTypes VehicleTypeLocation[]
 
@@ -181,24 +181,24 @@ model Location {
   insurances  Insurance[]
   taxes       LocationTax[]
 
-  usersDefaulted     User[]        @relation("UserDefaultLocation")
-  vehiclesRental     Vehicle[]     @relation("VehicleRentalLocation")
-  vehiclesOwning     Vehicle[]     @relation("VehicleOwningLocation")
-  vehiclesCurrent    Vehicle[]     @relation("VehicleCurrentLocation")
+  usersDefaulted     User[]                  @relation("UserDefaultLocation")
+  vehiclesRental     Vehicle[]               @relation("VehicleRentalLocation")
+  vehiclesOwning     Vehicle[]               @relation("VehicleOwningLocation")
+  vehiclesCurrent    Vehicle[]               @relation("VehicleCurrentLocation")
   rates              Rate[]
-  quotesPickup       Quote[]       @relation("QuotePickup")
-  quotesReturn       Quote[]       @relation("QuoteReturn")
-  reservationsBooked Reservation[] @relation("ReservationLocation")
-  reservationsPickup Reservation[] @relation("ReservationPickup")
-  reservationsReturn Reservation[] @relation("ReservationReturn")
-  rentalsOut         Rental[]      @relation("RentalCheckOutLocation")
-  rentalsIn          Rental[]      @relation("RentalCheckInLocation")
-  customersDefault   Customer[]    @relation("CustomerDefaultLocation")
-  customersEntered   Customer[]    @relation("CustomerEnteredLocation")
-  transportsPickup   Transport[]   @relation("TransportPickup")
-  transportsDropoff  Transport[]   @relation("TransportDropoff")
-  documentTemplates DocumentTemplate[]
-  paymentMethods         LocationPaymentMethod[]
+  quotesPickup       Quote[]                 @relation("QuotePickup")
+  quotesReturn       Quote[]                 @relation("QuoteReturn")
+  reservationsBooked Reservation[]           @relation("ReservationLocation")
+  reservationsPickup Reservation[]           @relation("ReservationPickup")
+  reservationsReturn Reservation[]           @relation("ReservationReturn")
+  rentalsOut         Rental[]                @relation("RentalCheckOutLocation")
+  rentalsIn          Rental[]                @relation("RentalCheckInLocation")
+  customersDefault   Customer[]              @relation("CustomerDefaultLocation")
+  customersEntered   Customer[]              @relation("CustomerEnteredLocation")
+  transportsPickup   Transport[]             @relation("TransportPickup")
+  transportsDropoff  Transport[]             @relation("TransportDropoff")
+  documentTemplates  DocumentTemplate[]
+  paymentMethods     LocationPaymentMethod[]
 }
 
 /// Settings > Location Information > Hours Of Operation
@@ -238,19 +238,21 @@ model Lookup {
   sortOrder Int        @default(0)
   isActive  Boolean    @default(true)
 
-  vehiclesCategory     Vehicle[]       @relation("VehicleCategory")
-  vehiclesBody         Vehicle[]       @relation("VehicleBody")
-  vehiclesFuelType     Vehicle[]       @relation("VehicleFuelType")
-  vehiclesEngineBrand  Vehicle[]       @relation("VehicleEngineBrand")
-  vehiclesEngineType   Vehicle[]       @relation("VehicleEngineType")
-  vehicleOptions       VehicleOption[]
-  companies            Company[]
-  customersRegion      Customer[]
-  reservationsDiscount Reservation[]
-  rentalsDiscount      Rental[]        @relation("RentalDiscountReason")
-  rentalsReason        Rental[]        @relation("RentalReason")
-  damagesLocation      VehicleDamage[] @relation("DamageLocation")
-  damagesCondition     VehicleDamage[] @relation("DamageCondition")
+  vehiclesCategory         Vehicle[]                @relation("VehicleCategory")
+  vehiclesBody             Vehicle[]                @relation("VehicleBody")
+  vehiclesFuelType         Vehicle[]                @relation("VehicleFuelType")
+  vehiclesEngineBrand      Vehicle[]                @relation("VehicleEngineBrand")
+  vehiclesEngineType       Vehicle[]                @relation("VehicleEngineType")
+  vehicleOptions           VehicleOption[]
+  companies                Company[]
+  customersRegion          Customer[]
+  reservationsDiscount     Reservation[]
+  rentalsDiscount          Rental[]                 @relation("RentalDiscountReason")
+  rentalsReason            Rental[]                 @relation("RentalReason")
+  damagesLocation          VehicleDamage[]          @relation("DamageLocation")
+  damagesCondition         VehicleDamage[]          @relation("DamageCondition")
+  reportedDamagesLocation  CustomerReportedDamage[] @relation("ReportedDamageLocation")
+  reportedDamagesCondition CustomerReportedDamage[] @relation("ReportedDamageCondition")
 
   @@unique([kind, name])
 }
@@ -508,6 +510,8 @@ model Vehicle {
   serviceVouchers  VehicleServiceVoucher[]
   insuranceRecords VehicleInsuranceRecord[]
   statusChanges    VehicleStatusChange[]
+  inspections      VehicleInspection[]
+  reportedDamages  CustomerReportedDamage[]
 
   @@index([vehicleTypeId, rentalLocationId, status])
 }
@@ -953,15 +957,16 @@ model Customer {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  creditCards    CreditCard[]
-  clubMembership ClubMembership?
-  quotes         Quote[]
-  reservations   Reservation[]
-  rentals        Rental[]
-  bookingDrivers BookingDriver[]
-  payments       Payment[]
-  attachments    Attachment[]
-  memos          Memo[]
+  creditCards     CreditCard[]
+  clubMembership  ClubMembership?
+  quotes          Quote[]
+  reservations    Reservation[]
+  rentals         Rental[]
+  bookingDrivers  BookingDriver[]
+  payments        Payment[]
+  attachments     Attachment[]
+  memos           Memo[]
+  reportedDamages CustomerReportedDamage[]
 
   // Duplicate detection ("Check Matching") runs on these at create time.
   @@index([lastName, firstName])
@@ -1012,7 +1017,7 @@ model Quote {
   rateId           String?
   rate             Rate?         @relation(fields: [rateId], references: [id])
   /// "Rate (i)" Rate Details: this booking's own rate values, replacing the rate's (RateDetails.aspx) — see lib/rate-override.ts
-  rateOverride Json?
+  rateOverride     Json?
   companyId        String?
   company          Company?      @relation(fields: [companyId], references: [id])
   discountType     DiscountType?
@@ -1082,7 +1087,7 @@ model Reservation {
   rateId           String?
   rate             Rate?       @relation(fields: [rateId], references: [id])
   /// "Rate (i)" Rate Details: this booking's own rate values, replacing the rate's (RateDetails.aspx) — see lib/rate-override.ts
-  rateOverride Json?
+  rateOverride     Json?
   companyId        String?
   company          Company?    @relation(fields: [companyId], references: [id])
 
@@ -1118,14 +1123,16 @@ model Reservation {
   cancelledAt DateTime?
   deletedAt   DateTime?
 
-  transports   Transport[]
-  billSplits   BillSplit[]
-  drivers      BookingDriver[]
-  chargeLines  ChargeLine[]
-  payments     Payment[]
-  memos        Memo[]
-  rental       Rental?
-  vehicleBlock VehicleBlock?
+  transports      Transport[]
+  billSplits      BillSplit[]
+  drivers         BookingDriver[]
+  chargeLines     ChargeLine[]
+  payments        Payment[]
+  memos           Memo[]
+  rental          Rental?
+  vehicleBlock    VehicleBlock?
+  inspections     VehicleInspection[]
+  reportedDamages CustomerReportedDamage[]
 
   @@index([pickupAt])
   @@index([status, pickupLocationId])
@@ -1214,7 +1221,7 @@ model Rental {
   rateId           String?
   rate             Rate?         @relation(fields: [rateId], references: [id])
   /// "Rate (i)" Rate Details: this booking's own rate values, replacing the rate's (RateDetails.aspx) — see lib/rate-override.ts
-  rateOverride Json?
+  rateOverride     Json?
   discountType     DiscountType?
   discountValue    Decimal?      @db.Decimal(10, 2)
   discountReasonId String?
@@ -1252,6 +1259,8 @@ model Rental {
   payments        Payment[]
   memos           Memo[]
   attachments     Attachment[]
+  inspections     VehicleInspection[]
+  reportedDamages CustomerReportedDamage[]
   vehicleBlock    VehicleBlock?
   vehicleSegments RentalVehicleSegment[]
   trafficTickets  TrafficTicket[]
@@ -1414,19 +1423,24 @@ enum AttachmentKind {
 
 /// S3 objects: vehicle photos/documents, customer scanned IDs, rental documents.
 model Attachment {
-  id          String         @id @default(cuid())
-  kind        AttachmentKind
-  s3Key       String         @unique
-  fileName    String
-  contentType String
-  sizeBytes   Int
-  uploadedAt  DateTime       @default(now())
-  vehicleId   String?
-  vehicle     Vehicle?       @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
-  customerId  String?
-  customer    Customer?      @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  rentalId    String?
-  rental      Rental?        @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+  id               String                  @id @default(cuid())
+  kind             AttachmentKind
+  s3Key            String                  @unique
+  fileName         String
+  contentType      String
+  sizeBytes        Int
+  uploadedAt       DateTime                @default(now())
+  vehicleId        String?
+  vehicle          Vehicle?                @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  customerId       String?
+  customer         Customer?               @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  rentalId         String?
+  rental           Rental?                 @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+  /// photos of an inspection / a customer-reported damage / a damage record (VehicleDamage.imageKey keeps the first)
+  inspectionId     String?
+  inspection       VehicleInspection?      @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  reportedDamageId String?
+  reportedDamage   CustomerReportedDamage? @relation(fields: [reportedDamageId], references: [id], onDelete: Cascade)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1643,20 +1657,20 @@ model PaymentGateway {
 /// Settings > Rental Contracts & Invoices > Rentals & Invoices (AgreementFormsMain.aspx): printable / emailable HTML templates
 /// with ##code## placeholders (RentCentric's numbering, see packages/api/src/lib/template-fields.ts). Admins edit them.
 model DocumentTemplate {
-  id            String       @id @default(cuid())
-  legacyId      Int?         @unique
+  id            String    @id @default(cuid())
+  legacyId      Int?      @unique
   locationId    String?
-  location      Location?    @relation(fields: [locationId], references: [id])
+  location      Location? @relation(fields: [locationId], references: [id])
   name          String
   /// AGREEMENT (rental printouts, invoices) | RESERVATION (confirmation) | QUOTE
-  kind          String       @default("AGREEMENT")
+  kind          String    @default("AGREEMENT")
   html          String
-  isActive      Boolean      @default(true)
-  isDefault     Boolean      @default(false)
-  autoPrint     Boolean      @default(false)
-  emailFriendly Boolean      @default(false)
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  isActive      Boolean   @default(true)
+  isDefault     Boolean   @default(false)
+  autoPrint     Boolean   @default(false)
+  emailFriendly Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
   updatedById   String?
 
   @@index([locationId, kind])
@@ -1682,17 +1696,17 @@ model EmailSettings {
 
 /// Every email the system sends (agreements, invoices, confirmations, quotes), for the record.
 model EmailLog {
-  id            String   @id @default(cuid())
-  to            String
-  subject       String
+  id           String   @id @default(cuid())
+  to           String
+  subject      String
   /// RENTAL | RESERVATION | QUOTE
-  entityType    String?
-  entityId      String?
-  templateName  String?
-  status        String /// SENT | FAILED
-  error         String?
-  sentById      String?
-  createdAt     DateTime @default(now())
+  entityType   String?
+  entityId     String?
+  templateName String?
+  status       String /// SENT | FAILED
+  error        String?
+  sentById     String?
+  createdAt    DateTime @default(now())
 
   @@index([entityType, entityId])
 }
@@ -1917,17 +1931,69 @@ model TaskAssignee {
 /// Settings > Payment Settings > Payment Methods (PayMethodsAdd.aspx): a location's own payment methods, offered
 /// next to the built-in ones (Visa, Cash, Mastercard, Amex, Debit, Internal, EMT).
 model LocationPaymentMethod {
-  id                   String   @id @default(cuid())
-  locationId           String
-  location             Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
-  name                 String /// "Payment Method"
-  isCreditCard         Boolean  @default(false)
-  creditCardType       String?
-  isDefault            Boolean  @default(false)
-  mobileAgentIncluded  Boolean  @default(false) /// "Is Mobile Agent Included"
-  isActive             Boolean  @default(true)
-  createdAt            DateTime @default(now())
+  id                  String   @id @default(cuid())
+  locationId          String
+  location            Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  name                String /// "Payment Method"
+  isCreditCard        Boolean  @default(false)
+  creditCardType      String?
+  isDefault           Boolean  @default(false)
+  mobileAgentIncluded Boolean  @default(false) /// "Is Mobile Agent Included"
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
 
   @@unique([locationId, name])
 }
 
+enum InspectionKind {
+  PICKUP /// at check-out
+  RETURN /// at check-in
+  OTHER
+}
+
+/// "Vehicle Inspection" (VehicleInspection.aspx: Admin, Date, Images). RentCentric fills these from its inspection app;
+/// here staff add them (with photos) from the vehicle, reservation or rental. Pickup + return inspections of one rental
+/// make the "Inspection Comparison".
+model VehicleInspection {
+  id            String         @id @default(cuid())
+  vehicleId     String
+  vehicle       Vehicle        @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  kind          InspectionKind @default(OTHER)
+  at            DateTime
+  reservationId String?
+  reservation   Reservation?   @relation(fields: [reservationId], references: [id], onDelete: SetNull)
+  rentalId      String?
+  rental        Rental?        @relation(fields: [rentalId], references: [id], onDelete: SetNull)
+  odometer      Int?
+  fuel          Int? /// sixteenths
+  memo          String?
+  adminId       String? /// "Admin": who inspected
+  images        Attachment[]
+  createdAt     DateTime       @default(now())
+
+  @@index([vehicleId, at])
+}
+
+/// "Customer Reported Damages" (CustomerReportedDamages.aspx: Date Entered, Customer, Description, Reservation #,
+/// Rental #, Condition, Location, Images, Delete).
+model CustomerReportedDamage {
+  id            String       @id @default(cuid())
+  vehicleId     String
+  vehicle       Vehicle      @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  customerId    String?
+  customer      Customer?    @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  reservationId String?
+  reservation   Reservation? @relation(fields: [reservationId], references: [id], onDelete: SetNull)
+  rentalId      String?
+  rental        Rental?      @relation(fields: [rentalId], references: [id], onDelete: SetNull)
+  description   String
+  conditionId   String?
+  condition     Lookup?      @relation("ReportedDamageCondition", fields: [conditionId], references: [id])
+  locationId    String?
+  location      Lookup?      @relation("ReportedDamageLocation", fields: [locationId], references: [id])
+  images        Attachment[]
+  enteredById   String?
+  createdAt     DateTime     @default(now())
+
+  @@index([vehicleId, createdAt])
+}

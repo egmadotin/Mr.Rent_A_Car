@@ -16,6 +16,7 @@ import { emailRouter } from "./routers/staff/email";
 import { usersRouter } from "./routers/staff/users";
 import { setupRouter } from "./routers/staff/setup";
 import { vehicleRecordsRouter } from "./routers/staff/vehicle-records";
+import { inspectionsRouter } from "./routers/staff/inspections";
 import { tasksRouter } from "./routers/staff/tasks";
 import { reportsRouter } from "./routers/staff/reports";
 
@@ -35,6 +36,7 @@ export const staffRouter = router({
   users: usersRouter,
   setup: setupRouter,
   vehicleRecords: vehicleRecordsRouter,
+  inspections: inspectionsRouter,
   tasks: tasksRouter,
   reports: reportsRouter,
 });
