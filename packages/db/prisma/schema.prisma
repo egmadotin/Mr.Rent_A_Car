@@ -1867,3 +1867,45 @@ model VehicleStatusChange {
 
   @@index([vehicleId, changedAt])
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tasks (RentCentric TasksModify.aspx / TasksMain.aspx "My Tasks" / TasksList.aspx)
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum TaskStatus {
+  OPEN
+  CLOSED
+}
+
+enum TaskPriority {
+  LOW
+  NORMAL
+  HIGH
+}
+
+model Task {
+  id          String         @id @default(cuid())
+  date        DateTime /// "Date"
+  subject     String
+  description String? /// "Task"
+  status      TaskStatus     @default(OPEN)
+  priority    TaskPriority   @default(NORMAL)
+  emailTask   Boolean        @default(false) /// "Email Task": e-mail the assignees when saved
+  enteredById String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  assignees   TaskAssignee[]
+
+  @@index([date])
+}
+
+/// "Assigned To" (one or more staff)
+model TaskAssignee {
+  taskId String
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId String
+
+  @@id([taskId, userId])
+  @@index([userId])
+}
+

@@ -30,7 +30,7 @@ The RentCentric menus, vehicle page and customer page were re-read on Oct 20. No
 | Users, user groups and permissions | ✅ (group location limit not enforced) |
 | Settings | 🟡 about 34 of RentCentric's ~100 setting pages built (section 7) |
 | Reports | ⬜ none of RentCentric's ~70 reports built |
-| Dashboard | ✅ counts, today's lists, service list, graph, availability (🟡 My Tasks needs the Tasks module) |
+| Dashboard | ✅ |
 | Public website and online booking | ✅ (customer login and fleet filters 🟡) |
 | Email | ✅ built, 🔑 needs the client's email (SMTP) account |
 | Card payments (Stripe) | ✅ built, 🔑 needs Stripe keys |
@@ -250,7 +250,7 @@ RentCentric's Settings menu, item by item.
 | Website & Email | Online Reservation (incl. V3, mobile), I-Frame Widget, I-Frame Rotator | ⬜ (our public site replaces these) |
 | Website & Email | Merchandise Items, Orders | ⬜ |
 | Email Marketing | Send Marketing Email, Email Template | ⬜ |
-| Tasks & Messages | | ⬜ |
+| Tasks & Messages | | ✅ My Tasks / Add Task / Tasks List (Email Task needs SMTP) |
 | Paperless Counter, Counter Agent Pro, Mobile Scanner | | ⬜ (hardware / integrations phase) |
 
 ## 8. Reports
@@ -282,7 +282,7 @@ None of these are built. Our Reports page is a design placeholder. RentCentric's
 |---|---|
 | Status counts (In-fleet … No Show) | ✅ (they link to filtered lists, not RentCentric's detail pages) |
 | Rentals Leaving Today / Returning Today lists | ✅ (overdue returns flagged) |
-| My Tasks and Add Task | ⬜ (no tasks module yet) |
+| My Tasks and Add Task | ✅ (`/admin/tasks`: My Tasks + Tasks List report) |
 | Vehicles Requiring Service | ✅ from status and the "maintain every … km" interval; will use the last service entry once Maintenance is built |
 | Rental Graph View (7 / 14 days / 1 month) | ✅ |
 | Vehicle Availability check | ✅ |

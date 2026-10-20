@@ -13,6 +13,7 @@ import { Label } from "@mrac/ui/components/label";
 import { NativeSelect } from "@mrac/ui/components/native-select";
 import { toDateTimeLocal } from "@mrac/ui/lib/format";
 import { cn } from "@mrac/ui/lib/utils";
+import { AddTaskButton, TaskTable } from "../../../_components/tasks";
 
 const time = (d: string | Date) => new Date(d).toLocaleTimeString("en-CA", { hour: "numeric", minute: "2-digit" });
 const day = (d: string | Date) => new Date(d).toLocaleDateString("en-CA", { month: "short", day: "numeric" });
@@ -60,6 +61,7 @@ export function DashboardPanels() {
             </ul>
           )}
         </Panel>
+        <MyTasks />
         <Panel title="Vehicles Requiring Service" count={d?.service.length}>
           {!d?.service.length ? <Empty /> : (
             <ul className="divide-y text-sm">
@@ -103,6 +105,21 @@ export function DashboardPanels() {
         <Availability />
       </div>
     </div>
+  );
+}
+
+/** Dashboard "My Tasks": my open tasks, with Add Task. */
+function MyTasks() {
+  const trpc = useTRPC();
+  const tasks = (useQuery(trpc.staff.tasks.list.queryOptions({ mine: true, status: "OPEN" })).data ?? []).slice(0, 8);
+  return (
+    <Card className="gap-2 py-4">
+      <CardHeader className="flex-row items-center justify-between px-4">
+        <CardTitle className="flex items-center gap-2 font-serif text-lg">My Tasks{tasks.length > 0 && <Badge variant="muted">{tasks.length}</Badge>}</CardTitle>
+        <span className="flex items-center gap-3"><Link href="/admin/tasks" className="text-sm text-primary hover:underline">All tasks</Link><AddTaskButton /></span>
+      </CardHeader>
+      <CardContent className="px-0"><TaskTable tasks={tasks} compact /></CardContent>
+    </Card>
   );
 }
 
