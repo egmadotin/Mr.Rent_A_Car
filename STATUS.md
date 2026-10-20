@@ -286,7 +286,7 @@ Not built yet:
 | Home, About, Services, Locations, Fleet, Blogs, Contact | ✅ |
 | Booking: dates and vehicle → options → details → confirmation, same prices as the live site | ✅ |
 | Card at booking (Stripe) | ✅ 🔑 keys |
-| Fleet filters (doors, type) | 🟡 seats and bags only |
+| Fleet filters | ✅ type (Car / SUV / Minivan / Van / Truck, from the class name), seats, bags, doors |
 | Customer Login | ⬜ (ask the client) |
 
 ## 11. Waiting on the client
