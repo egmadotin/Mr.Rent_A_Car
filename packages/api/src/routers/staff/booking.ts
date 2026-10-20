@@ -73,6 +73,7 @@ export const bookingRouter = router({
         pickupAt: z.coerce.date(),
         returnAt: z.coerce.date(),
         locationId: z.string().min(1),
+        returnLocationId: z.string().nullable().optional(),
         vehicleTypeId: z.string().min(1),
         rateId: z.string().nullable().optional(),
         discountType: z.enum(["PERCENT", "AMOUNT"]).nullable().optional(),

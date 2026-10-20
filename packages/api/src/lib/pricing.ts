@@ -7,7 +7,7 @@ const D = (n: number | Prisma.Decimal) => new Prisma.Decimal(n);
 const ZERO = D(0);
 
 export type ChargeDraft = {
-  kind: "TIME" | "MILEAGE" | "UPGRADE" | "DISCOUNT" | "FUEL" | "PROTECTION" | "MISC" | "OTHER" | "TAX";
+  kind: "TIME" | "MILEAGE" | "UPGRADE" | "DISCOUNT" | "FUEL" | "PROTECTION" | "MISC" | "OTHER" | "ONE_WAY" | "TAX";
   name: string;
   units: Prisma.Decimal;
   rate: Prisma.Decimal;
@@ -23,6 +23,8 @@ export type PricingInput = {
   returnAt: Date;
   /** location whose taxes apply (pickup location) */
   locationId: string;
+  /** the return location — a different One Way Region adds the One Way Rates fee */
+  returnLocationId?: string | null;
   vehicleTypeId: string;
   rateId?: string | null;
   discountType?: "PERCENT" | "AMOUNT" | null;
@@ -357,6 +359,9 @@ export async function priceBooking(tx: Tx, input: PricingInput) {
     lines.push({ kind: "UPGRADE", name: "Upgrade", units: D(u), rate: D(input.upgrade.amount), total: D(input.upgrade.amount).mul(u), sortOrder: 5 });
   }
   if (input.fuelCharge) lines.push({ kind: "FUEL", name: "Fuel", units: D(1), rate: D(input.fuelCharge), total: D(input.fuelCharge), sortOrder: 8 });
+  // ── One Way: Settings > One Way Rates between the pickup and return locations' regions
+  const oneWay = await oneWayFee(tx, input);
+  if (oneWay) lines.push({ kind: "ONE_WAY", name: "One Way", units: D(1), rate: oneWay, total: oneWay, sortOrder: 9 });
   // percentage charges apply to everything above them (rental + protection + other charges), before tax.
   // Verified on mrrentacar.com: YYC Standard 3 days + SLC → Premium Location 9.75% of 220.49 = 21.50, total 254.09.
   const beforePercent = lines.reduce((a, l) => a.add(l.total), ZERO);
@@ -414,9 +419,30 @@ function taxApplies(
       return on("MISC") || (!!l.miscChargeId && lt.miscChargeIds.includes(l.miscChargeId));
     case "OTHER":
       return !!other && on(`OTHER${other}`);
+    case "ONE_WAY":
+      return on("ONE_WAY");
     case "TAX":
       return on("TAX") || (!!l.taxId && lt.taxIds.includes(l.taxId));
     default:
       return false;
   }
+}
+
+/**
+ * The One Way fee for a booking: the One Way Rate from the pickup location's region to the return location's, for the
+ * vehicle type (or All), whose Start / End dates cover the pickup day — the latest-starting one when ranges touch.
+ */
+export async function oneWayFee(tx: Tx, input: Pick<PricingInput, "locationId" | "returnLocationId" | "vehicleTypeId" | "pickupAt">) {
+  if (!input.returnLocationId || input.returnLocationId === input.locationId) return null;
+  const locs = await tx.location.findMany({ where: { id: { in: [input.locationId, input.returnLocationId] } }, select: { id: true, oneWayRegionId: true, timeZone: true } });
+  const from = locs.find((l) => l.id === input.locationId);
+  const to = locs.find((l) => l.id === input.returnLocationId);
+  if (!from?.oneWayRegionId || !to?.oneWayRegionId || from.oneWayRegionId === to.oneWayRegionId) return null;
+  const day = localDateAsUtc(input.pickupAt, from.timeZone);
+  const rates = await tx.oneWayRate.findMany({
+    where: { fromRegionId: from.oneWayRegionId, toRegionId: to.oneWayRegionId, startDate: { lte: day }, endDate: { gte: day }, OR: [{ vehicleTypeId: input.vehicleTypeId }, { vehicleTypeId: null }] },
+    orderBy: { startDate: "desc" },
+  });
+  const r = rates.find((x) => x.vehicleTypeId === input.vehicleTypeId) ?? rates[0];
+  return r ? r.fee : null;
 }

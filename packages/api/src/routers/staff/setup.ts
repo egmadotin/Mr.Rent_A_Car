@@ -50,6 +50,66 @@ const companyInput = z.object({
 });
 
 export const setupRouter = router({
+  // ── Settings > One Way Regions (LocationRegionsMain) and One Way Rates (OneWay.aspx / OneWaysModify.aspx) ──
+
+  oneWayRegions: staffProcedure.query(({ ctx }) =>
+    ctx.prisma.oneWayRegion.findMany({ orderBy: { name: "asc" }, include: { locations: { select: { name: true } }, _count: { select: { ratesFrom: true, ratesTo: true } } } }),
+  ),
+  oneWayRegionSave: permitted("Settings").input(z.object({ id: z.string().optional(), name: req("Region") })).mutation(async ({ ctx, input }) => {
+    const dup = await ctx.prisma.oneWayRegion.findFirst({ where: { name: { equals: input.name, mode: "insensitive" }, NOT: input.id ? { id: input.id } : undefined } });
+    if (dup) throw new TRPCError({ code: "CONFLICT", message: `Region "${input.name}" already exists.` });
+    const r = input.id ? await ctx.prisma.oneWayRegion.update({ where: { id: input.id }, data: { name: input.name } }) : await ctx.prisma.oneWayRegion.create({ data: { name: input.name } });
+    return { id: r.id };
+  }),
+  oneWayRegionDelete: permitted("Settings").input(z.object({ id: z.string() })).mutation(async ({ ctx, input }) => {
+    const r = await ctx.prisma.oneWayRegion.findUniqueOrThrow({ where: { id: input.id }, include: { _count: { select: { locations: true, ratesFrom: true, ratesTo: true } } } });
+    const used = r._count.locations + r._count.ratesFrom + r._count.ratesTo;
+    if (used) throw new TRPCError({ code: "CONFLICT", message: `${r.name} is used by ${r._count.locations} location(s) and ${r._count.ratesFrom + r._count.ratesTo} one way rate(s); it can't be deleted.` });
+    await ctx.prisma.oneWayRegion.delete({ where: { id: input.id } });
+  }),
+
+  oneWayRates: staffProcedure.input(z.object({ vehicleTypeId: z.string().optional() }).default({})).query(({ ctx, input }) =>
+    ctx.prisma.oneWayRate.findMany({
+      where: input.vehicleTypeId ? { vehicleTypeId: input.vehicleTypeId } : {},
+      orderBy: [{ fromRegion: { name: "asc" } }, { toRegion: { name: "asc" } }, { startDate: "asc" }],
+      include: { fromRegion: { select: { name: true } }, toRegion: { select: { name: true } }, vehicleType: { select: { name: true } } },
+    }),
+  ),
+  oneWayRateSave: permitted("Settings")
+    .input(
+      z
+        .object({
+          id: z.string().optional(),
+          fromRegionId: req("One Way From"),
+          toRegionId: req("One Way To"),
+          addReverse: z.boolean().default(false),
+          fee: z.preprocess((v) => (v === "" || v == null ? undefined : Number(v)), z.number({ required_error: "Fee is required", invalid_type_error: "Fee is required" }).min(0)),
+          odometer: z.preprocess((v) => (v === "" || v == null ? null : Number(v)), z.number().int().min(0).nullable()),
+          numberOfDays: z.preprocess((v) => (v === "" || v == null ? null : Number(v)), z.number().int().min(0).nullable()),
+          vehicleTypeId: optStr,
+          competitionRate1: z.preprocess((v) => (v === "" || v == null ? null : Number(v)), z.number().min(0).nullable()),
+          competitionRate2: z.preprocess((v) => (v === "" || v == null ? null : Number(v)), z.number().min(0).nullable()),
+          competitionRate3: z.preprocess((v) => (v === "" || v == null ? null : Number(v)), z.number().min(0).nullable()),
+          startDate: z.coerce.date({ invalid_type_error: "Start Date is required" }),
+          endDate: z.coerce.date({ invalid_type_error: "End Date is required" }),
+          memo: optStr,
+        })
+        .superRefine((v, c) => {
+          if (v.fromRegionId === v.toRegionId) c.addIssue({ code: "custom", path: ["toRegionId"], message: "One Way To must be a different region" });
+          if (v.endDate < v.startDate) c.addIssue({ code: "custom", path: ["endDate"], message: "End Date must be after Start Date" });
+        }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { id, addReverse, ...data } = input;
+      const r = id ? await ctx.prisma.oneWayRate.update({ where: { id }, data }) : await ctx.prisma.oneWayRate.create({ data });
+      // "Add Reverse": the same fee the other way round
+      if (addReverse) await ctx.prisma.oneWayRate.create({ data: { ...data, fromRegionId: data.toRegionId, toRegionId: data.fromRegionId } });
+      return { id: r.id };
+    }),
+  oneWayRateDelete: permitted("Settings").input(z.object({ id: z.string() })).mutation(async ({ ctx, input }) => {
+    await ctx.prisma.oneWayRate.delete({ where: { id: input.id } });
+  }),
+
   // ── Pick lists ─────────────────────────────────────────────────────────────
   lookupList: staffProcedure.input(z.object({ kind })).query(({ ctx, input }) =>
     ctx.prisma.lookup.findMany({ where: { kind: input.kind }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),

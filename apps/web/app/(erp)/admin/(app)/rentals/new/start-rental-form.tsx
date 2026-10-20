@@ -134,6 +134,7 @@ export function StartRentalForm({
   const [previewOn, setPreviewOn] = React.useState(false);
   const preview = useQuery({
     ...trpc.staff.booking.preview.queryOptions({
+      returnLocationId: str("returnLocationId") || null,
       pickupAt: pickupAt ?? new Date(),
       returnAt: returnAt ?? new Date(),
       locationId: str("pickupLocationId"),

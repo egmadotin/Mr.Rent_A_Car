@@ -51,6 +51,7 @@ async function writeQuote(tx: Prisma.TransactionClient, userId: string, input: z
     pickupAt: input.pickupAt,
     returnAt: input.returnAt,
     locationId: input.pickupLocationId,
+    returnLocationId: input.returnLocationId,
     vehicleTypeId: input.vehicleTypeId,
     rateId: input.rateId,
     discountType: input.discountType,

@@ -79,6 +79,7 @@ export function EndRentalForm({ rentalId }: { rentalId: string }) {
       pickupAt: r ? new Date(r.checkOutAt) : new Date(),
       returnAt: checkedInAt ?? new Date(),
       locationId: r?.checkOutLocationId ?? "",
+      returnLocationId: str("returnLocationId") || null,
       vehicleTypeId: r?.vehicleTypeId ?? "",
       rateId: r?.rateId ?? null,
       discountType: (r?.discountType ?? null) as "PERCENT" | null,

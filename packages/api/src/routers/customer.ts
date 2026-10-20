@@ -46,6 +46,7 @@ async function priceOnline(
     pickupAt: s.pickupAt,
     returnAt: s.returnAt,
     locationId: s.pickupLocationId,
+    returnLocationId: s.returnLocationId,
     vehicleTypeId: input.vehicleTypeId,
     rateId: rate.id,
     insuranceId: input.insuranceId,
@@ -156,6 +157,7 @@ export const customerRouter = router({
         pickupAt: input.pickupAt,
         returnAt: input.returnAt,
         locationId: input.pickupLocationId,
+        returnLocationId: input.returnLocationId,
         vehicleTypeId: t.id,
         rateId: rate.id,
         // `total` = rental + default charges + tax (estimate); the headline `price` below is the rental only, like mrrentacar.com
@@ -236,6 +238,7 @@ export const customerRouter = router({
         pickupAt: input.pickupAt,
         returnAt: input.returnAt,
         locationId: input.pickupLocationId,
+        returnLocationId: input.returnLocationId,
         vehicleTypeId: input.vehicleTypeId,
         rateId: rate.id,
         insuranceId: input.insuranceId,

@@ -73,6 +73,7 @@ function LocationDialog({ l: existing }: { l?: Location }) {
   const can = useCan();
   const l = (existing ?? { name: "", timeZone: "America/Vancouver", country: "CA", isActive: true, displayOnline: false, isOffsite: false }) as Location;
   const allowed = can(existing ? "LocationsEdit" : "LocationsAdd");
+  const regions = (useQuery(trpc.staff.setup.oneWayRegions.queryOptions()).data ?? []).map((r) => ({ value: r.id, label: r.name }));
   return (
     <FormDialog
       wide
@@ -120,6 +121,7 @@ function LocationDialog({ l: existing }: { l?: Location }) {
         <Field label="Diesel convenience refuel ($/L)" name="dieselRefuelPrice" type="number" min={0} step="0.01" defaultValue={s(l.dieselRefuelPrice)} />
         <Field label="Prepaid fuel ($/L)" name="prepaidFuelPrice" type="number" min={0} step="0.01" defaultValue={s(l.prepaidFuelPrice)} />
         <Field label="Diesel prepaid fuel ($/L)" name="dieselPrepaidFuelPrice" type="number" min={0} step="0.01" defaultValue={s(l.dieselPrepaidFuelPrice)} />
+        <SelectField label="One Way Region" name="oneWayRegionId" options={regions} placeholder="" defaultValue={s(l.oneWayRegionId)} hint="One way fees (Settings › One Way Rates) are set between regions." />
         <Field label="Location note" name="hoursNote" defaultValue={s(l.hoursNote)} full hint="Shown on the public Our Locations page, e.g. “24 hour key drop box”." />
         <TextareaField label="Memo" name="memo" rows={2} defaultValue={s(l.memo)} full />
         <div className="flex flex-wrap gap-6 sm:col-span-2">

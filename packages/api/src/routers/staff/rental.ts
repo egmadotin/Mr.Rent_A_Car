@@ -20,7 +20,7 @@ const optStr = z.string().trim().max(500).optional().transform((v) => v || null)
 const optDate = z.coerce.date().optional().nullable();
 
 /** charge kinds priceBooking produces — Edit Rental replaces these and keeps the rest */
-const REPRICED_KINDS = ["TIME", "MILEAGE", "UPGRADE", "DISCOUNT", "FUEL", "PROTECTION", "MISC", "OTHER", "TAX"] as const;
+const REPRICED_KINDS = ["TIME", "MILEAGE", "UPGRADE", "DISCOUNT", "FUEL", "PROTECTION", "MISC", "OTHER", "ONE_WAY", "TAX"] as const;
 const PAYMENT_METHODS = ["AMEX", "CASH", "DEBIT", "EMT", "INTERNAL", "MASTERCARD", "VISA"] as const;
 const CHARGE_KINDS = [
   "TIME", "MILEAGE", "UPGRADE", "DISCOUNT", "FUEL", "PREPAID_FUEL", "MISC", "ONE_WAY", "DAMAGES",
@@ -448,6 +448,7 @@ export const rentalRouter = router({
             pickupAt: input.checkOutAt,
             returnAt: input.returnAt,
             locationId: input.checkOutLocationId,
+            returnLocationId: input.checkInLocationId,
             vehicleTypeId: input.vehicleTypeId,
             rateId: input.rateId,
             discountType: input.discountType,
@@ -558,6 +559,7 @@ export const rentalRouter = router({
             pickupAt: input.checkOutAt,
             returnAt: endsAt,
             locationId: input.checkOutLocationId,
+            returnLocationId: input.checkInLocationId,
             vehicleTypeId: input.vehicleTypeId,
             rateId: input.rateId,
             discountType: input.discountType,

@@ -52,6 +52,8 @@ const locationInput = z.object({
   timeZone: z.enum(["America/Vancouver", "America/Edmonton"]),
   hoursNote: optStr,
   memo: optStr,
+  /** One Way Region */
+  oneWayRegionId: optStr,
   isOffsite: z.boolean().default(false),
   isActive: z.boolean().default(false),
   displayOnline: z.boolean().default(false),

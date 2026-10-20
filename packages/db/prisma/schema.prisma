@@ -134,47 +134,50 @@ model UserGroup {
 /// Live DB has 6: Richmond, Burnaby, Vancouver Admin Office, Surrey, YYC Offsite, YVR Offsite
 /// (+ Coquitlam in the location switcher).
 model Location {
-  id                     String   @id @default(cuid())
-  legacyId               Int?     @unique
+  id                     String        @id @default(cuid())
+  legacyId               Int?          @unique
   name                   String
   address1               String?
   address2               String?
   city                   String?
   province               String?
   postal                 String?
-  country                String?  @default("CA")
+  country                String?       @default("CA")
   phone                  String?
   fax                    String?
   email                  String?
-  isOffsite              Boolean  @default(false)
-  isLegacy               Boolean  @default(false)
+  isOffsite              Boolean       @default(false)
+  isLegacy               Boolean       @default(false)
   /// IANA zone for all times at this location (bookings are local wall-clock time)
-  timeZone               String   @default("America/Vancouver")
+  timeZone               String        @default("America/Vancouver")
   hoursNote              String? /// e.g. "24 hour key drop box" (public Our Locations page)
-  isActive               Boolean  @default(true)
+  isActive               Boolean       @default(true)
   // legacy Settings > Locations (LocationsModify.aspx)
   code                   String? /// "Location Code", e.g. MRRMD
-  displayOnline          Boolean  @default(false) /// "Web Customer": offered on the public site
+  displayOnline          Boolean       @default(false) /// "Web Customer": offered on the public site
   tollFree               String?
   closestIntersection    String?
   closestAirport         String?
-  latitude               Decimal? @db.Decimal(9, 6)
-  longitude              Decimal? @db.Decimal(9, 6)
+  latitude               Decimal?      @db.Decimal(9, 6)
+  longitude              Decimal?      @db.Decimal(9, 6)
   minimumAge             Int?
   underAge               Int? /// renters younger than this pay the underage charge
   legalName              String? /// "Legal Name" on Location settings; heads the printed contract
   gstNumber              String? /// "GST Number" on Location settings; printed under the address on the Customer Invoice
-  quoteExpiresAfter      Int      @default(0) /// days; a quote shows "Expired" after this (0 = never)
+  quoteExpiresAfter      Int           @default(0) /// days; a quote shows "Expired" after this (0 = never)
   /// Location settings fuel prices (per litre): "Convenience ReFuel" (printed as ReFuel on the contract) and prepaid, gas / diesel
   /// Settings > Default Payment Method: a built-in method (VISA, CASH …) or "OTHER:<name>"
   defaultPaymentMethod   String?
-  refuelPrice            Decimal? @db.Decimal(10, 2)
-  dieselRefuelPrice      Decimal? @db.Decimal(10, 2)
-  prepaidFuelPrice       Decimal? @db.Decimal(10, 2)
-  dieselPrepaidFuelPrice Decimal? @db.Decimal(10, 2)
+  refuelPrice            Decimal?      @db.Decimal(10, 2)
+  dieselRefuelPrice      Decimal?      @db.Decimal(10, 2)
+  prepaidFuelPrice       Decimal?      @db.Decimal(10, 2)
+  dieselPrepaidFuelPrice Decimal?      @db.Decimal(10, 2)
   memo                   String?
   /// Settings > Upload Logo: the location's logo (storage key), printed at ##LogoImage##
   logoKey                String?
+  /// One Way Region (LocationsModify.aspx "Region"): one-way fees are set between regions
+  oneWayRegionId         String?
+  oneWayRegion           OneWayRegion? @relation(fields: [oneWayRegionId], references: [id], onDelete: SetNull)
 
   vehicleTypes VehicleTypeLocation[]
 
@@ -320,6 +323,7 @@ model VehicleType {
   quotes       Quote[]
   reservations Reservation[]
   rentals      Rental[]
+  oneWayRates  OneWayRate[]
 }
 
 /// A class as offered at one location. RentCentric keeps a separate copy of every class per location
@@ -2194,4 +2198,37 @@ model VehicleCondition {
   comment3  String?
   comment4  String?
   updatedAt DateTime @updatedAt
+}
+
+/// Settings > One Way Regions (LocationRegionsMain.aspx: Region). Each location belongs to one (Location.oneWayRegionId).
+model OneWayRegion {
+  id        String       @id @default(cuid())
+  name      String       @unique
+  locations Location[]
+  ratesFrom OneWayRate[] @relation("OneWayFrom")
+  ratesTo   OneWayRate[] @relation("OneWayTo")
+}
+
+/// Settings > One Way Rates (OneWaysModify.aspx: One Way From, One Way To, Add Reverse, Fee, Odometer, Number of Days,
+/// Vehicle Type (empty = All), Competition Rate 1-3, Start Date, End Date, Memo). A booking whose pickup and return
+/// locations are in different regions gets the fee as its "One Way" charge.
+model OneWayRate {
+  id               String       @id @default(cuid())
+  fromRegionId     String
+  fromRegion       OneWayRegion @relation("OneWayFrom", fields: [fromRegionId], references: [id], onDelete: Cascade)
+  toRegionId       String
+  toRegion         OneWayRegion @relation("OneWayTo", fields: [toRegionId], references: [id], onDelete: Cascade)
+  fee              Decimal      @db.Decimal(10, 2)
+  odometer         Int?
+  numberOfDays     Int?
+  vehicleTypeId    String?
+  vehicleType      VehicleType? @relation(fields: [vehicleTypeId], references: [id], onDelete: Cascade)
+  competitionRate1 Decimal?     @db.Decimal(10, 2)
+  competitionRate2 Decimal?     @db.Decimal(10, 2)
+  competitionRate3 Decimal?     @db.Decimal(10, 2)
+  startDate        DateTime     @db.Date
+  endDate          DateTime     @db.Date
+  memo             String?
+
+  @@index([fromRegionId, toRegionId])
 }

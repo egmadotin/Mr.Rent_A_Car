@@ -28,7 +28,7 @@ The RentCentric menus, vehicle page and customer page were re-read on Oct 20. No
 | Customers (list, add, edit, view and its actions) | ✅ |
 | Vehicles (list, add, edit, summary) | ✅ (every vehicle page action built) |
 | Users, user groups and permissions | ✅ (group location limit not enforced) |
-| Settings | 🟡 about 39 of RentCentric's ~100 setting pages built (section 7) |
+| Settings | 🟡 about 41 of RentCentric's ~100 setting pages built (section 7) |
 | Reports | 🟡 29 of 64 built (see section 8) |
 | Dashboard | ✅ |
 | Public website and online booking | ✅ (customer login and fleet filters 🟡) |
@@ -167,8 +167,8 @@ RentCentric's Settings menu, item by item.
 | Rates Calendar | ⬜ |
 | Overbooking Control | ⬜ |
 | Rates Setup | ⬜ |
-| One Way Rates | ⬜ |
-| One Way Regions | ⬜ |
+| One Way Rates | ✅ RentCentric's 49 rates copied; the fee is added as the "One Way" charge (taxed per each tax's One Way tick) on quotes, reservations, rentals and online bookings |
+| One Way Regions | ✅ 8 regions copied, each location's region set (Surrey has none, as in RentCentric) |
 | Pay Now Discounts | ⬜ |
 
 ### Company
