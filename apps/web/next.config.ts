@@ -1,6 +1,12 @@
 import type { NextConfig } from "next";
+import { PHASE_DEVELOPMENT_SERVER } from "next/constants";
 
 const nextConfig: NextConfig = {
+  env: {
+    DATABASE_URL:
+      process.env.DATABASE_URL ||
+      "postgresql://postgres:postgres@db:5432/mrac?schema=public",
+  },
   transpilePackages: ["@mrac/ui", "@mrac/api", "@mrac/auth", "@mrac/db"],
   serverExternalPackages: ["@prisma/client"],
   devIndicators: { position: "bottom-right" },
@@ -24,4 +30,5 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// `next dev` builds into .next/dev, so it never overwrites the production build (`next build` / `next start`) in .next
+export default (phase: string): NextConfig => ({ ...nextConfig, distDir: phase === PHASE_DEVELOPMENT_SERVER ? ".next/dev" : ".next" });
