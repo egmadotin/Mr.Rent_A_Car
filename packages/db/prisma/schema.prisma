@@ -695,6 +695,7 @@ model MiscCharge {
   isActive                 Boolean                 @default(true)
   chargeLines              ChargeLine[]
   adjustments              Adjustment[]
+  signatureSetups          SignatureSetup[]
 }
 
 model MiscChargeVehicleType {
@@ -740,6 +741,7 @@ model Insurance {
   isDefault          Boolean                @default(false) /// "Default Insurance": pre-selected
   isActive           Boolean                @default(true)
   chargeLines        ChargeLine[]
+  signatureSetups    SignatureSetup[]
 }
 
 model InsuranceVehicleType {
@@ -2065,4 +2067,35 @@ model VehicleChecklistResult {
   note     String?
 
   @@id([recordId, itemId])
+}
+
+enum SignatureCondition {
+  ADDED /// "is added"
+  NOT_ADDED /// "is not added"
+  ALWAYS /// "always on"
+}
+
+enum SignatureType {
+  SIGNATURE
+  INITIALS
+}
+
+/// Settings > Signature And Initials (SignatureSetupsModify.aspx: Name, Code, Condition, Signature Type, Effective Date,
+/// End Date, Misc Charge, Insurance, Disclaimer, Active). Printouts show the disclaimer with a signature / initials line
+/// at ##Signature\<Code>## when the misc charge / insurance is (not) on the booking, between the two dates.
+model SignatureSetup {
+  id            String             @id @default(cuid())
+  name          String
+  code          String             @unique
+  condition     SignatureCondition @default(ADDED)
+  type          SignatureType      @default(SIGNATURE)
+  effectiveDate DateTime           @db.Date
+  endDate       DateTime           @db.Date
+  miscChargeId  String?
+  miscCharge    MiscCharge?        @relation(fields: [miscChargeId], references: [id], onDelete: SetNull)
+  insuranceId   String?
+  insurance     Insurance?         @relation(fields: [insuranceId], references: [id], onDelete: SetNull)
+  disclaimer    String             @default("")
+  isActive      Boolean            @default(true)
+  createdAt     DateTime           @default(now())
 }

@@ -3,6 +3,7 @@ import { methodLabel } from "./payment-methods";
 import type { Prisma } from "@mrac/db";
 import { RESERVATION_TEMPLATE_CODES, TEMPLATE_CODES } from "./template-codes";
 import { rentalTotals } from "./totals";
+import { isSignatureField, signatureFields } from "./signature-fields";
 
 type Db = Prisma.TransactionClient;
 type Fields = Record<string, string>;
@@ -43,7 +44,7 @@ export function renderTemplate(html: string, fields: Fields, kind = "AGREEMENT",
   return html.replace(/##([0-9A-Za-z\\]+)##/g, (_, code: string) => {
     const name = codes[code] ?? code;
     const v = fields[name] ?? "";
-    return raw.has(name) ? v : esc(v);
+    return raw.has(name) || isSignatureField(name) ? v : esc(v);
   });
 }
 
@@ -381,7 +382,7 @@ export async function rentalTemplateFields(db: Db, rentalId: string) {
       billSplits: true,
     },
   });
-  return docFields({
+  return { ...(await signatureFields(db, r.chargeLines, r.checkOutAt)), ...docFields({
     taxCodes: await taxCodesAt(db, r.checkOutLocationId),
     rateTable: applyRateOverride(r.rate?.values.find((x) => x.vehicleTypeId === r.vehicleTypeId && !x.seasonId) ?? r.rate?.values.find((x) => x.vehicleTypeId === r.vehicleTypeId), readRateOverride(r.rateOverride)) ?? null,
     raNumber: r.raNumber,
@@ -414,7 +415,7 @@ export async function rentalTemplateFields(db: Db, rentalId: string) {
     fuelOut: r.fuelOut,
     fuelIn: r.fuelIn,
     drivers: r.drivers.map((x) => x.customer),
-  });
+  }) };
 }
 
 /** Reservation Confirmation / HTMLReservation: the same fields, with the reservation # as RANumber (as RentCentric does). */
@@ -438,7 +439,7 @@ export async function reservationTemplateFields(db: Db, reservationId: string) {
       billSplits: true,
     },
   });
-  const f = docFields({
+  const f = Object.assign(await signatureFields(db, r.chargeLines, r.pickupAt), docFields({
     taxCodes: await taxCodesAt(db, r.pickupLocationId),
     raNumber: r.number,
     status: r.status,
@@ -463,7 +464,7 @@ export async function reservationTemplateFields(db: Db, reservationId: string) {
     poNumber: r.poNumber,
     flightNumber: r.flightNumber,
     drivers: r.drivers.map((x) => x.customer),
-  });
+  }));
   // the reservation field tree's own names
   const tz = r.pickupLocation.timeZone;
   const put = (k: string, v: unknown) => {
@@ -552,7 +553,7 @@ export async function quoteTemplateFields(db: Db, quoteId: string) {
     },
   });
   const [first, ...rest] = (q.contactName ?? "").split(" ");
-  const f = docFields({
+  const f = Object.assign(await signatureFields(db, q.chargeLines, q.pickupAt), docFields({
     taxCodes: await taxCodesAt(db, q.pickupLocationId),
     raNumber: q.number,
     status: "QUOTE",
@@ -572,7 +573,7 @@ export async function quoteTemplateFields(db: Db, quoteId: string) {
     referral: q.referral?.name,
     openedBy: q.createdBy?.name,
     memo: q.memos[0]?.body,
-  });
+  }));
   f.QuoteNumber = String(q.number);
   return f;
 }

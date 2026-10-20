@@ -28,7 +28,7 @@ The RentCentric menus, vehicle page and customer page were re-read on Oct 20. No
 | Customers (list, add, edit, view and its actions) | ✅ |
 | Vehicles (list, add, edit, summary) | ✅ vehicle page actions (🟡 Ownership, Condition, Claims, images not yet) |
 | Users, user groups and permissions | ✅ (group location limit not enforced) |
-| Settings | 🟡 about 36 of RentCentric's ~100 setting pages built (section 7) |
+| Settings | 🟡 about 37 of RentCentric's ~100 setting pages built (section 7) |
 | Reports | 🟡 29 of 64 built (see section 8) |
 | Dashboard | ✅ |
 | Public website and online booking | ✅ (customer login and fleet filters 🟡) |
@@ -103,7 +103,7 @@ The RentCentric menus, vehicle page and customer page were re-read on Oct 20. No
 | Reservation Confirmation, Print Quote | ✅ (not yet compared on screen with RentCentric) |
 | Standard Invoice, Bill Split Invoice | 🔑 need a printed sample from the client |
 | Email of agreements, reservations and quotes | ✅ 🔑 SMTP |
-| Signature And Initials (Settings) | ⬜ |
+| Signature And Initials (Settings) | ✅ printed at ##Signature\<Code>## when its misc charge / insurance is (not) added, between its dates |
 
 ## 6. Vehicles
 
@@ -206,7 +206,7 @@ RentCentric's Settings menu, item by item.
 | Item | Status |
 |---|---|
 | Rentals & Invoices, Add New | ✅ |
-| Signature And Initials | ⬜ |
+| Signature And Initials | ✅ |
 
 ### Vehicle Setup
 

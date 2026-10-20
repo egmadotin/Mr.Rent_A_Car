@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { SIGNATURE_PREFIX } from "../../lib/signature-fields";
 import { TRPCError } from "@trpc/server";
 import { adminProcedure, router, staffProcedure, permitted } from "../../trpc";
 import { audit } from "../../lib/audit";
@@ -32,7 +33,12 @@ export const templateRouter = router({
   /** The placeholder list for the editor (RentCentric's field tree: code → name). */
   fields: staffProcedure
     .input(z.object({ kind: z.enum(KINDS).default("AGREEMENT") }).default({}))
-    .query(({ input }) => Object.entries(codesFor(input.kind)).map(([code, name]) => ({ code, name })).sort((a, b) => a.name.localeCompare(b.name))),
+    .query(async ({ ctx, input }) => {
+      const fields = Object.entries(codesFor(input.kind)).map(([code, name]) => ({ code, name }));
+      // Settings > Signature And Initials
+      const sigs = await ctx.prisma.signatureSetup.findMany({ where: { isActive: true }, select: { code: true, name: true } });
+      return [...fields, ...sigs.map((x) => ({ code: `${SIGNATURE_PREFIX}${x.code}`, name: `Signature: ${x.name}` }))].sort((a, b) => a.name.localeCompare(b.name));
+    }),
 
   save: permitted("AgreementFormsEdit")
     .input(
@@ -65,6 +71,47 @@ export const templateRouter = router({
     await ctx.prisma.documentTemplate.delete({ where: { id: input.id } });
     await audit(ctx.prisma, "DocumentTemplate", input.id, ctx.user.id, { Deleted: [null, "yes"] });
     return { ok: true };
+  }),
+
+  // ── Settings > Signature And Initials (SignatureSetupsMain / Modify) ─────────
+
+  signatureList: staffProcedure.query(({ ctx }) =>
+    ctx.prisma.signatureSetup.findMany({ orderBy: { name: "asc" }, include: { miscCharge: { select: { name: true } }, insurance: { select: { name: true } } } }),
+  ),
+
+  /** The disclaimer is HTML printed as-is, so the same permission as editing templates. */
+  signatureSave: permitted("AgreementFormsEdit")
+    .input(
+      z
+        .object({
+          id: z.string().optional(),
+          name: z.string().trim().min(1, "Name is required").max(120),
+          code: z.string().trim().min(1, "Code is required").max(40).regex(/^[A-Za-z0-9]+$/, "Letters and numbers only"),
+          condition: z.enum(["ADDED", "NOT_ADDED", "ALWAYS"]),
+          type: z.enum(["SIGNATURE", "INITIALS"]),
+          effectiveDate: z.coerce.date({ invalid_type_error: "Effective Date is required" }),
+          endDate: z.coerce.date({ invalid_type_error: "End Date is required" }),
+          miscChargeId: z.string().optional().nullable().transform((v) => v || null),
+          insuranceId: z.string().optional().nullable().transform((v) => v || null),
+          disclaimer: z.string().max(100_000).default(""),
+          isActive: z.boolean().default(true),
+        })
+        .superRefine((v, c) => {
+          if (v.endDate < v.effectiveDate) c.addIssue({ code: "custom", path: ["endDate"], message: "End Date must be after Effective Date" });
+        }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { id, ...data } = input;
+      const dup = await ctx.prisma.signatureSetup.findFirst({ where: { code: data.code, NOT: id ? { id } : undefined }, select: { id: true } });
+      if (dup) throw new TRPCError({ code: "CONFLICT", message: `Code "${data.code}" is already used.` });
+      const s = id ? await ctx.prisma.signatureSetup.update({ where: { id }, data }) : await ctx.prisma.signatureSetup.create({ data });
+      await audit(ctx.prisma, "SignatureSetup", s.id, ctx.user.id, { Name: [null, s.name], Code: [null, s.code] });
+      return { id: s.id };
+    }),
+
+  signatureDelete: permitted("AgreementFormsDelete").input(z.object({ id: z.string() })).mutation(async ({ ctx, input }) => {
+    await ctx.prisma.signatureSetup.delete({ where: { id: input.id } });
+    await audit(ctx.prisma, "SignatureSetup", input.id, ctx.user.id, { Deleted: [null, "yes"] });
   }),
 
   /**
