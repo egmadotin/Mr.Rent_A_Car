@@ -11,6 +11,7 @@ import { PageHeader } from "../../../../_components/page-header";
 import { api } from "../../../../_lib/session";
 import { VehicleStatusBadge } from "../vehicles-list";
 import { VehicleActions } from "./vehicle-actions";
+import { VehicleFilesPanel } from "./vehicle-files";
 
 export const metadata = { title: "Vehicle" };
 
@@ -74,6 +75,7 @@ export default async function VehiclePage({ params }: { params: Promise<{ id: st
       />
       <div className="p-4 pb-0 md:p-6 md:pb-0">
         <VehicleActions vehicleId={v.id} isActive={v.isActive} status={v.status} />
+        <VehicleFilesPanel vehicleId={v.id} />
       </div>
       <div className="grid gap-4 p-4 md:p-6 xl:grid-cols-2">
         {v.vehicleType.imageKey && (

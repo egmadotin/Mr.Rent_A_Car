@@ -52,7 +52,7 @@ export function Thumbs({ images, onDelete }: { images: Img[]; onDelete?: (id: st
 }
 
 /** Photo picker for a form: uploads each file to /api/files and submits the keys as the hidden `images` field. */
-export function PhotoUploader({ folder, single, label = "Images" }: { folder: "inspections" | "damages"; single?: boolean; label?: string }) {
+export function PhotoUploader({ folder, single, label = "Images", documents }: { folder: "inspections" | "damages" | "vehicles"; single?: boolean; label?: string; /** also Word / Excel files */ documents?: boolean }) {
   const [files, setFiles] = React.useState<Upload[]>([]);
   const [busy, setBusy] = React.useState(0);
   async function add(list: FileList | null) {
@@ -85,11 +85,11 @@ export function PhotoUploader({ folder, single, label = "Images" }: { folder: "i
           </span>
         ))}
         <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm hover:bg-accent">
-          {busy ? <Loader2Icon className="size-4 animate-spin" /> : <ImagePlusIcon className="size-4" />} {single ? "Choose photo" : "Add photos"}
-          <input type="file" accept={single ? "image/*" : "image/*,application/pdf"} multiple={!single} capture="environment" className="sr-only" onChange={(e) => { add(e.target.files); e.target.value = ""; }} />
+          {busy ? <Loader2Icon className="size-4 animate-spin" /> : <ImagePlusIcon className="size-4" />} {single ? "Choose photo" : documents ? "Add files" : "Add photos"}
+          <input type="file" accept={documents ? "image/*,application/pdf,.doc,.docx,.xls,.xlsx" : single ? "image/*" : "image/*,application/pdf"} multiple={!single} capture={documents ? undefined : "environment"} className="sr-only" onChange={(e) => { add(e.target.files); e.target.value = ""; }} />
         </label>
       </div>
-      <p className="text-xs text-muted-foreground">JPG, PNG, WebP, HEIC or PDF, up to 15 MB each.</p>
+      <p className="text-xs text-muted-foreground">{documents ? "PDF, Word, Excel or photos" : "JPG, PNG, WebP, HEIC or PDF"}, up to 15 MB each.</p>
     </div>
   );
 }

@@ -17,6 +17,10 @@ export const UPLOAD_TYPES: Record<string, string> = {
   "image/gif": "gif",
   "image/heic": "heic",
   "application/pdf": "pdf",
+  "application/msword": "doc",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+  "application/vnd.ms-excel": "xls",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
 };
 export const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
 
@@ -25,7 +29,7 @@ export type UploadFolder = (typeof FOLDERS)[number];
 export const isUploadFolder = (f: string): f is UploadFolder => (FOLDERS as readonly string[]).includes(f);
 
 /** A key is only ever `<folder>/<yyyy>/<mm>/<uuid>.<ext>` — anything else is refused (no path traversal). */
-const KEY = /^(inspections|damages|vehicles|customers|rentals)\/\d{4}\/\d{2}\/[0-9a-f-]{36}\.(jpg|png|webp|gif|heic|pdf)$/;
+const KEY = /^(inspections|damages|vehicles|customers|rentals)\/\d{4}\/\d{2}\/[0-9a-f-]{36}\.(jpg|png|webp|gif|heic|pdf|doc|docx|xls|xlsx)$/;
 export const isStorageKey = (k: string) => KEY.test(k);
 
 export async function putFile(folder: UploadFolder, contentType: string, data: Uint8Array) {

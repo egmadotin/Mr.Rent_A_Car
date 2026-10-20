@@ -239,6 +239,46 @@ export const vehicleRecordsRouter = router({
       await audit(ctx.prisma, "Vehicle", input.vehicleId, ctx.user.id, { "Ownership Information": [null, "saved"] });
     }),
 
+  /** The vehicle page's Notes / Images / Documents panel (VehicleNotesModify, VehicleUploadImageGallery, VehicleDocumentsAdd). */
+  files: permitted("Vehicles").input(z.object({ vehicleId: z.string() })).query(async ({ ctx, input }) => {
+    const [v, files] = await Promise.all([
+      ctx.prisma.vehicle.findUniqueOrThrow({ where: { id: input.vehicleId }, select: { notes: true } }),
+      ctx.prisma.attachment.findMany({ where: { vehicleId: input.vehicleId, inspectionId: null, reportedDamageId: null }, orderBy: { uploadedAt: "desc" } }),
+    ]);
+    return { notes: v.notes, images: files.filter((f) => f.kind === "IMAGE"), documents: files.filter((f) => f.kind === "DOCUMENT") };
+  }),
+
+  notesSave: permitted("VehiclesEdit").input(z.object({ vehicleId: z.string(), notes: optStr })).mutation(async ({ ctx, input }) => {
+    const v = await ctx.prisma.vehicle.findUniqueOrThrow({ where: { id: input.vehicleId }, select: { notes: true } });
+    await ctx.prisma.vehicle.update({ where: { id: input.vehicleId }, data: { notes: input.notes } });
+    await audit(ctx.prisma, "Vehicle", input.vehicleId, ctx.user.id, { Notes: [v.notes, input.notes] });
+  }),
+
+  fileAdd: permitted("VehiclesEdit")
+    .input(
+      z.object({
+        vehicleId: z.string(),
+        kind: z.enum(["IMAGE", "DOCUMENT"]),
+        files: z.array(z.object({ key: z.string().refine(isStorageKey, "Bad file key"), fileName: z.string().max(255), contentType: z.string().max(200), sizeBytes: z.number().int().min(0) })).min(1, "Select a file").max(40),
+        description: optStr,
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (input.kind === "IMAGE" && input.files.some((f) => !f.contentType.startsWith("image/"))) throw new TRPCError({ code: "BAD_REQUEST", message: "Only image files can be added as images." });
+      await ctx.prisma.attachment.createMany({
+        data: input.files.map((f) => ({ vehicleId: input.vehicleId, kind: input.kind, s3Key: f.key, fileName: f.fileName, contentType: f.contentType, sizeBytes: f.sizeBytes, description: input.description })),
+      });
+      await audit(ctx.prisma, "Vehicle", input.vehicleId, ctx.user.id, { [input.kind === "IMAGE" ? "Images" : "Documents"]: [null, input.files.map((f) => f.fileName).join(", ")] });
+    }),
+
+  fileDelete: permitted("VehiclesEdit").input(z.object({ id: z.string() })).mutation(async ({ ctx, input }) => {
+    const a = await ctx.prisma.attachment.findUniqueOrThrow({ where: { id: input.id } });
+    if (!a.vehicleId || a.inspectionId || a.reportedDamageId) throw new TRPCError({ code: "BAD_REQUEST", message: "Not a vehicle image or document." });
+    await ctx.prisma.attachment.delete({ where: { id: a.id } });
+    await deleteFile(a.s3Key);
+    await audit(ctx.prisma, "Vehicle", a.vehicleId, ctx.user.id, { [a.kind === "IMAGE" ? "Images" : "Documents"]: [a.fileName, "deleted"] });
+  }),
+
   /** Vehicle Condition (VehicleConditions.aspx). */
   conditionGet: permitted("Vehicles").input(z.object({ vehicleId: z.string() })).query(({ ctx, input }) => ctx.prisma.vehicleCondition.findUnique({ where: { vehicleId: input.vehicleId } })),
 

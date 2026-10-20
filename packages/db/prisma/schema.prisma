@@ -413,6 +413,8 @@ model Vehicle {
   vehicleType   VehicleType   @relation(fields: [vehicleTypeId], references: [id])
   vin           String?       @unique
   memo          String?
+  /// "Notes" (VehicleNotesModify.aspx), shown on the vehicle page
+  notes         String?
 
   // ── Operations
   rentalLocationId  String
@@ -1436,6 +1438,8 @@ model Attachment {
   fileName         String
   contentType      String
   sizeBytes        Int
+  /// "Description" (VehicleDocumentsAdd.aspx)
+  description      String?
   uploadedAt       DateTime                @default(now())
   vehicleId        String?
   vehicle          Vehicle?                @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
