@@ -17,6 +17,7 @@ import { usersRouter } from "./routers/staff/users";
 import { setupRouter } from "./routers/staff/setup";
 import { vehicleRecordsRouter } from "./routers/staff/vehicle-records";
 import { tasksRouter } from "./routers/staff/tasks";
+import { reportsRouter } from "./routers/staff/reports";
 
 export const staffRouter = router({
   meta: metaRouter,
@@ -35,6 +36,7 @@ export const staffRouter = router({
   setup: setupRouter,
   vehicleRecords: vehicleRecordsRouter,
   tasks: tasksRouter,
+  reports: reportsRouter,
 });
 
 export const appRouter = router({

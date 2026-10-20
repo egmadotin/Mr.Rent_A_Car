@@ -29,7 +29,7 @@ The RentCentric menus, vehicle page and customer page were re-read on Oct 20. No
 | Vehicles (list, add, edit, summary) | ✅ vehicle page actions (🟡 Ownership, Condition, inspections, checklist, images not yet) |
 | Users, user groups and permissions | ✅ (group location limit not enforced) |
 | Settings | 🟡 about 34 of RentCentric's ~100 setting pages built (section 7) |
-| Reports | ⬜ none of RentCentric's ~70 reports built |
+| Reports | 🟡 6 core reports built (Daily Business, Daily Cash Summary, Month to Date, Rental Status, Reservation Manifest, Vehicle Due In); the other ~60 not yet |
 | Dashboard | ✅ |
 | Public website and online booking | ✅ (customer login and fleet filters 🟡) |
 | Email | ✅ built, 🔑 needs the client's email (SMTP) account |
@@ -255,7 +255,7 @@ RentCentric's Settings menu, item by item.
 
 ## 8. Reports
 
-None of these are built. Our Reports page is a design placeholder. RentCentric's list:
+Built (Oct 20, same filters, columns and totals as RentCentric, 31-day limit on the daily ones): **Daily Business Report, Daily Cash Summary, Month to Date, Rental Status, Reservation Manifest, Vehicle Due In** (`/admin/reports`). Not built yet — the rest of RentCentric's list:
 
 - **Vehicles:**
   - Vehicles Summary, Vehicles Summary with QR Code.
