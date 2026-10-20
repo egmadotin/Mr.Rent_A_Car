@@ -40,7 +40,7 @@ export function BookingWidget({
   initial,
   className,
 }: {
-  variant?: "hero" | "panel" | "compact";
+  variant?: "hero" | "panel" | "compact" | "bar";
   initial?: BookingSearch;
   className?: string;
 }) {
@@ -82,7 +82,8 @@ export function BookingWidget({
   }
 
   const today = mounted ? localDate(new Date()) : undefined;
-  const compact = variant === "compact";
+  // "bar": the home page's one-line search bar; same fields as "compact", in a floating card
+  const compact = variant === "compact" || variant === "bar";
   const field = "space-y-1.5";
   const label = cn("flex items-center gap-1.5 text-xs font-semibold tracking-wide uppercase", variant === "hero" ? "text-foreground/80" : "text-muted-foreground");
 
@@ -94,6 +95,7 @@ export function BookingWidget({
         "grid gap-4 text-card-foreground",
         variant === "hero" && "rounded-xl border bg-card/95 p-5 shadow-xl backdrop-blur md:p-6",
         variant === "panel" && "rounded-xl border bg-card p-5 shadow-sm",
+        variant === "bar" && "rounded-2xl border bg-card p-4 shadow-[0_20px_50px_-20px_rgba(45,44,44,0.35)] md:p-5",
         compact ? "sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_0.8fr_1fr_0.8fr_auto] lg:items-end" : "sm:grid-cols-2",
         className,
       )}
@@ -152,7 +154,7 @@ export function BookingWidget({
       {error && <p role="alert" className={cn("text-sm text-destructive", !compact && "sm:col-span-2")}>{error}</p>}
 
       <Button type="submit" size="lg" className={cn(!compact && "sm:col-span-2")}>
-        <SearchIcon /> {compact ? "Update" : "Find a car"}
+        <SearchIcon /> {variant === "compact" ? "Update" : "Find a car"}
       </Button>
     </form>
   );

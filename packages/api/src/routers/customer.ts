@@ -107,8 +107,15 @@ export const customerRouter = router({
 
   /** Fleet page: the classes a location shows online, in its own order, with its own photo / "or similar" text. */
   fleet: publicProcedure.input(z.object({ locationId: z.string().optional() })).query(async ({ ctx, input }) => {
-    if (!input.locationId)
-      return ctx.prisma.vehicleType.findMany({ where: { isActive: true, displayOnline: true }, orderBy: { sortOrder: "asc" }, select: publicType });
+    if (!input.locationId) {
+      const [types, mins] = await Promise.all([
+        ctx.prisma.vehicleType.findMany({ where: { isActive: true, displayOnline: true }, orderBy: { sortOrder: "asc" }, select: publicType }),
+        // "from $X/day": the lowest daily price among the rates offered online
+        ctx.prisma.rateValue.groupBy({ by: ["vehicleTypeId"], where: { daily: { gt: 0 }, rate: { isActive: true, displayOnline: true } }, _min: { daily: true } }),
+      ]);
+      const from = new Map(mins.map((m) => [m.vehicleTypeId, m._min.daily?.toFixed(2) ?? null]));
+      return types.map((t) => ({ ...t, fromDaily: from.get(t.id) ?? null }));
+    }
     const rows = await ctx.prisma.vehicleTypeLocation.findMany({
       where: { locationId: input.locationId, displayOnline: true, isActive: true, vehicleType: { isActive: true } },
       orderBy: { sortOrder: "asc" },
@@ -116,6 +123,11 @@ export const customerRouter = router({
     });
     return rows.map((r) => ({ ...r.vehicleType, description: r.description ?? r.vehicleType.description, imageKey: r.imageKey ?? r.vehicleType.imageKey }));
   }),
+
+  /** Makes of the vehicles in service (home page "Trusted brands"). */
+  brands: publicProcedure.query(async ({ ctx }) =>
+    (await ctx.prisma.vehicleMake.findMany({ where: { vehicles: { some: { isActive: true } } }, orderBy: { name: "asc" }, select: { name: true } })).map((m) => m.name),
+  ),
 
   /** Booking step 2 ("Select Vehicle"): priced classes for the search. */
   search: publicProcedure.input(searchInput).query(async ({ ctx, input }) => {

@@ -2,4 +2,6 @@
 
 @theme inline {
   --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+  /* design.md: Libre Baskerville for headings */
+  --font-serif: var(--font-baskerville), Georgia, "Times New Roman", serif;
 }
