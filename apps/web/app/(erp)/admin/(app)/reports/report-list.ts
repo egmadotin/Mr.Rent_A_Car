@@ -13,8 +13,8 @@ export const REPORT_CATEGORIES: ReportCategory[] = [
       { name: "Rental Details" }, { name: "Adjustment Details" }, { name: "Invoices" },
       { name: "Rental Event Tracking" }, { name: "Reservation Event Tracking" }, { name: "Tasks List" },
       { name: "Commissions" }, { name: "Broker Commission" }, { name: "Sales Projection" }, { name: "Work In Process" },
-      { name: "Revenue By Customer" }, { name: "Revenue By Vehicle" }, { name: "Revenue By Location" }, { name: "Revenue By Rate" },
-      { name: "Revenue By Admin" }, { name: "Revenue By Company" }, { name: "Revenue By Options" }, { name: "Non-Revenue" },
+      { name: "Revenue By Customer", slug: "revenue-by-customer" }, { name: "Revenue By Vehicle", slug: "revenue-by-vehicle" }, { name: "Revenue By Location", slug: "revenue-by-location" }, { name: "Revenue By Rate" },
+      { name: "Revenue By Admin" }, { name: "Revenue By Company", slug: "revenue-by-company" }, { name: "Revenue By Options" }, { name: "Non-Revenue" },
     ],
   },
   {

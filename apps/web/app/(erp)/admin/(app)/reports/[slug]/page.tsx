@@ -3,6 +3,7 @@ import { PageHeader } from "../../../../_components/page-header";
 import { requireStaff } from "../../../../_lib/session";
 import { DailyCashReport, RentalStatusReport, ReservationManifestReport, VehicleDueInReport } from "../_components/list-reports";
 import { DailyBusinessReport, MonthToDateReport } from "../_components/revenue-reports";
+import { RevenueByCompanyReport, RevenueByCustomerReport, RevenueByLocationReport, RevenueByVehicleReport } from "../_components/revenue-by";
 import { BUILT_REPORTS } from "../report-list";
 
 const SCREENS: Record<string, () => React.JSX.Element> = {
@@ -12,6 +13,10 @@ const SCREENS: Record<string, () => React.JSX.Element> = {
   "rental-status": RentalStatusReport,
   "reservation-manifest": ReservationManifestReport,
   "vehicle-due-in": VehicleDueInReport,
+  "revenue-by-customer": RevenueByCustomerReport,
+  "revenue-by-vehicle": RevenueByVehicleReport,
+  "revenue-by-location": RevenueByLocationReport,
+  "revenue-by-company": RevenueByCompanyReport,
 };
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
