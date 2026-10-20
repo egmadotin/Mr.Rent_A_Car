@@ -1,6 +1,6 @@
 # Mr Rent A Car — rebuild status
 
-**Updated:** October 20, 2026.
+**Updated:** October 20, 2026 (dashboard done).
 
 **What this compares:**
 - Our new system: the ERP at `/admin` and the public website.
@@ -30,7 +30,7 @@ The RentCentric menus, vehicle page and customer page were re-read on Oct 20. No
 | Users, user groups and permissions | ✅ (group location limit not enforced) |
 | Settings | 🟡 about 34 of RentCentric's ~100 setting pages built (section 7) |
 | Reports | ⬜ none of RentCentric's ~70 reports built |
-| Dashboard | 🟡 status counts only |
+| Dashboard | ✅ counts, today's lists, service list, graph, availability (🟡 My Tasks needs the Tasks module) |
 | Public website and online booking | ✅ (customer login and fleet filters 🟡) |
 | Email | ✅ built, 🔑 needs the client's email (SMTP) account |
 | Card payments (Stripe) | ✅ built, 🔑 needs Stripe keys |
@@ -279,11 +279,11 @@ None of these are built. Our Reports page is a design placeholder. RentCentric's
 | RentCentric | Status |
 |---|---|
 | Status counts (In-fleet … No Show) | ✅ (they link to filtered lists, not RentCentric's detail pages) |
-| Rentals Leaving Today / Returning Today lists | ⬜ |
+| Rentals Leaving Today / Returning Today lists | ✅ (overdue returns flagged) |
 | My Tasks and Add Task | ⬜ (no tasks module yet) |
-| Vehicles Requiring Service | ⬜ (needs the maintenance module) |
-| Rental Graph View (7 / 14 days / 1 month) | ⬜ |
-| Vehicle Availability check | ⬜ (availability is checked inside the booking forms) |
+| Vehicles Requiring Service | ✅ from status and the "maintain every … km" interval; will use the last service entry once Maintenance is built |
+| Rental Graph View (7 / 14 days / 1 month) | ✅ |
+| Vehicle Availability check | ✅ |
 
 ## 10. Public website (mrrentacar.com)
 
