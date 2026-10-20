@@ -26,7 +26,7 @@ export const REPORT_CATEGORIES: ReportCategory[] = [
       { name: "Reservation Manifest", slug: "reservation-manifest" },
       { name: "Vehicle Rental Calendar" }, { name: "Corporate A/R By Bills" }, { name: "Customer A/R Report" }, { name: "Reservation A/R by Bills" },
       { name: "Corporate A/R Analysis" }, { name: "Fleet Grid" }, { name: "Custom Reports" }, { name: "Reservation Forecast" }, { name: "Reservation Grid" },
-      { name: "Reservations No Showup/Cancelled" }, { name: "Reservations Calendar" }, { name: "Dynamic Scheduler" }, { name: "Visual Scheduler" },
+      { name: "Reservations No Showup/Cancelled", slug: "no-show-cancelled" }, { name: "Reservations Calendar" }, { name: "Dynamic Scheduler" }, { name: "Visual Scheduler" },
       { name: "Promo Code" }, { name: "Rental Days" }, { name: "Rental Discount" },
     ],
   },
@@ -38,7 +38,7 @@ export const REPORT_CATEGORIES: ReportCategory[] = [
       { name: "Vehicle Due In", slug: "vehicle-due-in" },
       { name: "Vehicles Summary", slug: "vehicles-summary" }, { name: "Vehicles Summary with QR Code" }, { name: "Vehicle Utilization (Today)" }, { name: "Fleet Utilization History" },
       { name: "Fleet Utilization For Cast" }, { name: "Vehicle License Expiration", slug: "license-expiration" }, { name: "Vehicle Profit/Loss" }, { name: "Repair Orders" },
-      { name: "Vehicle Repairs" }, { name: "Vehicle Lease/Loan" }, { name: "Vehicle Maintenance" }, { name: "Maintenance Alert", slug: "maintenance-alert" },
+      { name: "Vehicle Repairs", slug: "vehicle-repairs" }, { name: "Vehicle Lease/Loan" }, { name: "Vehicle Maintenance", slug: "vehicle-maintenance" }, { name: "Maintenance Alert", slug: "maintenance-alert" },
       { name: "Snap Shot For Rentals / Vehicle Type" }, { name: "Vehicle Insurance" }, { name: "KM Difference/Missing" }, { name: "Fleet Utilization Snapshot" }, { name: "Checklist Overview" },
     ],
   },
@@ -47,8 +47,8 @@ export const REPORT_CATEGORIES: ReportCategory[] = [
     desc: "Customer lists, referrals, tickets and payments",
     icon: "customers",
     reports: [
-      { name: "Customer List", slug: "customer-list" }, { name: "Customer By Region" }, { name: "Traffic Tickets", slug: "traffic-tickets" }, { name: "Source Of Referral" },
-      { name: "Payments & Charges" }, { name: "Customer Notes" }, { name: "Undesired Customers", slug: "undesired-customers" },
+      { name: "Customer List", slug: "customer-list" }, { name: "Customer By Region", slug: "customer-by-region" }, { name: "Traffic Tickets", slug: "traffic-tickets" }, { name: "Source Of Referral", slug: "source-of-referral" },
+      { name: "Payments & Charges", slug: "payments-and-charges" }, { name: "Customer Notes" }, { name: "Undesired Customers", slug: "undesired-customers" },
     ],
   },
 ];

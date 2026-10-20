@@ -4,6 +4,7 @@ import { requireStaff } from "../../../../_lib/session";
 import { DailyCashReport, RentalStatusReport, ReservationManifestReport, VehicleDueInReport } from "../_components/list-reports";
 import { DailyBusinessReport, MonthToDateReport } from "../_components/revenue-reports";
 import { CustomerListReport, LicenseExpirationReport, MaintenanceAlertReport, TrafficTicketsReport, UndesiredCustomersReport, VehiclesSummaryReport } from "../_components/fleet-customer-reports";
+import { CustomerByRegionReport, NoShowCancelledReport, PaymentsAndChargesReport, SourceOfReferralReport, VehicleMaintenanceReport, VehicleRepairsReport } from "../_components/more-reports";
 import { RevenueByCompanyReport, RevenueByCustomerReport, RevenueByLocationReport, RevenueByVehicleReport } from "../_components/revenue-by";
 import { BUILT_REPORTS } from "../report-list";
 
@@ -24,6 +25,12 @@ const SCREENS: Record<string, () => React.JSX.Element> = {
   "customer-list": () => <CustomerListReport />,
   "undesired-customers": UndesiredCustomersReport,
   "traffic-tickets": TrafficTicketsReport,
+  "vehicle-maintenance": VehicleMaintenanceReport,
+  "vehicle-repairs": VehicleRepairsReport,
+  "source-of-referral": SourceOfReferralReport,
+  "customer-by-region": CustomerByRegionReport,
+  "payments-and-charges": PaymentsAndChargesReport,
+  "no-show-cancelled": NoShowCancelledReport,
 };
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
