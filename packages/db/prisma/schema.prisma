@@ -173,6 +173,8 @@ model Location {
   prepaidFuelPrice       Decimal? @db.Decimal(10, 2)
   dieselPrepaidFuelPrice Decimal? @db.Decimal(10, 2)
   memo                   String?
+  /// Settings > Upload Logo: the location's logo (storage key), printed at ##LogoImage##
+  logoKey                String?
 
   vehicleTypes VehicleTypeLocation[]
 

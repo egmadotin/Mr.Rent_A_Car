@@ -24,12 +24,12 @@ export const UPLOAD_TYPES: Record<string, string> = {
 };
 export const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
 
-const FOLDERS = ["inspections", "damages", "vehicles", "customers", "rentals"] as const;
+const FOLDERS = ["inspections", "damages", "vehicles", "customers", "rentals", "logos"] as const;
 export type UploadFolder = (typeof FOLDERS)[number];
 export const isUploadFolder = (f: string): f is UploadFolder => (FOLDERS as readonly string[]).includes(f);
 
 /** A key is only ever `<folder>/<yyyy>/<mm>/<uuid>.<ext>` — anything else is refused (no path traversal). */
-const KEY = /^(inspections|damages|vehicles|customers|rentals)\/\d{4}\/\d{2}\/[0-9a-f-]{36}\.(jpg|png|webp|gif|heic|pdf|doc|docx|xls|xlsx)$/;
+const KEY = /^(inspections|damages|vehicles|customers|rentals|logos)\/\d{4}\/\d{2}\/[0-9a-f-]{36}\.(jpg|png|webp|gif|heic|pdf|doc|docx|xls|xlsx)$/;
 export const isStorageKey = (k: string) => KEY.test(k);
 
 export async function putFile(folder: UploadFolder, contentType: string, data: Uint8Array) {

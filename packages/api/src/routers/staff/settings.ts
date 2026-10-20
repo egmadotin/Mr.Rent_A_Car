@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { deleteFile, isStorageKey } from "../../lib/storage";
 import { TRPCError } from "@trpc/server";
 import { Prisma } from "@mrac/db";
 import { router, staffProcedure, permitted } from "../../trpc";
@@ -351,6 +352,24 @@ export const settingsRouter = router({
     });
     return { id: before.id };
   }),
+
+  /** Add Location (LocationsModify.aspx?DoAction=Add). */
+  locationCreate: permitted("LocationsAdd").input(z.object({ data: locationInput })).mutation(async ({ ctx, input }) => {
+    const { latitude, longitude, ...rest } = input.data;
+    const l = await ctx.prisma.location.create({ data: { ...rest, latitude: D(latitude), longitude: D(longitude), isLegacy: !rest.isActive } });
+    await audit(ctx.prisma, "Location", l.id, ctx.user.id, { Created: [null, l.name] });
+    return { id: l.id };
+  }),
+
+  /** Upload Logo: the location's logo for printouts (##LogoImage##); null removes it. */
+  locationLogo: permitted("LocationsEdit")
+    .input(z.object({ id: z.string(), key: z.string().refine(isStorageKey, "Bad file key").nullable() }))
+    .mutation(async ({ ctx, input }) => {
+      const before = await ctx.prisma.location.findUniqueOrThrow({ where: { id: input.id }, select: { logoKey: true } });
+      await ctx.prisma.location.update({ where: { id: input.id }, data: { logoKey: input.key } });
+      if (before.logoKey && before.logoKey !== input.key) await deleteFile(before.logoKey);
+      await audit(ctx.prisma, "Location", input.id, ctx.user.id, { Logo: [before.logoKey ? "logo" : null, input.key ? "uploaded" : "removed"] });
+    }),
 
   // ── Vehicle types (classes) ────────────────────────────────────────────────
   vehicleTypeList: staffProcedure.query(({ ctx }) =>

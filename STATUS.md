@@ -28,7 +28,7 @@ The RentCentric menus, vehicle page and customer page were re-read on Oct 20. No
 | Customers (list, add, edit, view and its actions) | ✅ |
 | Vehicles (list, add, edit, summary) | ✅ (every vehicle page action built) |
 | Users, user groups and permissions | ✅ (group location limit not enforced) |
-| Settings | 🟡 about 37 of RentCentric's ~100 setting pages built (section 7) |
+| Settings | 🟡 about 39 of RentCentric's ~100 setting pages built (section 7) |
 | Reports | 🟡 29 of 64 built (see section 8) |
 | Dashboard | ✅ |
 | Public website and online booking | ✅ (customer login and fleet filters 🟡) |
@@ -139,8 +139,8 @@ RentCentric's Settings menu, item by item.
 | Hours Of Operation | ✅ |
 | Customer Areas/Regions | ✅ |
 | Offsite Locations | 🟡 offsite flag on each location |
-| Add Location | ⬜ |
-| Upload Logo | ⬜ |
+| Add Location | ✅ |
+| Upload Logo | ✅ per location; printed at ##LogoImage## (245 templates use it), inline so emails show it |
 
 ### Users
 

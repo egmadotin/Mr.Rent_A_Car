@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { PencilIcon } from "lucide-react";
+import { PencilIcon, PlusIcon } from "lucide-react";
 import type { RouterOutputs } from "@mrac/api";
 import { useTRPC, useTRPCClient } from "@mrac/api/client";
 import { Badge } from "@mrac/ui/components/badge";
@@ -9,6 +9,8 @@ import { Button } from "@mrac/ui/components/button";
 import { Card } from "@mrac/ui/components/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@mrac/ui/components/table";
 import { CheckField, Field, FormDialog, SelectField, TextareaField } from "../../../../_components/form";
+import { PhotoUploader, Thumbs } from "../../../../_components/inspections";
+import { NO_PERMISSION, useCan } from "../../../../_components/permissions";
 import { ListStatusRow } from "../../../../_components/list-kit";
 
 type Location = RouterOutputs["staff"]["settings"]["locationList"][number];
@@ -20,10 +22,12 @@ export function LocationsSettings() {
   const { data, isLoading } = useQuery(trpc.staff.settings.locationList.queryOptions());
   return (
     <div className="space-y-3 p-4 md:p-6">
+      <div className="flex justify-end"><LocationDialog /></div>
       <Card className="gap-0 py-0">
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-16">Logo</TableHead>
               <TableHead>Location</TableHead>
               <TableHead>Code</TableHead>
               <TableHead>Address</TableHead>
@@ -35,9 +39,10 @@ export function LocationsSettings() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            <ListStatusRow colSpan={8} loading={isLoading} empty={data?.length === 0} emptyText="No locations." />
+            <ListStatusRow colSpan={9} loading={isLoading} empty={data?.length === 0} emptyText="No locations." />
             {data?.map((l) => (
               <TableRow key={l.id}>
+                <TableCell>{l.logoKey ? <Thumbs images={[{ id: l.id, s3Key: l.logoKey, fileName: "Logo", contentType: "image/png" }]} /> : null}</TableCell>
                 <TableCell className="font-medium">{l.name}</TableCell>
                 <TableCell>{l.code}</TableCell>
                 <TableCell className="text-muted-foreground">{[l.address1, l.city, l.province, l.postal].filter(Boolean).join(", ")}</TableCell>
@@ -60,17 +65,32 @@ export function LocationsSettings() {
   );
 }
 
-function LocationDialog({ l }: { l: Location }) {
+/** Edit location, or Add Location when `l` is left out; "Upload Logo" is the Logo field. */
+function LocationDialog({ l: existing }: { l?: Location }) {
   const trpc = useTRPC();
   const client = useTRPCClient();
   const qc = useQueryClient();
+  const can = useCan();
+  const l = (existing ?? { name: "", timeZone: "America/Vancouver", country: "CA", isActive: true, displayOnline: false, isOffsite: false }) as Location;
+  const allowed = can(existing ? "LocationsEdit" : "LocationsAdd");
   return (
     <FormDialog
       wide
-      title="Edit location"
-      trigger={<Button size="icon-sm" variant="ghost" aria-label={`Edit ${l.name}`}><PencilIcon /></Button>}
+      title={existing ? "Edit location" : "Add Location"}
+      trigger={
+        existing ? (
+          <Button size="icon-sm" variant="ghost" aria-label={`Edit ${l.name}`}><PencilIcon /></Button>
+        ) : (
+          <Button disabled={!allowed} title={allowed ? undefined : NO_PERMISSION}><PlusIcon /> Add Location</Button>
+        )
+      }
       onSubmit={async (v) => {
-        await client.staff.settings.locationSave.mutate({ id: l.id, data: v as never });
+        const { images, ...data } = v;
+        const id = existing
+          ? (await client.staff.settings.locationSave.mutate({ id: existing.id, data: data as never })).id
+          : (await client.staff.settings.locationCreate.mutate({ data: data as never })).id;
+        const logo = (typeof images === "string" && images ? (JSON.parse(images) as { key: string }[]) : [])[0];
+        if (logo) await client.staff.settings.locationLogo.mutate({ id, key: logo.key });
         await qc.invalidateQueries({ queryKey: trpc.staff.settings.locationList.queryKey() });
       }}
     >
@@ -107,6 +127,8 @@ function LocationDialog({ l }: { l: Location }) {
           <CheckField label="Offered on the website" name="displayOnline" defaultChecked={l.displayOnline} />
           <CheckField label="Offsite (airport) location" name="isOffsite" defaultChecked={l.isOffsite} />
         </div>
+        {existing?.logoKey && <div><span className="text-sm font-medium">Current logo</span><Thumbs images={[{ id: existing.id, s3Key: existing.logoKey, fileName: "Logo", contentType: "image/png" }]} /></div>}
+        <PhotoUploader folder="logos" single label={existing?.logoKey ? "Replace logo" : "Logo"} />
       </div>
     </FormDialog>
   );

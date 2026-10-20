@@ -52,7 +52,7 @@ export function Thumbs({ images, onDelete }: { images: Img[]; onDelete?: (id: st
 }
 
 /** Photo picker for a form: uploads each file to /api/files and submits the keys as the hidden `images` field. */
-export function PhotoUploader({ folder, single, label = "Images", documents }: { folder: "inspections" | "damages" | "vehicles"; single?: boolean; label?: string; /** also Word / Excel files */ documents?: boolean }) {
+export function PhotoUploader({ folder, single, label = "Images", documents }: { folder: "inspections" | "damages" | "vehicles" | "logos"; single?: boolean; label?: string; /** also Word / Excel files */ documents?: boolean }) {
   const [files, setFiles] = React.useState<Upload[]>([]);
   const [busy, setBusy] = React.useState(0);
   async function add(list: FileList | null) {

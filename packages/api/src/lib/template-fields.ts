@@ -4,6 +4,13 @@ import type { Prisma } from "@mrac/db";
 import { RESERVATION_TEMPLATE_CODES, TEMPLATE_CODES } from "./template-codes";
 import { rentalTotals } from "./totals";
 import { isSignatureField, signatureFields } from "./signature-fields";
+import { getFile } from "./storage";
+
+/** ##LogoImage## (an <img src>): the location's uploaded logo inline, so it shows in emails too; else the site logo. */
+async function logoField(logoKey: string | null | undefined) {
+  const f = logoKey ? await getFile(logoKey) : null;
+  return { LogoImage: f ? `data:${f.contentType};base64,${Buffer.from(f.data).toString("base64")}` : "/legacy/logo.webp" };
+}
 
 type Db = Prisma.TransactionClient;
 type Fields = Record<string, string>;
@@ -382,7 +389,7 @@ export async function rentalTemplateFields(db: Db, rentalId: string) {
       billSplits: true,
     },
   });
-  return { ...(await signatureFields(db, r.chargeLines, r.checkOutAt)), ...docFields({
+  return { ...(await signatureFields(db, r.chargeLines, r.checkOutAt)), ...(await logoField(r.checkOutLocation.logoKey)), ...docFields({
     taxCodes: await taxCodesAt(db, r.checkOutLocationId),
     rateTable: applyRateOverride(r.rate?.values.find((x) => x.vehicleTypeId === r.vehicleTypeId && !x.seasonId) ?? r.rate?.values.find((x) => x.vehicleTypeId === r.vehicleTypeId), readRateOverride(r.rateOverride)) ?? null,
     raNumber: r.raNumber,
@@ -442,7 +449,7 @@ export async function reservationTemplateFields(db: Db, reservationId: string) {
       billSplits: true,
     },
   });
-  const f = Object.assign(await signatureFields(db, r.chargeLines, r.pickupAt), docFields({
+  const f = Object.assign(await signatureFields(db, r.chargeLines, r.pickupAt), await logoField(r.pickupLocation.logoKey), docFields({
     taxCodes: await taxCodesAt(db, r.pickupLocationId),
     raNumber: r.number,
     status: r.status,
@@ -556,7 +563,7 @@ export async function quoteTemplateFields(db: Db, quoteId: string) {
     },
   });
   const [first, ...rest] = (q.contactName ?? "").split(" ");
-  const f = Object.assign(await signatureFields(db, q.chargeLines, q.pickupAt), docFields({
+  const f = Object.assign(await signatureFields(db, q.chargeLines, q.pickupAt), await logoField(q.pickupLocation.logoKey), docFields({
     taxCodes: await taxCodesAt(db, q.pickupLocationId),
     raNumber: q.number,
     status: "QUOTE",
