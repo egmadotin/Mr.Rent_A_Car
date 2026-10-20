@@ -1,11 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { s3ConfigFromEnv, s3Delete, s3Get, s3Put } from "./s3";
 
 /**
  * File storage for photos and documents (inspections, reported damages, vehicle images …).
- * Files live under UPLOAD_DIR (default: `.uploads/` at the repo root). Keys are opaque, e.g. `inspections/2026/10/<uuid>.jpg`.
- * TODO deploy: hosts without a persistent disk (Vercel) need an S3-compatible driver behind the same three functions.
+ * Keys are opaque, e.g. `inspections/2026/10/<uuid>.jpg`. Files go to an S3-compatible bucket when S3_* is set (see
+ * s3.ts — needed on hosts without a persistent disk, e.g. Vercel), else under UPLOAD_DIR (default `.uploads/` at the repo root).
  */
 
 const ROOT = process.env.UPLOAD_DIR ?? path.join(process.cwd().replace(/[\\/](apps|packages)[\\/][^\\/]+$/, ""), ".uploads");
@@ -37,6 +38,11 @@ export async function putFile(folder: UploadFolder, contentType: string, data: U
   if (!ext) throw new Error("Unsupported file type");
   const now = new Date();
   const key = `${folder}/${now.getUTCFullYear()}/${String(now.getUTCMonth() + 1).padStart(2, "0")}/${randomUUID()}.${ext}`;
+  const s3 = s3ConfigFromEnv();
+  if (s3) {
+    await s3Put(s3, key, data, contentType);
+    return key;
+  }
   const file = path.join(ROOT, key);
   await mkdir(path.dirname(file), { recursive: true });
   await writeFile(file, data);
@@ -46,7 +52,9 @@ export async function putFile(folder: UploadFolder, contentType: string, data: U
 export async function getFile(key: string) {
   if (!isStorageKey(key)) return null;
   try {
-    const data = await readFile(path.join(ROOT, key));
+    const s3 = s3ConfigFromEnv();
+    const data = s3 ? await s3Get(s3, key) : await readFile(path.join(ROOT, key));
+    if (!data) return null;
     const ext = key.split(".").pop()!;
     return { data, contentType: Object.entries(UPLOAD_TYPES).find(([, e]) => e === ext)?.[0] ?? "application/octet-stream" };
   } catch {
@@ -55,5 +63,8 @@ export async function getFile(key: string) {
 }
 
 export async function deleteFile(key: string) {
-  if (isStorageKey(key)) await rm(path.join(ROOT, key), { force: true });
+  if (!isStorageKey(key)) return;
+  const s3 = s3ConfigFromEnv();
+  if (s3) await s3Delete(s3, key);
+  else await rm(path.join(ROOT, key), { force: true });
 }
