@@ -29,7 +29,7 @@ The RentCentric menus, vehicle page and customer page were re-read on Oct 20. No
 | Customers (list, add, edit, view and its actions) | ✅ |
 | Vehicles (list, add, edit, summary) | ✅ (every vehicle page action built) |
 | Users, user groups and permissions | ✅ (group location limit not enforced) |
-| Settings | 🟡 about 51 of RentCentric's ~100 setting pages built (section 7) |
+| Settings | 🟡 about 52 of RentCentric's ~100 setting pages built (section 7) |
 | Reports | 🟡 29 of 64 built (see section 8) |
 | Dashboard | ✅ |
 | Public website and online booking | ✅ (customer login and fleet filters 🟡) |
@@ -167,7 +167,7 @@ RentCentric's Settings menu, item by item.
 | Rate Utilization | ⏸ not in use (as above) |
 | Rates Calendar | ⏸ not in use (as above) |
 | Overbooking Control | ⏸ not in use (as above) |
-| Rates Setup | ⬜ |
+| Rates Setup | ✅ #Days in Month + Rate Ratios (copied: 30; 0.19 / 1.3 / 7 / 30); entering a Daily price on a rate fills its empty Hourly / Extra daily / Weekly / Monthly |
 | One Way Rates | ✅ RentCentric's 49 rates copied; the fee is added as the "One Way" charge (taxed per each tax's One Way tick) on quotes, reservations, rentals and online bookings |
 | One Way Regions | ✅ 8 regions copied, each location's region set (Surrey has none, as in RentCentric) |
 | Pay Now Discounts | ⏸ none set up in RentCentric |
@@ -228,7 +228,7 @@ RentCentric's Settings menu, item by item.
 | Title Locations | ✅ (empty in RentCentric; offered on Ownership Information) |
 | Registered Owners | ✅ (empty in RentCentric; offered on Ownership Information) |
 | SIPP Codes | ✅ RentCentric's 43 codes copied |
-| Repair Order/Maintenance Program | ⬜ |
+| Repair Order/Maintenance Program | ⏸ no repair orders or programs in RentCentric (vehicle Repairs and Maintenance are built) |
 | Vehicle CheckList | ✅ |
 | Vehicle CheckList Items | ✅ |
 

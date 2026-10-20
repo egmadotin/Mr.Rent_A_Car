@@ -50,6 +50,25 @@ export function RateForm({ id, initial, defaultLocationId }: { id?: string; init
     if (validFor === "SEASON" && (!activeSeason || !seasonIds.includes(activeSeason))) setActiveSeason(seasonIds[0] ?? null);
   }, [validFor, seasonIds, activeSeason]);
 
+  // Rates Setup: leaving a Daily cell fills the row's empty Hourly / Extra daily / Weekly / Monthly from the Rate Ratios
+  const ratios = useQuery(trpc.staff.settings.rateSetupGet.queryOptions()).data;
+  const fillFromDaily = (typeId: string) =>
+    setValues((m) => {
+      const k = key(typeId, season);
+      const row = m.get(k);
+      const daily = Number(row?.daily);
+      if (!ratios || !row || !(daily > 0)) return m;
+      const filled = { ...row };
+      const set = (c: "hourly" | "extraDaily" | "weekly" | "monthly", r: number) => {
+        if (s(row[c]) === "" && r > 0) filled[c] = String(Math.round(daily * r * 100) / 100);
+      };
+      set("hourly", ratios.hourly);
+      set("extraDaily", ratios.extraDaily);
+      set("weekly", ratios.weekly);
+      set("monthly", ratios.monthly);
+      return new Map(m).set(k, filled);
+    });
+
   const setCell = (typeId: string, col: string, val: string) =>
     setValues((m) => {
       const n = new Map(m);
@@ -210,6 +229,7 @@ export function RateForm({ id, initial, defaultLocationId }: { id?: string; init
                             className="h-8 w-24 rounded-md border bg-transparent px-2 text-right tabular-nums focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
                             value={s(row?.[c])}
                             onChange={(e) => setCell(t.id, c, e.target.value)}
+                            onBlur={c === "daily" ? () => fillFromDaily(t.id) : undefined}
                           />
                         </td>
                       ))}

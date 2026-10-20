@@ -305,6 +305,19 @@ export const settingsRouter = router({
    * Master Rate Batch Update (BaseRateUpdate.aspx): a rate code's values for one season (or the date-range rows), per
    * vehicle type, to adjust together and save.
    */
+  /** Rates > Setup (RatesSetup.aspx): #Days in Month and the Rate Ratios. */
+  rateSetupGet: staffProcedure.query(async ({ ctx }) => {
+    const r = await ctx.prisma.rateSetup.upsert({ where: { id: "default" }, update: {}, create: { id: "default" } });
+    return { daysInMonth: r.daysInMonth, hourly: Number(r.hourlyRatio), extraDaily: Number(r.extraDailyRatio), weekly: Number(r.weeklyRatio), monthly: Number(r.monthlyRatio) };
+  }),
+  rateSetupSave: permitted("RatesEdit")
+    .input(z.object({ daysInMonth: z.coerce.number().int().min(27).max(31), hourly: z.coerce.number().min(0), extraDaily: z.coerce.number().min(0), weekly: z.coerce.number().min(0), monthly: z.coerce.number().min(0) }))
+    .mutation(async ({ ctx, input }) => {
+      const data = { daysInMonth: input.daysInMonth, hourlyRatio: D(input.hourly)!, extraDailyRatio: D(input.extraDaily)!, weeklyRatio: D(input.weekly)!, monthlyRatio: D(input.monthly)! };
+      await ctx.prisma.rateSetup.upsert({ where: { id: "default" }, update: data, create: { id: "default", ...data } });
+      await audit(ctx.prisma, "RateSetup", "default", ctx.user.id, { Saved: [null, JSON.stringify(input)] });
+    }),
+
   rateBatchGrid: staffProcedure.input(z.object({ rateId: z.string(), seasonId: z.string().nullable() })).query(async ({ ctx, input }) => {
     const [rows, seasons] = await Promise.all([
       ctx.prisma.rateValue.findMany({

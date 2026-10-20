@@ -26,7 +26,7 @@ const CATEGORIES: SettingsCategory[] = [
     { label: "Rate Utilization" },
     { label: "Rates Calendar" },
     { label: "Overbooking Control" },
-    { label: "Rates Setup" },
+    { label: "Rates Setup", href: "/admin/settings/rates-setup", desc: "Rate Ratios used to fill a rate from its daily price" },
     { label: "Seasons", href: "/admin/settings/seasons", desc: "Date windows used by seasonal rates" }, { label: "Discount Reasons", href: "/admin/settings/lists/discount-reasons" }, { label: "Rental Reasons", href: "/admin/settings/lists/rental-reasons" },
     { label: "Taxes", href: "/admin/settings/taxes", desc: "GST, PST, rental tax and where they apply" },
     { label: "Miscellaneous Charges", href: "/admin/settings/misc-charges", desc: "Fees and extras: defaults, online options, under-age, one-way …" },

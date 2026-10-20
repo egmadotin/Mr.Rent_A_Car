@@ -2241,3 +2241,14 @@ model OneWayRate {
 
   @@index([fromRegionId, toRegionId])
 }
+
+/// Settings > Rates > Setup (RatesSetup.aspx): #Days in Month and the Rate Ratios to the daily rate that fill a rate's
+/// other prices when its Daily is entered (RentCentric: 30 days; Hourly 0.19, Extra Daily 1.3, Weekly 7, Monthly 30).
+model RateSetup {
+  id              String  @id @default("default")
+  daysInMonth     Int     @default(30)
+  hourlyRatio     Decimal @default(0.19) @db.Decimal(10, 4)
+  extraDailyRatio Decimal @default(1.3) @db.Decimal(10, 4)
+  weeklyRatio     Decimal @default(7) @db.Decimal(10, 4)
+  monthlyRatio    Decimal @default(30) @db.Decimal(10, 4)
+}
