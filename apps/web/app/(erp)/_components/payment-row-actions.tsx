@@ -2,19 +2,21 @@
 
 import { useTRPCClient } from "@mrac/api/client";
 import { fromDateTimeLocal, toDateTimeLocal } from "@mrac/ui/lib/format";
-import { Field, PAYMENT_METHOD_OPTIONS, SelectField } from "./form";
+import { Field, SelectField } from "./form";
 import { useCan } from "./permissions";
 import { RowActions } from "./row-actions";
+import { methodLabel, methodValue, usePaymentMethods } from "./payment-methods";
 
-type P = { id: string; method: string; transactionType: string; amount: string | number; authorizationCode: string | null; transactionCode: string | null; takenAt: string | Date };
+type P = { id: string; method: string; methodName?: string | null; transactionType: string; amount: string | number; authorizationCode: string | null; transactionCode: string | null; takenAt: string | Date };
 
 /** Edit / Delete on a payment row (rental or reservation): RentCentric "Edit Transactions" / "Delete Transactions". */
-export function PaymentRowActions({ p, onChanged }: { p: P; onChanged: () => Promise<unknown> }) {
+export function PaymentRowActions({ p, onChanged, locationId }: { p: P; onChanged: () => Promise<unknown>; locationId?: string | null }) {
   const client = useTRPCClient();
   const can = useCan();
+  const pm = usePaymentMethods(locationId);
   return (
     <RowActions
-      label={`${p.method} ${p.transactionType.toLowerCase()} of $${Number(p.amount).toFixed(2)}`}
+      label={`${methodLabel(p)} ${p.transactionType.toLowerCase()} of $${Number(p.amount).toFixed(2)}`}
       canEdit={can("TransactionsEdit")}
       canDelete={can("TransactionsDelete")}
       editTitle="Edit payment"
@@ -36,7 +38,7 @@ export function PaymentRowActions({ p, onChanged }: { p: P; onChanged: () => Pro
         await onChanged();
       }}
     >
-      <SelectField label="Payment method" name="method" required options={PAYMENT_METHOD_OPTIONS} defaultValue={p.method} />
+      <SelectField label="Payment method" name="method" required options={pm.options.some((o) => o.value === methodValue(p)) ? pm.options : [...pm.options, { value: methodValue(p), label: methodLabel(p) }]} defaultValue={methodValue(p)} />
       <SelectField
         label="Transaction type"
         name="transactionType"

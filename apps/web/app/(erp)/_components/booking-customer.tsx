@@ -13,7 +13,8 @@ import { COUNTRIES } from "@mrac/ui/lib/countries";
 import { date, money } from "@mrac/ui/lib/format";
 import { REGION_OPTIONS } from "@mrac/ui/lib/regions";
 import { CUSTOMER_FIELDS, customerValues, type CustomerField } from "./booking-values";
-import { FieldShell as F, PAYMENT_METHOD_OPTIONS } from "./form";
+import { FieldShell as F } from "./form";
+import { usePaymentMethods } from "./payment-methods";
 
 // server-safe customer helpers live in booking-values.ts; re-exported for the client forms
 export { CUSTOMER_FIELDS, customerValues, type CustomerField };
@@ -124,13 +125,17 @@ export function PaymentInfoCard({
   transactionTypes,
   codeLabels = ["Authorization Code", "Transaction Code"],
   pendingNote,
+  locationId,
 }: {
   bind: Bind;
   onSubmit: () => void;
   transactionTypes: [string, string][];
   codeLabels?: [string, string];
   pendingNote?: number | null;
+  /** the booking's pickup location: its own payment methods are offered too */
+  locationId?: string | null;
 }) {
+  const pm = usePaymentMethods(locationId);
   return (
     <Card className="gap-3">
       <CardHeader><CardTitle>Payment Information</CardTitle></CardHeader>
@@ -141,7 +146,7 @@ export function PaymentInfoCard({
           <NativeSelect id="cc" value="" onChange={() => {}}><option value="" /></NativeSelect>
         </div>
         <div className="space-y-1.5"><Label htmlFor="cvv">CVV</Label><Input id="cvv" inputMode="numeric" maxLength={4} autoComplete="off" /></div>
-        <F label="Payment Method" name="payMethod" required><NativeSelect {...bind("payMethod")}><option value="">Please select</option>{PAYMENT_METHOD_OPTIONS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}</NativeSelect></F>
+        <F label="Payment Method" name="payMethod" required><NativeSelect {...bind("payMethod")}><option value="">Please select</option>{pm.options.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}</NativeSelect></F>
         <F label="Amount" name="payAmount" required><Input type="number" min={0.01} step="0.01" {...bind("payAmount")} /></F>
         <F label="Transaction Type" name="payType">
           <NativeSelect {...bind("payType")}>{transactionTypes.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</NativeSelect>

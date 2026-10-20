@@ -8,6 +8,7 @@ import { withBookingGuard } from "../../lib/errors";
 import { billSplitData, billSplitInput, transportInput } from "../../lib/bill-split";
 import { priceBooking } from "../../lib/pricing";
 import { bookingOptionsInput, staffPricingOptions } from "../../lib/booking-options";
+import { methodData, paymentMethodInput } from "../../lib/payment-methods";
 import { storedRateOverride } from "../../lib/rate-override";
 import { customerInput, upsertBookingCustomer } from "../../lib/customer-input";
 
@@ -405,7 +406,7 @@ export const rentalRouter = router({
           vehicleId: z.string().min(1, "Vehicle ID is required"),
           payment: z
             .object({
-              method: z.enum(PAYMENT_METHODS),
+              method: paymentMethodInput,
               transactionType: z.enum(["PAYMENT", "AUTHORIZATION", "REFUND"]),
               amount: z.coerce.number().positive("Amount must be more than 0"),
               authorizationCode: optStr,
@@ -484,7 +485,7 @@ export const rentalRouter = router({
           await tx.vehicle.update({ where: { id: v.id }, data: { status: "ON_RENT", currentOdometer: input.odometerOut, fuelLevel: input.fuelOut } });
           if (input.memo) await tx.memo.create({ data: { rentalId: rental.id, body: input.memo, showAsPopup: input.memoShowAsPopup, authorId: ctx.user.id } });
           if (input.payment)
-            await tx.payment.create({ data: { ...input.payment, amount: D(input.payment.amount), rentalId: rental.id, customerId, takenById: ctx.user.id } });
+            await tx.payment.create({ data: { ...input.payment, ...methodData(input.payment.method), amount: D(input.payment.amount), rentalId: rental.id, customerId, takenById: ctx.user.id } });
           await audit(tx, "Rental", rental.id, ctx.user.id, { RANumber: ["Start Rental", rental.raNumber] });
           return { rentalId: rental.id };
         }),
@@ -622,7 +623,7 @@ export const rentalRouter = router({
   addPayment: staffProcedure
     .input(
       id.extend({
-        method: z.enum(PAYMENT_METHODS),
+        method: paymentMethodInput,
         transactionType: z.enum(["PAYMENT", "AUTHORIZATION", "REFUND"]),
         amount: money.positive(),
         authorizationCode: optStr,
@@ -639,7 +640,7 @@ export const rentalRouter = router({
       const r = await loadRental(ctx.prisma, input.rentalId);
       const { rentalId, amount, ...rest } = input;
       await ctx.prisma.payment.create({
-        data: { ...rest, rentalId, amount: D(amount), customerId: r.customerId, takenById: ctx.user.id },
+        data: { ...rest, ...methodData(input.method), rentalId, amount: D(amount), customerId: r.customerId, takenById: ctx.user.id },
       });
     }),
 
@@ -648,7 +649,7 @@ export const rentalRouter = router({
     .input(
       z.object({
         paymentId: z.string(),
-        method: z.enum(PAYMENT_METHODS),
+        method: paymentMethodInput,
         transactionType: z.enum(["PAYMENT", "AUTHORIZATION", "REFUND"]),
         amount: money.positive(),
         authorizationCode: optStr,
@@ -663,7 +664,7 @@ export const rentalRouter = router({
         if (!before) throw new TRPCError({ code: "NOT_FOUND", message: "Payment not found" });
         if (input.transactionType === "REFUND" && before.transactionType !== "REFUND") await requirePermission(ctx, "Transactions");
         if (before.rentalId) await loadRental(tx, before.rentalId);
-        await tx.payment.update({ where: { id: paymentId }, data: { ...rest, amount: D(amount) } });
+        await tx.payment.update({ where: { id: paymentId }, data: { ...rest, ...methodData(input.method), amount: D(amount) } });
         await audit(tx, before.rentalId ? "Rental" : "Reservation", (before.rentalId ?? before.reservationId)!, ctx.user.id, {
           [`Payment ${before.method} ${before.transactionType}`]: [before.amount.toFixed(2), `${input.method} ${input.transactionType} ${amount.toFixed(2)}`],
         });

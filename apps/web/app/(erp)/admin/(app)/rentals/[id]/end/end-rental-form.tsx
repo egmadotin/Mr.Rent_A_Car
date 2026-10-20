@@ -183,6 +183,7 @@ export function EndRentalForm({ rentalId }: { rentalId: string }) {
             <p className="text-sm sm:col-span-2">Company : {r.company?.name ?? "Company Name"}</p>
           </div>
           <PaymentInfoCard
+            locationId={r.checkOutLocationId}
             bind={bind}
             onSubmit={submitPayment}
             transactionTypes={[["AUTHORIZATION", "Authorization"], ["PAYMENT", "Payment (Credit)"], ["REFUND", "Refund -(Credit)"]]}

@@ -440,6 +440,7 @@ export function ReservationForm({
                 </Button>
                 <ChargeSummary title="Charges" preview={previewOn ? preview.data : undefined} emptyText="Choose dates, location, vehicle type and rate, then Update Charges Summary." />
                 <PaymentInfoCard
+                  locationId={str("pickupLocationId")}
                   bind={bind}
                   onSubmit={submitPayment}
                   transactionTypes={[["PAYMENT", "Payment (Credit)"], ["AUTHORIZATION", "Authorization"], ["REFUND", "Refund"]]}

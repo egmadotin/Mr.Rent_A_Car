@@ -8,7 +8,6 @@ import { Input } from "@mrac/ui/components/input";
 import { Label } from "@mrac/ui/components/label";
 import { DateField, ReportFrame, ReportTable, SelectFilter, fromDay, money, useReportFilters, ymd, ymdhm } from "./report-kit";
 
-const METHOD: Record<string, string> = { AMEX: "Amex", CASH: "Cash", DEBIT: "Debit", EMT: "EMT", INTERNAL: "Internal", MASTERCARD: "Mastercard", VISA: "Visa" };
 const TYPE: Record<string, string> = { PAYMENT: "Payment", AUTHORIZATION: "Authorization", REFUND: "Refund" };
 const locName = (f: ReturnType<typeof useReportFilters>, id?: string) => (id ? f.locations.find((l) => l.id === id)?.name ?? "" : "All");
 
@@ -48,7 +47,7 @@ export function DailyCashReport() {
         <ReportTable
           head={["Rental#", "Reservation#", "Full Name", "Amount", "Type", "Payment Method", "Date", "Taken By", "RA Pickup Date", "Res Pickup Date", "Pickup Location", "Company"]}
           right={[3]}
-          rows={q.data.rows.map((r) => [r.raNumber ?? "", r.reservationNumber ?? "", r.fullName, money(r.amount), TYPE[r.type], METHOD[r.method] ?? r.method, ymdhm(r.date), r.takenBy, ymd(r.raPickup), ymd(r.resPickup), r.pickupLocation, r.company])}
+          rows={q.data.rows.map((r) => [r.raNumber ?? "", r.reservationNumber ?? "", r.fullName, money(r.amount), TYPE[r.type], r.method, ymdhm(r.date), r.takenBy, ymd(r.raPickup), ymd(r.resPickup), r.pickupLocation, r.company])}
           foot={["Grand Total", "", "", money(q.data.grandTotal), "", "", "", "", "", "", "", ""]}
         />
       )}

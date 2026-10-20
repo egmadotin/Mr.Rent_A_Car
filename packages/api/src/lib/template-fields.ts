@@ -1,4 +1,5 @@
 import { applyRateOverride, readRateOverride } from "./rate-override";
+import { methodLabel } from "./payment-methods";
 import type { Prisma } from "@mrac/db";
 import { RESERVATION_TEMPLATE_CODES, TEMPLATE_CODES } from "./template-codes";
 import { rentalTotals } from "./totals";
@@ -60,7 +61,7 @@ type Line = {
   insurance?: { code: string | null; deductible: unknown } | null;
   miscCharge?: { code: string | null } | null;
 };
-type Pay = { takenAt?: Date; method: string; amount: unknown; transactionType: string; cardLast4: string | null; authorizationCode: string | null; creditCard?: { brand: string; expMonth: number; expYear: number } | null };
+type Pay = { takenAt?: Date; method: string; methodName?: string | null; amount: unknown; transactionType: string; cardLast4: string | null; authorizationCode: string | null; creditCard?: { brand: string; expMonth: number; expYear: number } | null };
 type Person = { firstName: string; lastName: string; address1?: string | null; address2?: string | null; city?: string | null; province?: string | null; postal?: string | null; country?: string | null; phone?: string | null; birthDate?: Date | null; licenseNumber?: string | null; licenseProvince?: string | null; licenseExpiry?: Date | null };
 type Loc = { refuelPrice?: unknown; legalName?: string | null; gstNumber?: string | null; name: string; address1: string | null; address2: string | null; city: string | null; province: string | null; postal: string | null; phone: string | null; fax: string | null; timeZone: string; hours?: { dayOfWeek: number; opensAt: string | null; closesAt: string | null; isClosed: boolean }[] };
 type Company = { name: string; code: string | null; address1: string | null; address2: string | null; city: string | null; province: string | null; postal: string | null; country: string | null; phone: string | null; fax: string | null; contactName: string | null } | null;
@@ -110,7 +111,7 @@ function chargesTable(lines: Line[], totals: ReturnType<typeof rentalTotals>, pa
     .filter((l) => !(l.kind === "MILEAGE" && !Number(l.total)))
     .map((l) => row(l.name, Number(l.units) ? num(l.units) : "", l.kind === "TAX" && l.tax?.kind !== "AMOUNT" ? `${Number(l.rate)}%` : Number(l.rate) ? money(l.rate) : "", money(l.total)))
     .join("");
-  const pays = payments.map((p) => row(`${p.method}${p.cardLast4 ? ` XXXX${p.cardLast4}` : ""}${p.transactionType === "AUTHORIZATION" ? " (A)" : ""}`, "", "", money(p.transactionType === "REFUND" ? -Number(p.amount) : p.amount))).join("");
+  const pays = payments.map((p) => row(`${methodLabel(p)}${p.cardLast4 ? ` XXXX${p.cardLast4}` : ""}${p.transactionType === "AUTHORIZATION" ? " (A)" : ""}`, "", "", money(p.transactionType === "REFUND" ? -Number(p.amount) : p.amount))).join("");
   return `<table class="charges-summary" style="width:100%;border-collapse:collapse"><thead><tr><th style="text-align:left">Charge</th><th style="text-align:right">Unit</th><th style="text-align:right">Rate</th><th style="text-align:right">Total</th></tr></thead><tbody>${body}${row("Total", "", "", money(totals.total))}${pays}${row("Total Payments", "", "", money(totals.totalPayments))}${row("Balance", "", "", money(totals.balance))}</tbody></table>`;
 }
 
@@ -313,8 +314,8 @@ function docFields(d: Doc): Fields {
   set("BillTotal", money(totals.total));
   set("CompanyBillBalance", money(totals.splitBillBalance));
   const auth = d.payments.find((p) => p.transactionType === "AUTHORIZATION") ?? d.payments[0];
-  set("PaymentType", auth?.method);
-  set("CCType", auth?.creditCard?.brand ?? auth?.method);
+  set("PaymentType", auth ? methodLabel(auth) : "");
+  set("CCType", auth?.creditCard?.brand ?? (auth ? methodLabel(auth) : ""));
   set("CreditCardNumberDisplay", auth?.cardLast4 ? `XXXX${auth.cardLast4}` : "");
   set("AuthCode", auth?.authorizationCode);
   set("Auth", auth ? money(auth.amount) : "");
@@ -332,7 +333,7 @@ function docFields(d: Doc): Fields {
     .map((l) => row((l.taxId && d.taxCodes?.[l.taxId]) || l.name, money(l.total)))
     .join("");
   f.PaymentRows = d.payments
-    .map((p) => row(`${p.takenAt ? fmt(p.takenAt, tz, "both") : ""} ${p.method}${p.cardLast4 ? ` XXXX${p.cardLast4}` : ""}`.trim(), money(p.transactionType === "REFUND" ? -Number(p.amount) : p.amount)))
+    .map((p) => row(`${p.takenAt ? fmt(p.takenAt, tz, "both") : ""} ${methodLabel(p)}${p.cardLast4 ? ` XXXX${p.cardLast4}` : ""}`.trim(), money(p.transactionType === "REFUND" ? -Number(p.amount) : p.amount)))
     .join("");
   set("RateCharge", money(d.lines.filter((l) => l.kind === "TIME").reduce((a, l) => a + Number(l.total), 0)));
   // Customer Invoice style: short dates, $0.00 instead of blank, discount in brackets

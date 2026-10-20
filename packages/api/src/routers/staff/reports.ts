@@ -2,6 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { Prisma } from "@mrac/db";
 import { router, staffProcedure } from "../../trpc";
+import { methodLabel } from "../../lib/payment-methods";
 
 /**
  * Core reports, as RentCentric's (same filters, columns and totals):
@@ -35,7 +36,7 @@ type RevenueRental = Prisma.RentalGetPayload<{
     id: true; raNumber: true; checkOutAt: true; checkedInAt: true; expectedReturnAt: true;
     customer: { select: { firstName: true; lastName: true } }; company: { select: { name: true } };
     vehicle: { select: { assignedId: true; year: true; make: { select: { name: true } }; model: { select: { name: true } } } };
-    chargeLines: { select: typeof lineSelect }; payments: { select: { amount: true; transactionType: true; method: true } }; adjustments: { select: { amount: true } };
+    chargeLines: { select: typeof lineSelect }; payments: { select: { amount: true; transactionType: true; method: true; methodName: true } }; adjustments: { select: { amount: true } };
   };
 }>;
 
@@ -83,10 +84,12 @@ function revenueReport(rentals: RevenueRental[]) {
   };
   const timeCharged = sumRows("time");
   const kmCharged = sumRows("mileage");
-  const methods = ["AMEX", "CASH", "DEBIT", "EMT", "INTERNAL", "MASTERCARD", "VISA"] as const;
-  const paidBy = methods.map((m) => ({
-    method: m,
-    paid: round(rentals.flatMap((r) => r.payments).filter((p) => p.method === m).reduce((a, p) => a + (p.transactionType === "PAYMENT" ? num(p.amount) : p.transactionType === "REFUND" ? -num(p.amount) : 0), 0)),
+  // the built-in methods always listed (as RentCentric), then any location method used in the period
+  const allPays = rentals.flatMap((r) => r.payments);
+  const names = [...["AMEX", "CASH", "DEBIT", "EMT", "INTERNAL", "MASTERCARD", "VISA"].map((m) => methodLabel({ method: m })), ...new Set(allPays.filter((p) => p.method === "OTHER").map((p) => methodLabel(p)))];
+  const paidBy = [...new Set(names)].map((name) => ({
+    method: name,
+    paid: round(allPays.filter((p) => methodLabel(p) === name).reduce((a, p) => a + (p.transactionType === "PAYMENT" ? num(p.amount) : p.transactionType === "REFUND" ? -num(p.amount) : 0), 0)),
   }));
   return {
     rows,
@@ -122,7 +125,7 @@ const revenueSelect = {
   id: true, raNumber: true, checkOutAt: true, checkedInAt: true, expectedReturnAt: true,
   customer: { select: { firstName: true, lastName: true } }, company: { select: { name: true } },
   vehicle: { select: { assignedId: true, year: true, make: { select: { name: true } }, model: { select: { name: true } } } },
-  chargeLines: { select: lineSelect }, payments: { select: { amount: true, transactionType: true, method: true } }, adjustments: { select: { amount: true } },
+  chargeLines: { select: lineSelect }, payments: { select: { amount: true, transactionType: true, method: true, methodName: true } }, adjustments: { select: { amount: true } },
 } satisfies Prisma.RentalSelect;
 
 const locationFilters = {
@@ -202,7 +205,7 @@ export const reportsRouter = router({
           fullName: c ? `${c.firstName} ${c.lastName}` : [p.reservation?.firstName, p.reservation?.lastName].filter(Boolean).join(" "),
           amount: round(sign * num(p.amount)),
           type: p.transactionType,
-          method: p.method,
+          method: methodLabel(p),
           date: p.takenAt,
           takenBy: p.takenBy?.name ?? "",
           raPickup: p.rental?.checkOutAt ?? null,

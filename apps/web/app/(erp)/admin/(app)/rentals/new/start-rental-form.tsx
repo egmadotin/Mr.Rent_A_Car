@@ -397,6 +397,7 @@ export function StartRentalForm({
                 <ChargeSummary title="Charges" preview={previewOn ? preview.data : undefined} emptyText="Choose dates, location, vehicle type and rate, then Update Charges Summary." />
                 {!editing && (
                 <PaymentInfoCard
+                  locationId={str("pickupLocationId")}
                   bind={bind}
                   onSubmit={submitPayment}
                   transactionTypes={[["AUTHORIZATION", "Authorization"], ["PAYMENT", "Payment (Credit)"], ["REFUND", "Refund -(Credit)"]]}

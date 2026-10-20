@@ -166,6 +166,8 @@ model Location {
   gstNumber           String? /// "GST Number" on Location settings; printed under the address on the Customer Invoice
   quoteExpiresAfter   Int      @default(0) /// days; a quote shows "Expired" after this (0 = never)
   /// Location settings fuel prices (per litre): "Convenience ReFuel" (printed as ReFuel on the contract) and prepaid, gas / diesel
+  /// Settings > Default Payment Method: a built-in method (VISA, CASH …) or "OTHER:<name>"
+  defaultPaymentMethod   String?
   refuelPrice            Decimal? @db.Decimal(10, 2)
   dieselRefuelPrice      Decimal? @db.Decimal(10, 2)
   prepaidFuelPrice       Decimal? @db.Decimal(10, 2)
@@ -196,6 +198,7 @@ model Location {
   transportsPickup   Transport[]   @relation("TransportPickup")
   transportsDropoff  Transport[]   @relation("TransportDropoff")
   documentTemplates DocumentTemplate[]
+  paymentMethods         LocationPaymentMethod[]
 }
 
 /// Settings > Location Information > Hours Of Operation
@@ -1333,6 +1336,7 @@ enum PaymentMethod {
   INTERNAL
   MASTERCARD
   VISA
+  OTHER // a location's own method (Settings > Payment Methods); the name is in Payment.methodName
 }
 
 enum PaymentTransactionType {
@@ -1351,6 +1355,7 @@ model Payment {
   customerId        String?
   customer          Customer?              @relation(fields: [customerId], references: [id])
   method            PaymentMethod
+  methodName        String? /// name of a location's own payment method when method = OTHER (e.g. Cheque, Direct Bill Company)
   transactionType   PaymentTransactionType
   amount            Decimal                @db.Decimal(10, 2)
   authorizationCode String?
@@ -1907,5 +1912,22 @@ model TaskAssignee {
 
   @@id([taskId, userId])
   @@index([userId])
+}
+
+/// Settings > Payment Settings > Payment Methods (PayMethodsAdd.aspx): a location's own payment methods, offered
+/// next to the built-in ones (Visa, Cash, Mastercard, Amex, Debit, Internal, EMT).
+model LocationPaymentMethod {
+  id                   String   @id @default(cuid())
+  locationId           String
+  location             Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  name                 String /// "Payment Method"
+  isCreditCard         Boolean  @default(false)
+  creditCardType       String?
+  isDefault            Boolean  @default(false)
+  mobileAgentIncluded  Boolean  @default(false) /// "Is Mobile Agent Included"
+  isActive             Boolean  @default(true)
+  createdAt            DateTime @default(now())
+
+  @@unique([locationId, name])
 }
 

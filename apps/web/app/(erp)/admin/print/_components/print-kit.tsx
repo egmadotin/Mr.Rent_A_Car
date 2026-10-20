@@ -2,6 +2,7 @@
 import { money } from "@mrac/ui/lib/format";
 import { cn } from "@mrac/ui/lib/utils";
 import { isPercentLine } from "@mrac/ui/lib/charge-lines";
+import { methodLabel } from "../../../_components/payment-methods";
 
 /** Company-wide details printed on every customer document (legacy print header / footer). */
 export const COMPANY = {
@@ -202,7 +203,7 @@ export function PrintChargeTable({ lines, payments, timeLabel = "Total T&M" }: {
             {payments.map((p, i) => (
               <div key={i} className="flex justify-between gap-6 px-3 py-0.5 text-muted-foreground">
                 <span>
-                  {p.method}
+                  {methodLabel(p)}
                   {p.cardLast4 ? ` ···· ${p.cardLast4}` : ""}
                   {p.authorizationCode ? ` · Auth ${p.authorizationCode}` : ""}
                   {p.transactionType === "AUTHORIZATION" ? " (hold)" : p.transactionType === "REFUND" ? " (refund)" : ""}

@@ -89,7 +89,7 @@ The RentCentric menus, vehicle page and customer page were re-read on Oct 20. No
 | Long-term invoices | | ✅ |
 | Inspection Comparison, Damage | | ⬜ needs vehicle inspections and damage (section 6) |
 | Capture / Refund on card payments | | 🔑 Stripe |
-| Payment methods per location (YYC: Cheque, Direct Bill Company) | | ⬜ |
+| Payment methods per location (YYC: Cheque, Direct Bill Company) | | ✅ |
 
 ## 5. Contracts, invoices and templates
 
@@ -196,8 +196,8 @@ RentCentric's Settings menu, item by item.
 |---|---|
 | Internet Payment Gateway | ✅ Stripe |
 | Payment Details | ✅ |
-| Payment Methods | ⬜ |
-| Default Payment Method | ⬜ |
+| Payment Methods | ✅ |
+| Default Payment Method | ✅ |
 
 ### Rental Contracts & Invoices
 
@@ -317,7 +317,7 @@ Built (Oct 20, same filters, columns and totals as RentCentric, 31-day limit on 
    - Daily Business Report, Daily Cash Summary Report, Month to Date Report.
    - Reservation Manifest, Vehicle Due In, Rental Status.
    - Revenue reports, A/R reports.
-4. **Payment Methods per location.**
+4. ~~Payment Methods per location~~ (done Oct 20).
 5. **Data migration:** customers, reservations and rental history.
 6. **Deployment.**
 7. **Remaining settings pages:** rate tools, one-way rates, claims settings and the rest, as the client needs them.

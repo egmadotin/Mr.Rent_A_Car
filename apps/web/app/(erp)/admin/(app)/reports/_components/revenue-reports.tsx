@@ -8,7 +8,6 @@ import { useTRPC } from "@mrac/api/client";
 import { DateField, ReportFrame, ReportTable, SelectFilter, fromDay, money, useReportFilters, ymd } from "./report-kit";
 
 type Revenue = RouterOutputs["staff"]["reports"]["dailyBusiness"];
-const METHOD: Record<string, string> = { AMEX: "Amex", CASH: "Cash", DEBIT: "Debit", EMT: "EMT", INTERNAL: "Internal", MASTERCARD: "Mastercard", VISA: "Visa" };
 
 /** Rows + revenue summary + payment summary — the body shared by Daily Business Report and Month to Date. */
 function RevenueBody({ r, withRows }: { r: Revenue; withRows: boolean }) {
@@ -64,7 +63,7 @@ function RevenueBody({ r, withRows }: { r: Revenue; withRows: boolean }) {
           {line("Rentals Grand Total", r.payments.rentalsGrandTotal)}
           {line("Accounts Receivable", r.payments.accountsReceivable)}
           <div className="mt-3 grid max-w-md grid-cols-[1fr_7rem] font-bold underline"><span>Payment Method</span><span className="text-right">Paid</span></div>
-          {r.payments.paidBy.map((p) => line(METHOD[p.method] ?? p.method, p.paid))}
+          {r.payments.paidBy.map((p) => line(p.method, p.paid))}
           {line("Total", r.payments.totalPaid, true)}
         </div>
       </div>

@@ -8,12 +8,13 @@ import { Button } from "@mrac/ui/components/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@mrac/ui/components/table";
 import { dateTime, money } from "@mrac/ui/lib/format";
 import { cn } from "@mrac/ui/lib/utils";
-import { Field, FormDialog, PAYMENT_METHOD_OPTIONS, SelectField } from "../../../../../_components/form";
+import { Field, FormDialog, SelectField } from "../../../../../_components/form";
 import { useCan } from "../../../../../_components/permissions";
 import { RowActions } from "../../../../../_components/row-actions";
 import { Empty, Section } from "./section-kit";
 import { useRentalActions, type RentalData } from "./use-rental";
 import { isPercentLine } from "@mrac/ui/lib/charge-lines";
+import { methodLabel } from "../../../../../_components/payment-methods";
 
 type Line = RentalData["rental"]["chargeLines"][number];
 
@@ -64,7 +65,7 @@ export function ChargeTable({ data }: { data: RentalData }) {
     rows.push(
       <TableRow key={p.id} className="text-muted-foreground">
         <TableCell>
-          {PAYMENT_METHOD_OPTIONS.find((m) => m.value === p.method)?.label ?? p.method}
+          {methodLabel(p)}
           {p.cardLast4 && ` XXXX${p.cardLast4}(P) Auth:${p.authorizationCode ?? ""}`}
           {p.transactionType !== "PAYMENT" && ` · ${p.transactionType === "AUTHORIZATION" ? "Authorization (hold)" : "Refund"}`}
         </TableCell>

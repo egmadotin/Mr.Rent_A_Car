@@ -9,13 +9,14 @@ import { Button } from "@mrac/ui/components/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@mrac/ui/components/table";
 import { date, dateTime, money, toDateTimeLocal, fromDateTimeLocal } from "@mrac/ui/lib/format";
 import { ConfirmAction } from "../../../../../_components/confirm-action";
-import { Field, FormDialog, PAYMENT_METHOD_OPTIONS, SelectField } from "../../../../../_components/form";
+import { Field, FormDialog, SelectField } from "../../../../../_components/form";
 import { BillSplitDialog, CLAIM_TYPES } from "../../../../../_components/booking-dialogs";
 import { PaymentRowActions } from "../../../../../_components/payment-row-actions";
 import { useCan } from "../../../../../_components/permissions";
 import { RowActions } from "../../../../../_components/row-actions";
 import { Empty, Section } from "./section-kit";
 import { useRentalActions, type RentalData } from "./use-rental";
+import { methodLabel, usePaymentMethods } from "../../../../../_components/payment-methods";
 
 
 export function BillingTab({ data, show }: { data: RentalData; show?: string }) {
@@ -25,6 +26,7 @@ export function BillingTab({ data, show }: { data: RentalData; show?: string }) 
   const opts = useQuery(trpc.staff.rental.formOptions.queryOptions()).data;
   const { api, run } = useRentalActions(r.id);
   const can = useCan();
+  const pm = usePaymentMethods(r.checkOutLocationId);
   const refresh = () => run(Promise.resolve());
   const [removeSplit, setRemoveSplit] = React.useState<string | null>(null);
   const companies = (opts?.companies ?? []).map((c) => ({ value: c.id, label: c.code ? `${c.name} (${c.code})` : c.name }));
@@ -65,7 +67,7 @@ export function BillingTab({ data, show }: { data: RentalData; show?: string }) 
                 )
               }
             >
-              <SelectField label="Payment method" name="method" required options={PAYMENT_METHOD_OPTIONS} />
+              <SelectField label="Payment method" name="method" required options={pm.options} defaultValue={pm.defaultMethod ?? ""} />
               <SelectField
                 label="Transaction type"
                 name="transactionType"
@@ -109,7 +111,7 @@ export function BillingTab({ data, show }: { data: RentalData; show?: string }) 
                   <TableRow key={p.id}>
                     <TableCell>{dateTime(p.takenAt)}</TableCell>
                     <TableCell>
-                      {p.method}
+                      {methodLabel(p)}
                       {p.cardLast4 && <span className="text-muted-foreground"> ···· {p.cardLast4}</span>}
                     </TableCell>
                     <TableCell>
@@ -121,7 +123,7 @@ export function BillingTab({ data, show }: { data: RentalData; show?: string }) 
                     <TableCell>{p.company?.name ?? "Renter"}</TableCell>
                     <TableCell className="text-muted-foreground">{p.takenBy?.name ?? "—"}</TableCell>
                     <TableCell className="text-right tabular-nums">{money(p.amount)}</TableCell>
-                    <TableCell><PaymentRowActions p={p} onChanged={refresh} /></TableCell>
+                    <TableCell><PaymentRowActions p={p} onChanged={refresh} locationId={r.checkOutLocationId} /></TableCell>
                   </TableRow>
                 ))}
               </TableBody>

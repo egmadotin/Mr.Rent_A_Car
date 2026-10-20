@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, staffProcedure, permitted, requirePermission } from "../../trpc";
+import { BUILTIN_PAYMENT_METHODS, paymentMethodInput } from "../../lib/payment-methods";
 
 /**
  * Settings pages for the simple lists RentCentric keeps under Settings: pick lists (Vehicle Setup > Categories / Body
@@ -182,4 +183,69 @@ export const setupRouter = router({
     await ctx.prisma.equipment.delete({ where: { id: input.id } });
     return { ok: true };
   }),
+
+  // ── Payment methods (Settings > Payment Settings > Payment Methods / Default Payment Method) ──
+  paymentMethodList: staffProcedure.input(z.object({ locationId: z.string() })).query(async ({ ctx, input }) => {
+    const [methods, loc] = await Promise.all([
+      ctx.prisma.locationPaymentMethod.findMany({ where: { locationId: input.locationId }, orderBy: { name: "asc" } }),
+      ctx.prisma.location.findUnique({ where: { id: input.locationId }, select: { defaultPaymentMethod: true } }),
+    ]);
+    return { methods, defaultMethod: loc?.defaultPaymentMethod ?? null };
+  }),
+  paymentMethodSave: permitted("Settings")
+    .input(z.object({ id: z.string().optional(), locationId: z.string(), name: req("Payment Method").max(60), isCreditCard: z.boolean().default(false), creditCardType: optStr, isDefault: z.boolean().default(false), mobileAgentIncluded: z.boolean().default(false), isActive: z.boolean().default(true) }))
+    .mutation(async ({ ctx, input }) => {
+      const { id, ...data } = input;
+      if ((BUILTIN_PAYMENT_METHODS as readonly string[]).some((b) => b.toLowerCase() === data.name.toLowerCase()))
+        throw new TRPCError({ code: "CONFLICT", message: `${data.name} is already a built-in payment method` });
+      const clash = await ctx.prisma.locationPaymentMethod.findFirst({ where: { locationId: data.locationId, name: { equals: data.name, mode: "insensitive" }, NOT: id ? { id } : undefined } });
+      if (clash) throw new TRPCError({ code: "CONFLICT", message: `“${data.name}” already exists at this location` });
+      const r = await ctx.prisma.$transaction(async (tx) => {
+        const before = id ? await tx.locationPaymentMethod.findUnique({ where: { id } }) : null;
+        const row = id ? await tx.locationPaymentMethod.update({ where: { id }, data }) : await tx.locationPaymentMethod.create({ data });
+        // "Default" makes it the location's default payment method (one default per location)
+        if (data.isDefault) {
+          await tx.locationPaymentMethod.updateMany({ where: { locationId: data.locationId, NOT: { id: row.id } }, data: { isDefault: false } });
+          await tx.location.update({ where: { id: data.locationId }, data: { defaultPaymentMethod: `OTHER:${row.name}` } });
+        } else if (before?.isDefault) {
+          await tx.location.update({ where: { id: data.locationId }, data: { defaultPaymentMethod: null } });
+        }
+        return row;
+      });
+      return { id: r.id };
+    }),
+  paymentMethodDelete: permitted("Settings").input(z.object({ id: z.string() })).mutation(async ({ ctx, input }) => {
+    const m = await ctx.prisma.locationPaymentMethod.findUnique({ where: { id: input.id } });
+    if (!m) throw new TRPCError({ code: "NOT_FOUND", message: "Not found" });
+    const used = await ctx.prisma.payment.count({ where: { method: "OTHER", methodName: m.name } });
+    if (used) throw inUse("payment method");
+    await ctx.prisma.$transaction([
+      ctx.prisma.locationPaymentMethod.delete({ where: { id: m.id } }),
+      ...(m.isDefault ? [ctx.prisma.location.update({ where: { id: m.locationId }, data: { defaultPaymentMethod: null } })] : []),
+    ]);
+    return { ok: true };
+  }),
+  /** Default Payment Method (DefaultPaymentMethod.aspx): a built-in method or one of the location's own. */
+  paymentMethodSetDefault: permitted("Settings")
+    .input(z.object({ locationId: z.string(), method: paymentMethodInput.nullable() }))
+    .mutation(async ({ ctx, input }) => {
+      await ctx.prisma.$transaction([
+        ctx.prisma.locationPaymentMethod.updateMany({ where: { locationId: input.locationId }, data: { isDefault: false } }),
+        ...(input.method?.startsWith("OTHER:") ? [ctx.prisma.locationPaymentMethod.updateMany({ where: { locationId: input.locationId, name: input.method.slice(6) }, data: { isDefault: true } })] : []),
+        ctx.prisma.location.update({ where: { id: input.locationId }, data: { defaultPaymentMethod: input.method } }),
+      ]);
+      return { ok: true };
+    }),
+  /** The payment method choices for a booking at a location: the built-ins, then the location's own; with its default. */
+  paymentMethodOptions: staffProcedure.input(z.object({ locationId: z.string().optional() })).query(async ({ ctx, input }) => {
+    const LABEL: Record<string, string> = { AMEX: "Amex", CASH: "Cash", DEBIT: "Debit", EMT: "EMT", INTERNAL: "Internal", MASTERCARD: "Mastercard", VISA: "Visa" };
+    const builtins = BUILTIN_PAYMENT_METHODS.map((m) => ({ value: m as string, label: LABEL[m]! }));
+    if (!input.locationId) return { options: builtins, defaultMethod: null as string | null };
+    const [own, loc] = await Promise.all([
+      ctx.prisma.locationPaymentMethod.findMany({ where: { locationId: input.locationId, isActive: true }, orderBy: { name: "asc" } }),
+      ctx.prisma.location.findUnique({ where: { id: input.locationId }, select: { defaultPaymentMethod: true } }),
+    ]);
+    return { options: [...builtins, ...own.map((m) => ({ value: `OTHER:${m.name}`, label: m.name }))], defaultMethod: loc?.defaultPaymentMethod ?? null };
+  }),
 });
+

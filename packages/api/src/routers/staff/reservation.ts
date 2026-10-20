@@ -6,6 +6,7 @@ import { audit } from "../../lib/audit";
 import { withBookingGuard } from "../../lib/errors";
 import { priceBooking } from "../../lib/pricing";
 import { bookingOptionsInput, staffPricingOptions } from "../../lib/booking-options";
+import { methodData, paymentMethodInput } from "../../lib/payment-methods";
 import { storedRateOverride } from "../../lib/rate-override";
 import { customerInput, upsertBookingCustomer } from "../../lib/customer-input";
 import { billSplitData, billSplitInput, transportInput } from "../../lib/bill-split";
@@ -66,7 +67,7 @@ const reservationInput = z
     options: bookingOptionsInput.optional(),
     payment: z
       .object({
-        method: z.enum(PAYMENT_METHODS),
+        method: paymentMethodInput,
         transactionType: z.enum(["PAYMENT", "AUTHORIZATION", "REFUND"]),
         amount: z.coerce.number().positive("Payment amount must be more than 0"),
         authorizationCode: optStr,
@@ -196,7 +197,7 @@ async function writeBooking(
   if (input.memo) await tx.memo.create({ data: { reservationId, body: input.memo, showAsPopup: input.memoShowAsPopup, authorId: userId } });
   if (input.payment)
     await tx.payment.create({
-      data: { ...input.payment, amount: D(input.payment.amount), reservationId, customerId, takenById: userId },
+      data: { ...input.payment, ...methodData(input.payment.method), amount: D(input.payment.amount), reservationId, customerId, takenById: userId },
     });
   return reservationId;
 }
@@ -616,7 +617,7 @@ export const reservationRouter = router({
     .input(
       z.object({
         reservationId: z.string(),
-        method: z.enum(PAYMENT_METHODS),
+        method: paymentMethodInput,
         transactionType: z.enum(["PAYMENT", "AUTHORIZATION", "REFUND"]),
         amount: z.coerce.number().positive(),
         authorizationCode: optStr,
@@ -628,7 +629,7 @@ export const reservationRouter = router({
     .mutation(async ({ ctx, input }) => {
       const r = await ctx.prisma.reservation.findFirstOrThrow({ where: { id: input.reservationId, deletedAt: null } });
       const { reservationId, amount, ...rest } = input;
-      await ctx.prisma.payment.create({ data: { ...rest, reservationId, amount: D(amount), customerId: r.customerId, takenById: ctx.user.id } });
+      await ctx.prisma.payment.create({ data: { ...rest, ...methodData(input.method), reservationId, amount: D(amount), customerId: r.customerId, takenById: ctx.user.id } });
     }),
 
   addDriver: staffProcedure.input(z.object({ reservationId: z.string(), customerId: z.string() })).mutation(async ({ ctx, input }) => {

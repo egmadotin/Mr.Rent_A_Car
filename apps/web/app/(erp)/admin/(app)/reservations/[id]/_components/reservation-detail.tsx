@@ -20,7 +20,6 @@ import {
   CheckField,
   Field,
   FormDialog,
-  PAYMENT_METHOD_OPTIONS,
   SelectField,
   TextareaField,
   errorMessage,
@@ -33,6 +32,7 @@ import { ActionLink, DL } from "../../../../../_components/legacy-view";
 import { legacyDate } from "../../../../../_components/list-kit";
 import { PrintChargeTable } from "../../../../print/_components/print-kit";
 import { PaymentRowActions } from "../../../../../_components/payment-row-actions";
+import { methodLabel, usePaymentMethods } from "../../../../../_components/payment-methods";
 
 type Data = Wire<RouterOutputs["staff"]["reservation"]["byId"]>;
 type DialogName = null | "start" | "cancel" | "delete" | "noshow" | "move" | "reinstate" | "email";
@@ -45,6 +45,7 @@ export function ReservationDetail({ reservationId, autoStartRental }: { reservat
   const router = useRouter();
   const q = useQuery(trpc.staff.reservation.byId.queryOptions({ reservationId }));
   const data = q.data as Data | undefined;
+  const pm = usePaymentMethods(data?.reservation.pickupLocationId);
   const [dialog, setDialog] = React.useState<DialogName>(autoStartRental ? "start" : null);
   const can = useCan();
   const [panel, setPanel] = React.useState<null | "payments" | "drivers" | "billsplit" | "transports">(null);
@@ -209,7 +210,7 @@ export function ReservationDetail({ reservationId, autoStartRental }: { reservat
                       )
                     }
                   >
-                    <SelectField label="Payment Method" name="method" required options={PAYMENT_METHOD_OPTIONS} />
+                    <SelectField label="Payment Method" name="method" required options={pm.options} defaultValue={pm.defaultMethod ?? ""} />
                     <Field label="Amount" name="amount" type="number" step="0.01" min="0.01" required />
                     <SelectField
                       label="Transaction Type"
@@ -232,10 +233,10 @@ export function ReservationDetail({ reservationId, autoStartRental }: { reservat
                     {r.payments.map((p) => (
                       <TableRow key={p.id}>
                         <TableCell>{legacyDate(p.takenAt, { timeZone: tz })}</TableCell>
-                        <TableCell>{PAYMENT_METHOD_OPTIONS.find((m) => m.value === p.method)?.label ?? p.method}</TableCell>
+                        <TableCell>{methodLabel(p)}</TableCell>
                         <TableCell>{p.transactionType === "PAYMENT" ? "Payment (Credit)" : p.transactionType === "REFUND" ? "Refund" : "Authorization"}</TableCell>
                         <TableCell className="text-right tabular-nums">{money(p.amount)}</TableCell>
-                        <TableCell className="w-20"><PaymentRowActions p={p} onChanged={() => run(Promise.resolve())} /></TableCell>
+                        <TableCell className="w-20"><PaymentRowActions p={p} onChanged={() => run(Promise.resolve())} locationId={r.pickupLocationId} /></TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
