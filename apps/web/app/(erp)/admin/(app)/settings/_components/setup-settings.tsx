@@ -50,7 +50,7 @@ function DeleteButton({ label, disabled, onDelete }: { label: string; disabled?:
 
 // ── Pick lists ───────────────────────────────────────────────────────────────
 
-export type LookupKind = "VEHICLE_CATEGORY" | "VEHICLE_BODY" | "FUEL_TYPE" | "ENGINE_BRAND" | "ENGINE_TYPE" | "VEHICLE_OPTION" | "COMPANY_TYPE" | "CUSTOMER_REGION" | "DISCOUNT_REASON" | "RENTAL_REASON" | "PAYMENT_DETAIL" | "DAMAGE_LOCATION" | "DAMAGE_CONDITION";
+export type LookupKind = "VEHICLE_CATEGORY" | "VEHICLE_BODY" | "FUEL_TYPE" | "ENGINE_BRAND" | "ENGINE_TYPE" | "VEHICLE_OPTION" | "COMPANY_TYPE" | "CUSTOMER_REGION" | "DISCOUNT_REASON" | "RENTAL_REASON" | "PAYMENT_DETAIL" | "DAMAGE_LOCATION" | "DAMAGE_CONDITION" | "VEHICLE_GROUP" | "TITLE_LOCATION" | "REGISTERED_OWNER" | "SIPP_CODE";
 
 /** One simple name list (Categories, Body Types, Fuel Types, Company Type, Customer Areas/Regions, …). */
 export function PickList({ kind, noun }: { kind: LookupKind; noun: string }) {
@@ -134,11 +134,12 @@ export function MakesModels() {
       title={x ? "Edit model" : `New ${mk.name} model`}
       trigger={x ? editIcon(x.name) : <Button size="sm" disabled={!editable} title={editable ? undefined : NO_PERMISSION}><PlusIcon /> Add Model</Button>}
       onSubmit={async (v) => {
-        await client.staff.setup.modelSave.mutate({ id: x?.id, makeId: mk.id, name: v.name as string });
+        await client.staff.setup.modelSave.mutate({ id: x?.id, makeId: mk.id, name: v.name as string, code: v.code as string });
         await refresh();
       }}
     >
       <Field label="Model" name="name" required defaultValue={x?.name} />
+      <Field label="Model Code" name="code" defaultValue={x?.code ?? ""} hint="Vehicle Setup › Codes, e.g. SV" />
     </FormDialog>
   );
   return (

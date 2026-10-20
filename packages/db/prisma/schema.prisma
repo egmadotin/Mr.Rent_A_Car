@@ -234,6 +234,10 @@ enum LookupKind {
   PAYMENT_DETAIL // Settings > Payment Details: the "Detail" choices on Add/Edit Other Charges (empty in RentCentric today)
   DAMAGE_LOCATION // Settings > Vehicle Setup > Damage Setup > Damage Locations (spots on the car diagram)
   DAMAGE_CONDITION // Damage Setup > Damage Conditions: Broken, Crack, Dent, Rock Chip, Rust, Scratch. Chip
+  VEHICLE_GROUP // Vehicle Setup > Groups (empty in RentCentric)
+  TITLE_LOCATION // Vehicle Setup > Title Locations: Ownership Information "Title Location" choices
+  REGISTERED_OWNER // Vehicle Setup > Registered Owners: Ownership Information "Registered Owner" choices
+  SIPP_CODE // Vehicle Setup > SIPP Codes (ACRISS car codes: CCAR, FVAR …)
 }
 
 model Lookup {
@@ -359,6 +363,8 @@ model VehicleModel {
   make     VehicleMake @relation(fields: [makeId], references: [id])
   name     String
   vehicles Vehicle[]
+  /// Vehicle Setup > Codes (ModelsCodesMain.aspx): "Model Code", e.g. SV for Versa Note
+  code     String?
 
   @@unique([makeId, name])
 }

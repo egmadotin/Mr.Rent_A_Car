@@ -28,6 +28,9 @@ export function OwnershipPanel({ vehicleId }: { vehicleId: string }) {
   const can = useCan();
   const q = useQuery(trpc.staff.vehicleRecords.ownershipGet.queryOptions({ vehicleId }));
   const companies = useQuery(trpc.staff.reservation.formOptions.queryOptions()).data?.companies ?? [];
+  // Settings › Registered Owners / Title Locations, offered as suggestions (the fields stay free text)
+  const owners = useQuery(trpc.staff.setup.lookupList.queryOptions({ kind: "REGISTERED_OWNER" })).data ?? [];
+  const titles = useQuery(trpc.staff.setup.lookupList.queryOptions({ kind: "TITLE_LOCATION" })).data ?? [];
   const [errors, setErrors] = React.useState<Record<string, string[] | undefined>>({});
   const [saving, setSaving] = React.useState(false);
   if (q.isLoading) return null;
@@ -79,10 +82,15 @@ export function OwnershipPanel({ vehicleId }: { vehicleId: string }) {
                       {opts.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                     </NativeSelect>
                   );
-                } else input = <Input id={k} name={k} type={kind === "date" ? "date" : kind === "text" ? "text" : "number"} step={kind === "money" ? "0.01" : kind === "num" ? "any" : undefined} defaultValue={dv} />;
+                } else {
+                  const list = k === "registeredOwner" ? "own-owners" : k === "titleLocation" ? "own-titles" : undefined;
+                  input = <Input id={k} name={k} list={list} type={kind === "date" ? "date" : kind === "text" ? "text" : "number"} step={kind === "money" ? "0.01" : kind === "num" ? "any" : undefined} defaultValue={dv} />;
+                }
                 return <F key={k} label={label} name={k} className={kind === "long" ? "sm:col-span-2" : undefined}>{input}</F>;
               })}
             </fieldset>
+            <datalist id="own-owners">{owners.filter((o) => o.isActive).map((o) => <option key={o.id} value={o.name} />)}</datalist>
+            <datalist id="own-titles">{titles.filter((o) => o.isActive).map((o) => <option key={o.id} value={o.name} />)}</datalist>
             <div className="mt-4 flex justify-end">
               <Button type="submit" disabled={saving || !editable} title={editable ? undefined : NO_PERMISSION}>{saving ? "Saving…" : "Save"}</Button>
             </div>

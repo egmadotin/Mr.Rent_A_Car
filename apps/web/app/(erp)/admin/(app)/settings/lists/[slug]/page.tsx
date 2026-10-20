@@ -17,6 +17,10 @@ const LISTS: Record<string, { kind: LookupKind; title: string; noun: string; sec
   "rental-reasons": { kind: "RENTAL_REASON", title: "Rental Reasons", noun: "Reason", section: "Rates", description: "Reasons offered on the rental form." },
   "damage-locations": { kind: "DAMAGE_LOCATION", title: "Damage Locations", noun: "Damage location", section: "Vehicle Setup", description: "Spots on the car offered on Add Vehicle Damage (e.g. 1 Front bumper)." },
   "damage-conditions": { kind: "DAMAGE_CONDITION", title: "Damage Conditions", noun: "Damage condition", section: "Vehicle Setup", description: "Conditions offered on Add Vehicle Damage (Broken, Crack, Dent …)." },
+  "vehicle-groups": { kind: "VEHICLE_GROUP", title: "Groups", noun: "Group", section: "Vehicle Setup", description: "Vehicle groups (empty in RentCentric)." },
+  "title-locations": { kind: "TITLE_LOCATION", title: "Title Locations", noun: "Title location", section: "Vehicle Setup", description: "Choices for Title Location on Ownership Information." },
+  "registered-owners": { kind: "REGISTERED_OWNER", title: "Registered Owners", noun: "Registered owner", section: "Vehicle Setup", description: "Choices for Registered Owner on Ownership Information." },
+  "sipp-codes": { kind: "SIPP_CODE", title: "SIPP Codes", noun: "SIPP code", section: "Vehicle Setup", description: "ACRISS / SIPP car codes (CCAR, FVAR …)." },
   "payment-details": { kind: "PAYMENT_DETAIL", title: "Payment Details", noun: "Detail", section: "Payment Settings", description: "Detail choices on Add/Edit Other Charges." },
 };
 

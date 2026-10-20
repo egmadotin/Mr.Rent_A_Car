@@ -12,6 +12,7 @@ The RentCentric menus, vehicle page and customer page were re-read on Oct 20. No
 - ✅ **Done:** built, matching RentCentric, and tested.
 - 🟡 **Partly done:** works, with a gap that's noted.
 - ⬜ **Not built yet.**
+- ⏸ **Not in use in RentCentric** (no data): left out unless the client wants it.
 - 🔑 **Waiting on the client:** keys, accounts or samples needed.
 
 ---
@@ -28,7 +29,7 @@ The RentCentric menus, vehicle page and customer page were re-read on Oct 20. No
 | Customers (list, add, edit, view and its actions) | ✅ |
 | Vehicles (list, add, edit, summary) | ✅ (every vehicle page action built) |
 | Users, user groups and permissions | ✅ (group location limit not enforced) |
-| Settings | 🟡 about 45 of RentCentric's ~100 setting pages built (section 7) |
+| Settings | 🟡 about 51 of RentCentric's ~100 setting pages built (section 7) |
 | Reports | 🟡 29 of 64 built (see section 8) |
 | Dashboard | ✅ |
 | Public website and online booking | ✅ (customer login and fleet filters 🟡) |
@@ -161,15 +162,15 @@ RentCentric's Settings menu, item by item.
 | Rental/Discount Reason | ✅ (two lists) |
 | Rental Rates | ✅ RentCentric's "Rate Setup" menu page; our Settings › Rates group is the same menu |
 | Master Rate Batch Update | ✅ Location / Rate Code / Season → grid per vehicle type; six Adjust rows (Percent % / Flat / Total) → Update Grid → Save |
-| Rate Values Update | ⬜ |
-| Rate Blocking | ⬜ |
-| Rate Utilization | ⬜ |
-| Rates Calendar | ⬜ |
-| Overbooking Control | ⬜ |
+| Rate Values Update | ⏸ not in use: RentCentric's Rates Calendar shows no day-by-day prices — build if the client wants yield pricing |
+| Rate Blocking | ⏸ not in use (as above) |
+| Rate Utilization | ⏸ not in use (as above) |
+| Rates Calendar | ⏸ not in use (as above) |
+| Overbooking Control | ⏸ not in use (as above) |
 | Rates Setup | ⬜ |
 | One Way Rates | ✅ RentCentric's 49 rates copied; the fee is added as the "One Way" charge (taxed per each tax's One Way tick) on quotes, reservations, rentals and online bookings |
 | One Way Regions | ✅ 8 regions copied, each location's region set (Surrey has none, as in RentCentric) |
-| Pay Now Discounts | ⬜ |
+| Pay Now Discounts | ⏸ none set up in RentCentric |
 
 ### Company
 
@@ -220,13 +221,13 @@ RentCentric's Settings menu, item by item.
 | Category | ✅ |
 | Engine Brand, Engine Type | ✅ |
 | Fuel Types | ✅ extra list for the vehicle form; RentCentric has no menu item for it |
-| Codes | ⬜ |
-| Status | ⬜ |
-| Groups | ⬜ |
+| Codes | ✅ Model Code on each model (Makes & Models); RentCentric's one code (SV = Versa Note) copied |
+| Status | ✅ the 17 statuses (fixed: rentals and availability rely on them) |
+| Groups | ✅ (empty in RentCentric) |
 | Damage Setup (Damage Locations, Damage Conditions) | ✅ |
-| Title Locations | ⬜ |
-| Registered Owners | ⬜ |
-| SIPP Codes | ⬜ |
+| Title Locations | ✅ (empty in RentCentric; offered on Ownership Information) |
+| Registered Owners | ✅ (empty in RentCentric; offered on Ownership Information) |
+| SIPP Codes | ✅ RentCentric's 43 codes copied |
 | Repair Order/Maintenance Program | ⬜ |
 | Vehicle CheckList | ✅ |
 | Vehicle CheckList Items | ✅ |
@@ -290,6 +291,8 @@ Not built yet:
 | Customer Login | ⬜ (ask the client) |
 
 ## 11. Waiting on the client
+
+- Yield pricing (Rate Values Update, Rate Blocking, Rate Utilization, Rates Calendar, Overbooking Control): not used in RentCentric today — needed?
 
 - Stripe test and live keys.
 - Email (SMTP) account.
