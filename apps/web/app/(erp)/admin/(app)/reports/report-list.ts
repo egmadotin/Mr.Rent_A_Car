@@ -10,9 +10,9 @@ export const REPORT_CATEGORIES: ReportCategory[] = [
       { name: "Daily Business Report", slug: "daily-business" },
       { name: "Daily Cash Summary Report", slug: "daily-cash" },
       { name: "Month to Date Report", slug: "month-to-date" },
-      { name: "Rental Details" }, { name: "Adjustment Details" }, { name: "Invoices" },
-      { name: "Rental Event Tracking" }, { name: "Reservation Event Tracking" }, { name: "Tasks List" },
-      { name: "Commissions" }, { name: "Broker Commission" }, { name: "Sales Projection" }, { name: "Work In Process" },
+      { name: "Rental Details" }, { name: "Adjustment Details", slug: "adjustment-details" }, { name: "Invoices" },
+      { name: "Rental Event Tracking" }, { name: "Reservation Event Tracking" }, { name: "Tasks List", slug: "tasks" },
+      { name: "Commissions", slug: "commissions" }, { name: "Broker Commission" }, { name: "Sales Projection" }, { name: "Work In Process" },
       { name: "Revenue By Customer", slug: "revenue-by-customer" }, { name: "Revenue By Vehicle", slug: "revenue-by-vehicle" }, { name: "Revenue By Location", slug: "revenue-by-location" }, { name: "Revenue By Rate" },
       { name: "Revenue By Admin" }, { name: "Revenue By Company", slug: "revenue-by-company" }, { name: "Revenue By Options" }, { name: "Non-Revenue" },
     ],
@@ -27,7 +27,7 @@ export const REPORT_CATEGORIES: ReportCategory[] = [
       { name: "Vehicle Rental Calendar" }, { name: "Corporate A/R By Bills" }, { name: "Customer A/R Report" }, { name: "Reservation A/R by Bills" },
       { name: "Corporate A/R Analysis" }, { name: "Fleet Grid" }, { name: "Custom Reports" }, { name: "Reservation Forecast" }, { name: "Reservation Grid" },
       { name: "Reservations No Showup/Cancelled", slug: "no-show-cancelled" }, { name: "Reservations Calendar" }, { name: "Dynamic Scheduler" }, { name: "Visual Scheduler" },
-      { name: "Promo Code" }, { name: "Rental Days" }, { name: "Rental Discount" },
+      { name: "Promo Code" }, { name: "Rental Days", slug: "rental-days" }, { name: "Rental Discount", slug: "rental-discount" },
     ],
   },
   {
@@ -48,7 +48,7 @@ export const REPORT_CATEGORIES: ReportCategory[] = [
     icon: "customers",
     reports: [
       { name: "Customer List", slug: "customer-list" }, { name: "Customer By Region", slug: "customer-by-region" }, { name: "Traffic Tickets", slug: "traffic-tickets" }, { name: "Source Of Referral", slug: "source-of-referral" },
-      { name: "Payments & Charges", slug: "payments-and-charges" }, { name: "Customer Notes" }, { name: "Undesired Customers", slug: "undesired-customers" },
+      { name: "Payments & Charges", slug: "payments-and-charges" }, { name: "Customer Notes", slug: "customer-notes" }, { name: "Undesired Customers", slug: "undesired-customers" },
     ],
   },
 ];

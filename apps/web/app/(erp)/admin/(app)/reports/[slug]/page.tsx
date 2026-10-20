@@ -6,6 +6,7 @@ import { DailyBusinessReport, MonthToDateReport } from "../_components/revenue-r
 import { CustomerListReport, LicenseExpirationReport, MaintenanceAlertReport, TrafficTicketsReport, UndesiredCustomersReport, VehiclesSummaryReport } from "../_components/fleet-customer-reports";
 import { CustomerByRegionReport, NoShowCancelledReport, PaymentsAndChargesReport, SourceOfReferralReport, VehicleMaintenanceReport, VehicleRepairsReport } from "../_components/more-reports";
 import { RevenueByCompanyReport, RevenueByCustomerReport, RevenueByLocationReport, RevenueByVehicleReport } from "../_components/revenue-by";
+import { AdjustmentDetailsReport, CommissionsReport, CustomerNotesReport, RentalDaysReport, RentalDiscountReport, TasksReport } from "../_components/activity-reports";
 import { BUILT_REPORTS } from "../report-list";
 
 const SCREENS: Record<string, () => React.JSX.Element> = {
@@ -30,6 +31,12 @@ const SCREENS: Record<string, () => React.JSX.Element> = {
   "source-of-referral": SourceOfReferralReport,
   "customer-by-region": CustomerByRegionReport,
   "payments-and-charges": PaymentsAndChargesReport,
+  "adjustment-details": AdjustmentDetailsReport,
+  tasks: TasksReport,
+  commissions: CommissionsReport,
+  "rental-days": RentalDaysReport,
+  "rental-discount": RentalDiscountReport,
+  "customer-notes": CustomerNotesReport,
   "no-show-cancelled": NoShowCancelledReport,
 };
 

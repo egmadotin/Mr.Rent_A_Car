@@ -99,6 +99,13 @@ async function closeRental(
   });
 }
 
+/** "10%" / "$25.00" — the discount as the Rental Discount report shows it; null when there is none. */
+function discountText(type: string | null | undefined, value: Prisma.Decimal | number | null | undefined) {
+  const n = value == null ? 0 : Number(value);
+  if (!n) return null;
+  return type === "PERCENT" ? `${n}%` : `$${n.toFixed(2)}`;
+}
+
 async function loadRental(prisma: Prisma.TransactionClient, rentalId: string) {
   const r = await prisma.rental.findFirst({ where: { id: rentalId, deletedAt: null } });
   if (!r) throw new TRPCError({ code: "NOT_FOUND", message: "Rental not found" });
@@ -487,6 +494,7 @@ export const rentalRouter = router({
           if (input.payment)
             await tx.payment.create({ data: { ...input.payment, ...methodData(input.payment.method), amount: D(input.payment.amount), rentalId: rental.id, customerId, takenById: ctx.user.id } });
           await audit(tx, "Rental", rental.id, ctx.user.id, { RANumber: ["Start Rental", rental.raNumber] });
+          if (input.discountValue) await audit(tx, "Rental", rental.id, ctx.user.id, { Discount: [null, discountText(input.discountType, input.discountValue)] });
           return { rentalId: rental.id };
         }),
       ),
@@ -587,6 +595,8 @@ export const rentalRouter = router({
               openedById: input.openedById,
             },
           });
+          // the Rental Discount report reads these rows
+          await audit(tx, "Rental", r.id, ctx.user.id, { Discount: [discountText(r.discountType, r.discountValue), discountText(input.discountType, input.discountValue)] });
           // re-priced lines replace the old ones; lines entered elsewhere on the rental stay
           await tx.chargeLine.deleteMany({
             where: { rentalId: r.id, kind: { in: [...REPRICED_KINDS] }, NOT: { name: { startsWith: "Adjustment — " } } },

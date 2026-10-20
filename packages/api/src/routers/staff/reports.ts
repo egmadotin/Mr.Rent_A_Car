@@ -742,6 +742,210 @@ export const reportsRouter = router({
       });
     }),
 
+  /** Tasks (ReportsTasks): tasks dated in the range, with who entered them and who they were sent to. */
+  tasks: staffProcedure
+    .input(z.object({ from: optDate, to: optDate, subject: z.string().trim().optional(), description: z.string().trim().optional() }))
+    .query(async ({ ctx, input }) => {
+      const ts = await ctx.prisma.task.findMany({
+        where: {
+          ...(range(input.from, input.to) ? { date: range(input.from, input.to) } : {}),
+          ...(input.subject ? { subject: { contains: input.subject, mode: "insensitive" } } : {}),
+          ...(input.description ? { description: { contains: input.description, mode: "insensitive" } } : {}),
+        },
+        orderBy: { date: "asc" },
+        take: 3000,
+        select: { id: true, date: true, subject: true, status: true, priority: true, enteredById: true, updatedAt: true, assignees: { select: { userId: true } } },
+      });
+      const ids = [...new Set(ts.flatMap((t) => [t.enteredById, ...t.assignees.map((a) => a.userId)]).filter((x): x is string => !!x))];
+      const users = new Map((await ctx.prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } })).map((u) => [u.id, u.name]));
+      return ts.map((t) => ({
+        id: t.id, dateEntered: t.date, dateClosed: t.status === "CLOSED" ? t.updatedAt : null, enteredBy: (t.enteredById && users.get(t.enteredById)) ?? "",
+        sentTo: t.assignees.map((a) => users.get(a.userId) ?? "").filter(Boolean).join(", "), status: t.status, priority: t.priority, subject: t.subject,
+      }));
+    }),
+
+  /**
+   * Consolidated Commission Report (ReportsCommissionsLog): rentals with commissions entered in the range. A commission
+   * counts as Res. / Open / Close when its agent made the reservation / opened / closed the rental, otherwise Walk In.
+   */
+  commissions: staffProcedure
+    .input(z.object({ from: optDate, to: optDate, locationId: optId, agentId: optId }))
+    .query(async ({ ctx, input }) => {
+      const rentals = await ctx.prisma.rental.findMany({
+        where: {
+          deletedAt: null,
+          ...(input.locationId ? { checkOutLocationId: input.locationId } : {}),
+          commissions: { some: { ...(range(input.from, input.to) ? { enteredAt: range(input.from, input.to) } : {}), ...(input.agentId ? { userId: input.agentId } : {}) } },
+        },
+        orderBy: { raNumber: "asc" },
+        take: 3000,
+        select: {
+          id: true, raNumber: true, checkOutAt: true, checkedInAt: true, expectedReturnAt: true, openedById: true, closedById: true,
+          reservation: { select: { number: true, createdById: true } },
+          vehicle: { select: { assignedId: true } },
+          chargeLines: { select: { kind: true, name: true, units: true, total: true } },
+          commissions: { where: { ...(range(input.from, input.to) ? { enteredAt: range(input.from, input.to) } : {}), ...(input.agentId ? { userId: input.agentId } : {}) }, select: { amount: true, userId: true } },
+        },
+      });
+      const rows = rentals.map((r) => {
+        const by = (...k: string[]) => round(r.chargeLines.filter((l) => k.includes(l.kind)).reduce((a, l) => a + num(l.total), 0));
+        const comm = { res: 0, open: 0, close: 0, walkIn: 0 };
+        for (const c of r.commissions) {
+          const k = c.userId && c.userId === r.reservation?.createdById ? "res" : c.userId && c.userId === r.openedById ? "open" : c.userId && c.userId === r.closedById ? "close" : "walkIn";
+          comm[k] = round(comm[k] + num(c.amount));
+        }
+        return {
+          id: r.id, raNumber: r.raNumber, reservationNumber: r.reservation?.number ?? null, pickup: r.checkOutAt, return: r.checkedInAt ?? r.expectedReturnAt,
+          days: rentalDays(r.chargeLines), vehicle: r.vehicle.assignedId, tm: by("TIME", "MILEAGE"), total: round(r.chargeLines.reduce((a, l) => a + num(l.total), 0)), discount: by("DISCOUNT"),
+          ...comm, totalComm: round(comm.res + comm.open + comm.close + comm.walkIn),
+        };
+      });
+      const sum = (k: "tm" | "total" | "discount" | "res" | "open" | "close" | "walkIn" | "totalComm") => round(rows.reduce((a, r) => a + r[k], 0));
+      return { rows, totals: { tm: sum("tm"), total: sum("total"), discount: sum("discount"), res: sum("res"), open: sum("open"), close: sum("close"), walkIn: sum("walkIn"), totalComm: sum("totalComm") } };
+    }),
+
+  /**
+   * Adjustment Details (ReportsAdjustmentDetailsReport): rentals with adjustments. Adjust Paid is what was paid beyond
+   * the rental's other charges (payments go to the original charges first).
+   */
+  adjustmentDetails: staffProcedure
+    .input(z.object({ dateInFrom: optDate, dateInTo: optDate, adjustmentFrom: optDate, adjustmentTo: optDate, paymentFrom: optDate, paymentTo: optDate, locationOutId: optId, locationInId: optId }))
+    .query(async ({ ctx, input }) => {
+      const rentals = await ctx.prisma.rental.findMany({
+        where: {
+          deletedAt: null,
+          adjustments: { some: range(input.adjustmentFrom, input.adjustmentTo) ? { enteredAt: range(input.adjustmentFrom, input.adjustmentTo) } : {} },
+          ...(range(input.dateInFrom, input.dateInTo) ? { checkedInAt: range(input.dateInFrom, input.dateInTo) } : {}),
+          ...(range(input.paymentFrom, input.paymentTo) ? { payments: { some: { takenAt: range(input.paymentFrom, input.paymentTo) } } } : {}),
+          ...(input.locationOutId ? { checkOutLocationId: input.locationOutId } : {}),
+          ...(input.locationInId ? { checkInLocationId: input.locationInId } : {}),
+        },
+        orderBy: { raNumber: "asc" },
+        take: 3000,
+        select: {
+          id: true, raNumber: true, status: true, checkOutAt: true, checkedInAt: true, expectedReturnAt: true,
+          customer: { select: { firstName: true, lastName: true } }, company: { select: { name: true } }, reservation: { select: { number: true } },
+          vehicle: { select: { assignedId: true } }, openedBy: { select: { name: true } }, closedBy: { select: { name: true } },
+          chargeLines: { select: { total: true } }, payments: { select: { amount: true, transactionType: true } }, adjustments: { select: { amount: true } },
+        },
+      });
+      const rows = rentals.map((r) => {
+        const adjust = round(r.adjustments.reduce((a, x) => a + num(x.amount), 0));
+        const total = r.chargeLines.reduce((a, l) => a + num(l.total), 0);
+        const paid = r.payments.reduce((a, p) => a + (p.transactionType === "PAYMENT" ? num(p.amount) : p.transactionType === "REFUND" ? -num(p.amount) : 0), 0);
+        const adjustPaid = round(Math.min(Math.max(adjust, 0), Math.max(0, paid - (total - adjust))));
+        return {
+          id: r.id, raNumber: r.raNumber, fullName: `${r.customer.firstName} ${r.customer.lastName}`, reservationNumber: r.reservation?.number ?? null, vehicle: r.vehicle.assignedId,
+          pickup: r.checkOutAt, return: r.checkedInAt ?? r.expectedReturnAt, status: r.status, openedBy: r.openedBy?.name ?? "", closedBy: r.closedBy?.name ?? "", closeDate: r.checkedInAt,
+          company: r.company?.name ?? "", adjustTotal: adjust, adjustPaid, adjustBalance: round(adjust - adjustPaid),
+        };
+      });
+      const sum = (k: "adjustTotal" | "adjustPaid" | "adjustBalance") => round(rows.reduce((a, r) => a + r[k], 0));
+      return { rows, totals: { adjustTotal: sum("adjustTotal"), adjustPaid: sum("adjustPaid"), adjustBalance: sum("adjustBalance") } };
+    }),
+
+  /** Rental Days Report (ReportsRentalDays): hours / days / weeks / months charged per rental and their rates. */
+  rentalDays: staffProcedure
+    .input(z.object({ from: optDate, to: optDate, dateInFrom: optDate, dateInTo: optDate, locationOutId: optId, locationInId: optId, status: z.enum(["ALL", "OPEN", "CLOSED"]).default("ALL") }))
+    .query(async ({ ctx, input }) => {
+      const rentals = await ctx.prisma.rental.findMany({
+        where: {
+          deletedAt: null,
+          ...(input.status !== "ALL" ? { status: input.status } : {}),
+          ...(range(input.from, input.to) ? { checkOutAt: range(input.from, input.to) } : {}),
+          ...(range(input.dateInFrom, input.dateInTo) ? { OR: [{ checkedInAt: range(input.dateInFrom, input.dateInTo) }, { checkedInAt: null, expectedReturnAt: range(input.dateInFrom, input.dateInTo) }] } : {}),
+          ...(input.locationOutId ? { checkOutLocationId: input.locationOutId } : {}),
+          ...(input.locationInId ? { checkInLocationId: input.locationInId } : {}),
+        },
+        orderBy: { raNumber: "asc" },
+        take: 3000,
+        select: {
+          id: true, raNumber: true, checkOutAt: true, checkedInAt: true, expectedReturnAt: true,
+          customer: { select: { firstName: true, lastName: true } }, vehicle: { select: { assignedId: true } }, vehicleType: { select: { name: true } }, checkOutLocation: { select: { name: true } },
+          chargeLines: { where: { kind: "TIME" }, select: { name: true, units: true, rate: true, total: true } },
+        },
+      });
+      const rows = rentals.map((r) => {
+        const part = (re: RegExp) => {
+          const ls = r.chargeLines.filter((l) => re.test(l.name));
+          return { units: round(ls.reduce((a, l) => a + num(l.units), 0)), rate: ls.length ? num(ls[0]!.rate) : 0 };
+        };
+        const h = part(/hour/i), d = part(/dai|day/i), w = part(/week/i), m = part(/month/i);
+        return {
+          id: r.id, raNumber: r.raNumber, fullName: `${r.customer.firstName} ${r.customer.lastName}`, vehicle: r.vehicle.assignedId, vehicleType: r.vehicleType.name, locationOut: r.checkOutLocation.name,
+          dateOut: r.checkOutAt, dateIn: r.checkedInAt ?? r.expectedReturnAt, hours: h.units, hourlyRate: h.rate, daily: d.units, dailyRate: d.rate, weekly: w.units, weeklyRate: w.rate,
+          monthly: m.units, monthlyRate: m.rate, total: round(r.chargeLines.reduce((a, l) => a + num(l.total), 0)),
+        };
+      });
+      const sum = (k: "hours" | "daily" | "weekly" | "monthly" | "total") => round(rows.reduce((a, r) => a + r[k], 0));
+      return { rows, totals: { hours: sum("hours"), daily: sum("daily"), weekly: sum("weekly"), monthly: sum("monthly"), total: sum("total") } };
+    }),
+
+  /** Rental Discount (ReportsRentalDiscount): discounts added, changed or removed on rentals (from the rental's change log). */
+  rentalDiscount: staffProcedure
+    .input(z.object({ from: optDate, to: optDate, locationOutId: optId, locationInId: optId, status: z.enum(["ALL", "OPEN", "CLOSED"]).default("ALL") }))
+    .query(async ({ ctx, input }) => {
+      const logs = await ctx.prisma.auditLog.findMany({
+        where: { entityType: "Rental", field: "Discount", ...(range(input.from, input.to) ? { at: range(input.from, input.to) } : {}) },
+        orderBy: { at: "asc" },
+        take: 5000,
+        select: { id: true, entityId: true, oldValue: true, newValue: true, at: true, user: { select: { name: true } } },
+      });
+      const rentals = new Map(
+        (
+          await ctx.prisma.rental.findMany({
+            where: {
+              id: { in: [...new Set(logs.map((l) => l.entityId))] },
+              deletedAt: null,
+              ...(input.status !== "ALL" ? { status: input.status } : {}),
+              ...(input.locationOutId ? { checkOutLocationId: input.locationOutId } : {}),
+              ...(input.locationInId ? { checkInLocationId: input.locationInId } : {}),
+            },
+            select: { id: true, raNumber: true, customer: { select: { firstName: true, lastName: true } } },
+          })
+        ).map((r) => [r.id, r]),
+      );
+      return logs.flatMap((l) => {
+        const r = rentals.get(l.entityId);
+        if (!r) return [];
+        const action = !l.oldValue ? "Added" : !l.newValue ? "Removed" : "Changed";
+        return [{ id: l.id, rentalId: r.id, raNumber: r.raNumber, customer: `${r.customer.firstName} ${r.customer.lastName}`, action, oldValue: l.oldValue ?? "", newValue: l.newValue ?? "", date: l.at, admin: l.user?.name ?? "" }];
+      });
+    }),
+
+  /** Customer Notes (ReportsCustomerNotes): the customer's notes (memos), grouped by customer. */
+  customerNotes: staffProcedure
+    .input(z.object({ customerId: z.coerce.number().int().optional(), firstName: z.string().trim().optional(), lastName: z.string().trim().optional(), city: z.string().trim().optional(), address: z.string().trim().optional(), phone: z.string().trim().optional(), keyword: z.string().trim().optional(), locationId: optId }))
+    .query(async ({ ctx, input }) => {
+      const has = (v?: string) => (v ? { contains: v, mode: "insensitive" as const } : undefined);
+      const memos = await ctx.prisma.memo.findMany({
+        where: {
+          customerId: { not: null },
+          ...(input.keyword ? { body: has(input.keyword) } : {}),
+          customer: {
+            ...(input.customerId ? { legacyId: input.customerId } : {}),
+            ...(input.firstName ? { firstName: has(input.firstName) } : {}),
+            ...(input.lastName ? { lastName: has(input.lastName) } : {}),
+            ...(input.city ? { city: has(input.city) } : {}),
+            ...(input.address ? { address1: has(input.address) } : {}),
+            ...(input.phone ? { phone: has(input.phone) } : {}),
+            ...(input.locationId ? { OR: [{ enteredLocationId: input.locationId }, { defaultLocationId: input.locationId }] } : {}),
+          },
+        },
+        orderBy: [{ customer: { lastName: "asc" } }, { createdAt: "asc" }],
+        take: 5000,
+        select: { id: true, body: true, createdAt: true, author: { select: { name: true } }, customer: { select: { id: true, legacyId: true, firstName: true, lastName: true, phone: true } } },
+      });
+      const m = new Map<string, { customerId: string; legacyId: number | null; name: string; phone: string; notes: { id: string; date: Date; by: string; note: string }[] }>();
+      for (const x of memos) {
+        const c = x.customer!;
+        const g = m.get(c.id) ?? { customerId: c.id, legacyId: c.legacyId, name: `${c.firstName} ${c.lastName}`, phone: c.phone ?? "", notes: [] };
+        g.notes.push({ id: x.id, date: x.createdAt, by: x.author?.name ?? "", note: x.body });
+        m.set(c.id, g);
+      }
+      return { groups: [...m.values()], count: memos.length };
+    }),
+
   /** Pick-lists for the report filters. */
   filters: staffProcedure.query(async ({ ctx }) => {
     const [locations, makes, types] = await Promise.all([
@@ -754,6 +958,7 @@ export const reportsRouter = router({
       ctx.prisma.referral.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
       ctx.prisma.lookup.findMany({ where: { kind: "CUSTOMER_REGION" }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
     ]);
-    return { locations, makes, types, referrals, regions, companies: companies.map((c) => ({ id: c.id, name: c.code ? `${c.name} (${c.code})` : c.name })) };
+    const agents = await ctx.prisma.user.findMany({ where: { OR: [{ banned: null }, { banned: false }] }, orderBy: { name: "asc" }, select: { id: true, name: true } });
+    return { locations, makes, types, referrals, regions, agents, companies: companies.map((c) => ({ id: c.id, name: c.code ? `${c.name} (${c.code})` : c.name })) };
   }),
 });
