@@ -3,6 +3,7 @@ import { PageHeader } from "../../../../_components/page-header";
 import { requireStaff } from "../../../../_lib/session";
 import { DailyCashReport, RentalStatusReport, ReservationManifestReport, VehicleDueInReport } from "../_components/list-reports";
 import { DailyBusinessReport, MonthToDateReport } from "../_components/revenue-reports";
+import { CustomerListReport, LicenseExpirationReport, MaintenanceAlertReport, TrafficTicketsReport, UndesiredCustomersReport, VehiclesSummaryReport } from "../_components/fleet-customer-reports";
 import { RevenueByCompanyReport, RevenueByCustomerReport, RevenueByLocationReport, RevenueByVehicleReport } from "../_components/revenue-by";
 import { BUILT_REPORTS } from "../report-list";
 
@@ -17,6 +18,12 @@ const SCREENS: Record<string, () => React.JSX.Element> = {
   "revenue-by-vehicle": RevenueByVehicleReport,
   "revenue-by-location": RevenueByLocationReport,
   "revenue-by-company": RevenueByCompanyReport,
+  "vehicles-summary": VehiclesSummaryReport,
+  "license-expiration": LicenseExpirationReport,
+  "maintenance-alert": MaintenanceAlertReport,
+  "customer-list": () => <CustomerListReport />,
+  "undesired-customers": UndesiredCustomersReport,
+  "traffic-tickets": TrafficTicketsReport,
 };
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {

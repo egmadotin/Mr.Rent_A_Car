@@ -36,9 +36,9 @@ export const REPORT_CATEGORIES: ReportCategory[] = [
     icon: "truck",
     reports: [
       { name: "Vehicle Due In", slug: "vehicle-due-in" },
-      { name: "Vehicles Summary" }, { name: "Vehicles Summary with QR Code" }, { name: "Vehicle Utilization (Today)" }, { name: "Fleet Utilization History" },
-      { name: "Fleet Utilization For Cast" }, { name: "Vehicle License Expiration" }, { name: "Vehicle Profit/Loss" }, { name: "Repair Orders" },
-      { name: "Vehicle Repairs" }, { name: "Vehicle Lease/Loan" }, { name: "Vehicle Maintenance" }, { name: "Maintenance Alert" },
+      { name: "Vehicles Summary", slug: "vehicles-summary" }, { name: "Vehicles Summary with QR Code" }, { name: "Vehicle Utilization (Today)" }, { name: "Fleet Utilization History" },
+      { name: "Fleet Utilization For Cast" }, { name: "Vehicle License Expiration", slug: "license-expiration" }, { name: "Vehicle Profit/Loss" }, { name: "Repair Orders" },
+      { name: "Vehicle Repairs" }, { name: "Vehicle Lease/Loan" }, { name: "Vehicle Maintenance" }, { name: "Maintenance Alert", slug: "maintenance-alert" },
       { name: "Snap Shot For Rentals / Vehicle Type" }, { name: "Vehicle Insurance" }, { name: "KM Difference/Missing" }, { name: "Fleet Utilization Snapshot" }, { name: "Checklist Overview" },
     ],
   },
@@ -47,8 +47,8 @@ export const REPORT_CATEGORIES: ReportCategory[] = [
     desc: "Customer lists, referrals, tickets and payments",
     icon: "customers",
     reports: [
-      { name: "Customer List" }, { name: "Customer By Region" }, { name: "Traffic Tickets" }, { name: "Source Of Referral" },
-      { name: "Payments & Charges" }, { name: "Customer Notes" }, { name: "Undesired Customers" },
+      { name: "Customer List", slug: "customer-list" }, { name: "Customer By Region" }, { name: "Traffic Tickets", slug: "traffic-tickets" }, { name: "Source Of Referral" },
+      { name: "Payments & Charges" }, { name: "Customer Notes" }, { name: "Undesired Customers", slug: "undesired-customers" },
     ],
   },
 ];

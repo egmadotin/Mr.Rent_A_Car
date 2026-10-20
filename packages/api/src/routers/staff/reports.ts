@@ -458,6 +458,133 @@ export const reportsRouter = router({
       return { rows, total: round(rows.reduce((a, r) => a + r.total, 0)), commission: round(rows.reduce((a, r) => a + r.commission, 0)) };
     }),
 
+  /** Vehicles Summary (ReportsVehicleList): vehicles by make / model / ID / year / status / owning location / type, grouped. */
+  vehiclesSummary: staffProcedure
+    .input(z.object({ makeId: optId, assignedId: z.string().trim().optional(), year: z.coerce.number().int().optional(), status: optId, owningLocationId: optId, vehicleTypeId: optId, groupBy: z.enum(["NONE", "MAKE", "MODEL", "YEAR", "STATUS", "TYPE", "LOCATION"]).default("LOCATION") }))
+    .query(async ({ ctx, input }) => {
+      const vs = await ctx.prisma.vehicle.findMany({
+        where: {
+          isActive: true,
+          ...(input.makeId ? { makeId: input.makeId } : {}),
+          ...(input.assignedId ? { assignedId: { contains: input.assignedId, mode: "insensitive" } } : {}),
+          ...(input.year ? { year: input.year } : {}),
+          ...(input.status ? { status: input.status as never } : {}),
+          ...(input.owningLocationId ? { owningLocationId: input.owningLocationId } : {}),
+          ...(input.vehicleTypeId ? { vehicleTypeId: input.vehicleTypeId } : {}),
+        },
+        orderBy: { assignedId: "asc" },
+        select: { id: true, assignedId: true, year: true, currentOdometer: true, fuelLevel: true, tankSize: true, vin: true, licenseNumber: true, status: true, make: { select: { name: true } }, model: { select: { name: true } }, vehicleType: { select: { name: true } }, owningLocation: { select: { name: true } }, currentLocation: { select: { name: true } }, rentalLocation: { select: { name: true } } },
+      });
+      const rows = vs.map((v) => ({ id: v.id, vehicleId: v.assignedId, currentLocation: (v.currentLocation ?? v.rentalLocation).name, type: v.vehicleType.name, year: v.year, odometer: v.currentOdometer, fuel: v.fuelLevel, tankSize: v.tankSize, make: v.make.name, model: v.model.name, vin: v.vin ?? "", plate: v.licenseNumber, status: v.status, owning: v.owningLocation.name }));
+      const key = (r: (typeof rows)[number]) => ({ NONE: "", MAKE: r.make, MODEL: `${r.make} ${r.model}`, YEAR: String(r.year ?? ""), STATUS: r.status, TYPE: r.type, LOCATION: r.owning })[input.groupBy];
+      const m = new Map<string, typeof rows>();
+      for (const r of rows) m.set(key(r), [...(m.get(key(r)) ?? []), r]);
+      return { groups: [...m.entries()].map(([name, rows]) => ({ name, rows })), count: rows.length };
+    }),
+
+  /** Vehicle License Expiration (ReportsVehicleLicenseExpiration). */
+  licenseExpiration: staffProcedure
+    .input(z.object({ makeId: optId, assignedId: z.string().trim().optional(), from: optDate, to: optDate, year: z.coerce.number().int().optional(), owningLocationId: optId, vehicleTypeId: optId, licenseProvince: z.string().trim().optional() }))
+    .query(({ ctx, input }) =>
+      ctx.prisma.vehicle
+        .findMany({
+          where: {
+            isActive: true,
+            licenseExpiry: range(input.from, input.to) ?? { not: null },
+            ...(input.makeId ? { makeId: input.makeId } : {}),
+            ...(input.assignedId ? { assignedId: { contains: input.assignedId, mode: "insensitive" } } : {}),
+            ...(input.year ? { year: input.year } : {}),
+            ...(input.owningLocationId ? { owningLocationId: input.owningLocationId } : {}),
+            ...(input.vehicleTypeId ? { vehicleTypeId: input.vehicleTypeId } : {}),
+            ...(input.licenseProvince ? { licenseProvince: input.licenseProvince } : {}),
+          },
+          orderBy: { licenseExpiry: "asc" },
+          select: { id: true, assignedId: true, licenseNumber: true, licenseExpiry: true, licenseProvince: true, make: { select: { name: true } }, model: { select: { name: true } }, vehicleType: { select: { name: true } } },
+        })
+        .then((vs) => vs.map((v) => ({ id: v.id, vehicleId: v.assignedId, make: v.make.name, model: v.model.name, type: v.vehicleType.name, plate: v.licenseNumber, state: v.licenseProvince ?? "", expires: v.licenseExpiry }))),
+    ),
+
+  /** Maintenance Alert (ReportsVehicleMaintanaceAlert): last service, interval, next service and km to go per vehicle. */
+  maintenanceAlert: staffProcedure
+    .input(z.object({ assignedId: z.string().trim().optional(), makeId: optId, year: z.coerce.number().int().optional(), owningLocationId: optId, vehicleTypeId: optId, status: optId }))
+    .query(async ({ ctx, input }) => {
+      const vs = await ctx.prisma.vehicle.findMany({
+        where: {
+          isActive: true,
+          ...(input.assignedId ? { assignedId: { contains: input.assignedId, mode: "insensitive" } } : {}),
+          ...(input.makeId ? { makeId: input.makeId } : {}),
+          ...(input.year ? { year: input.year } : {}),
+          ...(input.owningLocationId ? { owningLocationId: input.owningLocationId } : {}),
+          ...(input.vehicleTypeId ? { vehicleTypeId: input.vehicleTypeId } : {}),
+          ...(input.status ? { status: input.status as never } : {}),
+        },
+        orderBy: { assignedId: "asc" },
+        select: {
+          id: true, assignedId: true, licenseNumber: true, status: true, currentOdometer: true, maintenanceBeginOdometer: true, maintenanceEveryKm: true,
+          make: { select: { name: true } }, model: { select: { name: true } }, vehicleType: { select: { name: true } }, currentLocation: { select: { name: true } }, rentalLocation: { select: { name: true } },
+          maintenances: { orderBy: { date: "desc" }, take: 1, select: { date: true, odometer: true, nextDate: true, nextOdometer: true } },
+        },
+      });
+      return vs.map((v) => {
+        const last = v.maintenances[0];
+        const lastKm = last?.odometer ?? v.maintenanceBeginOdometer ?? 0;
+        const nextKm = last?.nextOdometer ?? (v.maintenanceEveryKm ? lastKm + v.maintenanceEveryKm : null);
+        return {
+          id: v.id, vehicleId: v.assignedId, plate: v.licenseNumber, currentLocation: (v.currentLocation ?? v.rentalLocation).name, status: v.status,
+          model: `${v.make.name} ${v.model.name}`, type: v.vehicleType.name, odometer: v.currentOdometer, lastService: last?.date ?? null,
+          interval: v.maintenanceEveryKm, nextServiceDate: last?.nextDate ?? null, kmToNext: nextKm != null && v.currentOdometer != null ? nextKm - v.currentOdometer : null,
+        };
+      });
+    }),
+
+  /** Customer List (ReportsCustomerList). */
+  customerList: staffProcedure
+    .input(z.object({ firstName: z.string().trim().optional(), lastName: z.string().trim().optional(), city: z.string().trim().optional(), address: z.string().trim().optional(), phone: z.string().trim().optional(), postal: z.string().trim().optional(), locationId: optId, active: z.enum(["ALL", "ACTIVE", "INACTIVE"]).default("ALL"), undesiredOnly: z.boolean().default(false) }))
+    .query(({ ctx, input }) => {
+      const has = (v?: string) => (v ? { contains: v, mode: "insensitive" as const } : undefined);
+      return ctx.prisma.customer
+        .findMany({
+          where: {
+            ...(input.firstName ? { firstName: has(input.firstName) } : {}),
+            ...(input.lastName ? { lastName: has(input.lastName) } : {}),
+            ...(input.city ? { city: has(input.city) } : {}),
+            ...(input.address ? { address1: has(input.address) } : {}),
+            ...(input.phone ? { phone: has(input.phone) } : {}),
+            ...(input.postal ? { postal: has(input.postal) } : {}),
+            ...(input.locationId ? { OR: [{ enteredLocationId: input.locationId }, { defaultLocationId: input.locationId }] } : {}),
+            ...(input.active !== "ALL" ? { isActive: input.active === "ACTIVE" } : {}),
+            ...(input.undesiredOnly ? { isUndesired: true } : {}),
+          },
+          orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+          take: 5000,
+          select: { id: true, legacyId: true, firstName: true, lastName: true, isActive: true, address1: true, city: true, phone: true, licenseNumber: true, country: true, email: true, unsubscribedFromMarketing: true, createdAt: true, postal: true, company: { select: { name: true } }, enteredLocation: { select: { name: true } } },
+        })
+        .then((cs) => cs.map((c) => ({ ...c, customerId: c.legacyId ?? null, company: c.company?.name ?? "", location: c.enteredLocation?.name ?? "" })));
+    }),
+
+  /** Traffic Tickets (ReportsTrafficTickets). */
+  trafficTickets: staffProcedure
+    .input(z.object({ from: optDate, to: optDate, firstName: z.string().trim().optional(), lastName: z.string().trim().optional(), city: z.string().trim().optional(), amount: z.coerce.number().optional(), locationId: optId }))
+    .query(({ ctx, input }) =>
+      ctx.prisma.trafficTicket
+        .findMany({
+          where: {
+            ...(range(input.from, input.to) ? { ticketDate: range(input.from, input.to) } : {}),
+            ...(input.city ? { city: { contains: input.city, mode: "insensitive" } } : {}),
+            ...(input.amount != null && !Number.isNaN(input.amount) ? { amount: input.amount } : {}),
+            rental: {
+              deletedAt: null,
+              ...(input.locationId ? { checkOutLocationId: input.locationId } : {}),
+              ...(input.firstName || input.lastName ? { customer: { ...(input.firstName ? { firstName: { contains: input.firstName, mode: "insensitive" } } : {}), ...(input.lastName ? { lastName: { contains: input.lastName, mode: "insensitive" } } : {}) } } : {}),
+            },
+          },
+          orderBy: { ticketDate: "desc" },
+          take: 3000,
+          select: { id: true, ticketDate: true, offense: true, amount: true, location: true, city: true, isPaid: true, rental: { select: { id: true, raNumber: true, customer: { select: { firstName: true, lastName: true } } } } },
+        })
+        .then((ts) => ts.map((t) => ({ id: t.id, rentalId: t.rental.id, raNumber: t.rental.raNumber, firstName: t.rental.customer.firstName, lastName: t.rental.customer.lastName, date: t.ticketDate, description: t.offense, amount: num(t.amount), location: [t.location, t.city].filter(Boolean).join(", "), isPaid: t.isPaid }))),
+    ),
+
   /** Pick-lists for the report filters. */
   filters: staffProcedure.query(async ({ ctx }) => {
     const [locations, makes, types] = await Promise.all([
