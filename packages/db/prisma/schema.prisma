@@ -1699,20 +1699,23 @@ model DocumentTemplate {
 
 /// Settings > Website & Email Setup > Email Setup: the SMTP account outgoing email is sent from. One row.
 model EmailSettings {
-  id          String   @id @default("default")
-  isActive    Boolean  @default(false)
-  host        String?
-  port        Int      @default(587)
+  id                String   @id @default("default")
+  isActive          Boolean  @default(false)
+  host              String?
+  port              Int      @default(587)
   /// true = TLS from the start (port 465); false = STARTTLS when offered (587)
-  secure      Boolean  @default(false)
-  username    String?
-  passwordEnc String?
-  fromName    String?  @default("Mr Rent A Car")
-  fromEmail   String?
+  secure            Boolean  @default(false)
+  username          String?
+  passwordEnc       String?
+  fromName          String?  @default("Mr Rent A Car")
+  fromEmail         String?
   /// copy every email sent to this address (optional)
-  bccEmail    String?
-  updatedAt   DateTime @updatedAt
-  updatedById String?
+  bccEmail          String?
+  updatedAt         DateTime @updatedAt
+  updatedById       String?
+  /// Settings > Inspection Email (InspectionCustomerEmail.aspx): the email that sends a customer their inspection photos
+  inspectionSubject String   @default("Inspection Info")
+  inspectionBody    String   @default("")
 }
 
 /// Every email the system sends (agreements, invoices, confirmations, quotes), for the record.

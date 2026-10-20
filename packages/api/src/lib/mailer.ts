@@ -24,7 +24,10 @@ export async function mailTransport(db: Db) {
  */
 export async function sendMail(
   db: Db,
-  msg: { to: string; subject: string; html: string; entityType?: string; entityId?: string; templateName?: string | null; sentById?: string | null },
+  msg: {
+    to: string; subject: string; html: string; entityType?: string; entityId?: string; templateName?: string | null; sentById?: string | null;
+    attachments?: { filename: string; content: Buffer; contentType: string }[];
+  },
 ) {
   const log = (status: "SENT" | "FAILED", error?: string) =>
     db.emailLog.create({
@@ -36,7 +39,7 @@ export async function sendMail(
     throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Email isn't set up yet — an admin can add the SMTP account in Settings > Email Setup." });
   }
   try {
-    await m.transport.sendMail({ from: m.from, to: msg.to, bcc: m.bcc, subject: msg.subject, html: msg.html });
+    await m.transport.sendMail({ from: m.from, to: msg.to, bcc: m.bcc, subject: msg.subject, html: msg.html, attachments: msg.attachments });
     await log("SENT");
   } catch (e) {
     await log("FAILED", (e as Error).message);

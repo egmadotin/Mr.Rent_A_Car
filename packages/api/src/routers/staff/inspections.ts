@@ -3,7 +3,8 @@ import { TRPCError } from "@trpc/server";
 import type { Prisma } from "@mrac/db";
 import { router, staffProcedure, permitted, requirePermission } from "../../trpc";
 import { audit } from "../../lib/audit";
-import { deleteFile, isStorageKey } from "../../lib/storage";
+import { deleteFile, getFile, isStorageKey } from "../../lib/storage";
+import { sendMail } from "../../lib/mailer";
 
 /**
  * Vehicle Inspection (VehicleInspection.aspx), Reservation Inspection (ReservationInspection.aspx), Inspection Comparison
@@ -34,8 +35,8 @@ async function checkBooking(tx: Prisma.TransactionClient, vehicleId: string, ren
 
 const inspectionInclude = {
   images: { select: imageSelect, orderBy: { uploadedAt: "asc" } },
-  rental: { select: { id: true, raNumber: true, customer: { select: { firstName: true, lastName: true } } } },
-  reservation: { select: { id: true, number: true, firstName: true, lastName: true } },
+  rental: { select: { id: true, raNumber: true, customer: { select: { firstName: true, lastName: true, email: true } } } },
+  reservation: { select: { id: true, number: true, firstName: true, lastName: true, email: true } },
   vehicle: { select: { id: true, assignedId: true, year: true, make: { select: { name: true } }, model: { select: { name: true } } } },
 } satisfies Prisma.VehicleInspectionInclude;
 
@@ -142,6 +143,44 @@ export const inspectionsRouter = router({
       }),
     ]);
     return { rentals, reservations };
+  }),
+
+  // ── Settings > Inspection Email (InspectionCustomerEmail.aspx: Subject + the email body) ──
+
+  inspectionEmailGet: staffProcedure.query(async ({ ctx }) => {
+    const s = await ctx.prisma.emailSettings.findUnique({ where: { id: "default" }, select: { inspectionSubject: true, inspectionBody: true } });
+    return { subject: s?.inspectionSubject ?? "Inspection Info", body: s?.inspectionBody ?? "" };
+  }),
+
+  /** The body is HTML sent as-is, so the same permission as editing templates. */
+  inspectionEmailSave: permitted("AgreementFormsEdit")
+    .input(z.object({ subject: z.string().trim().min(1, "Subject is required").max(200), body: z.string().max(100_000) }))
+    .mutation(async ({ ctx, input }) => {
+      const data = { inspectionSubject: input.subject, inspectionBody: input.body };
+      await ctx.prisma.emailSettings.upsert({ where: { id: "default" }, update: data, create: { id: "default", ...data } });
+      await audit(ctx.prisma, "EmailSettings", "default", ctx.user.id, { InspectionEmail: [null, "saved"] });
+    }),
+
+  /** Email an inspection to the customer: the Inspection Email text, the inspection's details and its photos attached. */
+  email: staffProcedure.input(z.object({ id: z.string(), to: z.string().trim().email("Enter a valid email") })).mutation(async ({ ctx, input }) => {
+    const i = await ctx.prisma.vehicleInspection.findUniqueOrThrow({ where: { id: input.id }, include: inspectionInclude });
+    const s = await ctx.prisma.emailSettings.findUnique({ where: { id: "default" }, select: { inspectionSubject: true, inspectionBody: true } });
+    const esc = (x: string) => x.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const v = i.vehicle;
+    const details = [
+      ["Vehicle", `${v.assignedId} ${v.year ?? ""} ${v.make.name} ${v.model.name}`],
+      ["Inspection", { PICKUP: "Pickup", RETURN: "Return", OTHER: "Other" }[i.kind]],
+      ["Date", i.at.toLocaleString("en-CA", { timeZone: "America/Vancouver" })],
+      ...(i.rental ? [["Rental #", String(i.rental.raNumber)]] : []),
+      ...(i.reservation ? [["Reservation #", String(i.reservation.number)]] : []),
+      ...(i.memo ? [["Memo", i.memo]] : []),
+    ];
+    const files = (await Promise.all(i.images.map(async (img) => ({ img, f: await getFile(img.s3Key) })))).filter((x) => x.f);
+    const html = `${s?.inspectionBody ?? ""}<table style="border-collapse:collapse;margin-top:8px">${details.map(([k, val]) => `<tr><td style="padding:2px 8px 2px 0;font-weight:bold">${esc(k!)}</td><td>${esc(val!)}</td></tr>`).join("")}</table><p>${files.length} photo(s) attached.</p>`;
+    await sendMail(ctx.prisma, {
+      to: input.to, subject: s?.inspectionSubject || "Inspection Info", html, entityType: "VehicleInspection", entityId: i.id, sentById: ctx.user.id,
+      attachments: files.map(({ img, f }) => ({ filename: img.fileName, content: Buffer.from(f!.data), contentType: f!.contentType })),
+    });
   }),
 
   // ── Customer Reported Damages ─────────────────────────────────────────────────

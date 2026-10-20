@@ -4,7 +4,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { FileTextIcon, ImagePlusIcon, Loader2Icon, PlusIcon, Trash2Icon, XIcon } from "lucide-react";
+import { FileTextIcon, ImagePlusIcon, Loader2Icon, MailIcon, PlusIcon, Trash2Icon, XIcon } from "lucide-react";
 import { useTRPC, useTRPCClient } from "@mrac/api/client";
 import { Button } from "@mrac/ui/components/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@mrac/ui/components/card";
@@ -118,6 +118,7 @@ export function InspectionsPanel({ title = "Vehicle Inspection", vehicleId, rese
   const rows = useQuery(trpc.staff.inspections.list.queryOptions(where)).data;
   const opts = useBookingOptions(vehicleId);
   const [deleting, setDeleting] = React.useState<string | null>(null);
+  const [emailing, setEmailing] = React.useState<{ id: string; to: string } | null>(null);
   const refresh = () => qc.invalidateQueries({ queryKey: trpc.staff.inspections.pathKey() });
 
   return (
@@ -163,7 +164,7 @@ export function InspectionsPanel({ title = "Vehicle Inspection", vehicleId, rese
               <TableRow>
                 <TableHead>Admin</TableHead><TableHead>Date</TableHead><TableHead>Inspection</TableHead>
                 {!vehicleId || reservationId || rentalId ? <TableHead>Vehicle</TableHead> : <TableHead>Rental / Reservation</TableHead>}
-                <TableHead>Odometer</TableHead><TableHead>Images</TableHead><TableHead className="w-10" />
+                <TableHead>Odometer</TableHead><TableHead>Images</TableHead><TableHead className="w-20" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -187,7 +188,10 @@ export function InspectionsPanel({ title = "Vehicle Inspection", vehicleId, rese
                   <TableCell className="align-top">
                     <Thumbs images={r.images} onDelete={(id) => client.staff.inspections.deleteImage.mutate({ id }).then(refresh, (e) => toast.error(errorMessage(e)))} />
                   </TableCell>
-                  <TableCell className="align-top">
+                  <TableCell className="flex align-top">
+                    <Button size="icon-sm" variant="ghost" aria-label="Email inspection to the customer" onClick={() => setEmailing({ id: r.id, to: r.rental?.customer.email ?? r.reservation?.email ?? "" })}>
+                      <MailIcon />
+                    </Button>
                     <Button size="icon-sm" variant="ghost" className="text-destructive hover:bg-destructive/10" aria-label="Delete inspection" disabled={!can("DamagesEdit")} title={can("DamagesEdit") ? undefined : NO_PERMISSION} onClick={() => setDeleting(r.id)}>
                       <Trash2Icon />
                     </Button>
@@ -196,6 +200,20 @@ export function InspectionsPanel({ title = "Vehicle Inspection", vehicleId, rese
               ))}
             </TableBody>
           </Table>
+        )}
+        {emailing && (
+          <FormDialog
+            open
+            onOpenChange={(o) => !o && setEmailing(null)}
+            title="Email inspection"
+            description="Sends the Inspection Email (Settings) with this inspection's details and photos attached."
+            submitLabel="Send"
+            onSubmit={async (v) => {
+              await client.staff.inspections.email.mutate({ id: emailing.id, to: String(v.to ?? "") });
+            }}
+          >
+            <Field label="To" name="to" type="email" required defaultValue={emailing.to} full />
+          </FormDialog>
         )}
         <ConfirmAction
           open={deleting !== null}
