@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
+import { checkPromo, promoDiscount } from "../lib/promo";
 import { Prisma } from "@mrac/db";
 import { router, publicProcedure } from "../trpc";
 import { onlineOptions, periodTotal, pickOnlineRate, priceBooking } from "../lib/pricing";
@@ -36,9 +37,11 @@ const optionsInput = {
 /** The online price of a booking (same rate pick and charges as the quote and the reservation). */
 async function priceOnline(
   db: Prisma.TransactionClient,
-  input: { search: z.infer<typeof searchInput>; vehicleTypeId: string; insuranceId?: string | null; miscCharges: { miscChargeId: string; quantity: number }[]; birthDate: Date },
+  input: { search: z.infer<typeof searchInput>; vehicleTypeId: string; insuranceId?: string | null; miscCharges: { miscChargeId: string; quantity: number }[]; birthDate: Date; email?: string },
 ) {
   const s = input.search;
+  const promo = await checkPromo(db, { code: s.promoCode, locationId: s.pickupLocationId, vehicleTypeId: input.vehicleTypeId, pickupAt: s.pickupAt, returnAt: s.returnAt, email: input.email });
+  if (promo?.error) throw new TRPCError({ code: "BAD_REQUEST", message: promo.error });
   const rate = await pickOnlineRate(db, { locationId: s.pickupLocationId, vehicleTypeId: input.vehicleTypeId, pickupAt: s.pickupAt, returnAt: s.returnAt });
   if (!rate) throw new TRPCError({ code: "BAD_REQUEST", message: "That vehicle class isn't available online for these dates. Please call us." });
   const priced = await priceBooking(db, {
@@ -52,8 +55,9 @@ async function priceOnline(
     insuranceId: input.insuranceId,
     miscCharges: input.miscCharges,
     driverAge: ageAt(input.birthDate, s.pickupAt),
+    ...(promo?.promo ? promoDiscount(promo.promo) : {}),
   });
-  return { rate, priced };
+  return { rate, priced, promo: promo?.promo ?? null };
 }
 
 const cents = (d: Prisma.Decimal) => Math.round(Number(d) * 100);
@@ -152,7 +156,9 @@ export const customerRouter = router({
     for (const t of types) {
       const rate = await pickOnlineRate(ctx.prisma, { locationId: input.pickupLocationId, vehicleTypeId: t.id, pickupAt: input.pickupAt, returnAt: input.returnAt });
       if (!rate) continue;
+      const promo = await checkPromo(ctx.prisma, { code: input.promoCode, locationId: input.pickupLocationId, vehicleTypeId: t.id, pickupAt: input.pickupAt, returnAt: input.returnAt });
       const priced = await priceBooking(ctx.prisma, {
+        ...(promo?.promo ? promoDiscount(promo.promo) : {}),
         online: true,
         pickupAt: input.pickupAt,
         returnAt: input.returnAt,
@@ -183,6 +189,7 @@ export const customerRouter = router({
         extraKmCharge: (priced.extraKmCharge ?? rate.extraKmCharge).toFixed(2),
         rateId: rate.id,
         available: free > 0,
+        promo: promo ? { ok: !!promo.promo, message: promo.error ?? `Promo code ${promo.promo!.code} applied` } : null,
         lines: priced.lines.map((l) => ({ name: l.name, units: Number(l.units), total: l.total.toFixed(2), kind: l.kind })),
       });
     }
@@ -233,7 +240,9 @@ export const customerRouter = router({
     .query(async ({ ctx, input }) => {
       const rate = await pickOnlineRate(ctx.prisma, { locationId: input.pickupLocationId, vehicleTypeId: input.vehicleTypeId, pickupAt: input.pickupAt, returnAt: input.returnAt });
       if (!rate) return null;
+      const promo = await checkPromo(ctx.prisma, { code: input.promoCode, locationId: input.pickupLocationId, vehicleTypeId: input.vehicleTypeId, pickupAt: input.pickupAt, returnAt: input.returnAt });
       const priced = await priceBooking(ctx.prisma, {
+        ...(promo?.promo ? promoDiscount(promo.promo) : {}),
         online: true,
         pickupAt: input.pickupAt,
         returnAt: input.returnAt,
@@ -253,6 +262,7 @@ export const customerRouter = router({
         // headline price as mrrentacar.com shows it: the rental (time) charge only
         price: priced.lines.filter((l) => l.kind === "TIME").reduce((a, l) => a + Number(l.total), 0).toFixed(2),
         total: priced.total.toFixed(2),
+        promo: promo ? { ok: !!promo.promo, message: promo.error ?? `Promo code ${promo.promo!.code} applied` } : null,
         lines: priced.lines
           .filter((l) => l.kind !== "MILEAGE" && !(l.miscChargeId && hidden.has(l.miscChargeId) && l.total.isZero()))
           .map((l) => ({ name: l.name, total: l.total.toFixed(2), kind: l.kind, sortOrder: l.sortOrder })),
@@ -309,7 +319,7 @@ export const customerRouter = router({
       return withBookingGuard(() =>
         ctx.prisma.$transaction(async (tx) => {
           const s = input.search;
-          const { rate, priced } = await priceOnline(tx, input);
+          const { rate, priced, promo } = await priceOnline(tx, input);
           if (card?.heldCents != null && card.heldCents !== cents(priced.total))
             throw new TRPCError({ code: "BAD_REQUEST", message: "The price changed while you were booking. Please go back and try again." });
 
@@ -362,6 +372,7 @@ export const customerRouter = router({
               returnAt: s.returnAt,
               vehicleTypeId: input.vehicleTypeId,
               rateId: rate.id,
+              ...(promo ? { promoCodeId: promo.id, ...promoDiscount(promo) } : {}),
               customerNotes: notes,
               reservationChannel: "Website",
               chargeLines: { create: priced.lines },

@@ -946,6 +946,44 @@ export const reportsRouter = router({
       return { groups: [...m.values()], count: memos.length };
     }),
 
+  /**
+   * Promo Code (PromoCodeReport): reservations booked with a promo code (Usage = the reservation date): First / Last Name,
+   * Promo Code, Res.#, Rental #, Pickup / Return Date, Res.Total, Rental Subtotal, Rental Total, Date, Discount, Discount Total.
+   */
+  promoCodes: staffProcedure
+    .input(z.object({ from: optDate, to: optDate, locationIds: z.array(z.string()).default([]), category: z.enum(["", "RESERVATION", "REGISTRATION"]).default(""), code: z.string().trim().optional() }))
+    .query(async ({ ctx, input }) => {
+      const rs = await ctx.prisma.reservation.findMany({
+        where: {
+          deletedAt: null,
+          promoCodeId: { not: null },
+          ...(range(input.from, input.to) ? { createdAt: range(input.from, input.to) } : {}),
+          ...(input.locationIds.length ? { pickupLocationId: { in: input.locationIds } } : {}),
+          promoCode: { ...(input.category ? { category: input.category } : {}), ...(input.code ? { code: { contains: input.code, mode: "insensitive" } } : {}) },
+        },
+        orderBy: { createdAt: "asc" },
+        take: 3000,
+        select: {
+          id: true, number: true, createdAt: true, pickupAt: true, returnAt: true, firstName: true, lastName: true, discountType: true, discountValue: true,
+          promoCode: { select: { code: true } }, chargeLines: { select: { kind: true, total: true } },
+          rental: { select: { id: true, raNumber: true, checkOutAt: true, checkedInAt: true, expectedReturnAt: true, chargeLines: { select: { kind: true, total: true } } } },
+        },
+      });
+      const rows = rs.map((r) => {
+        const tot = (ls: { kind: string; total: Prisma.Decimal }[]) => round(ls.reduce((a, l) => a + num(l.total), 0));
+        const sub = (ls: { kind: string; total: Prisma.Decimal }[]) => round(ls.filter((l) => l.kind !== "TAX").reduce((a, l) => a + num(l.total), 0));
+        const lines = r.rental?.chargeLines ?? r.chargeLines;
+        return {
+          id: r.id, firstName: r.firstName, lastName: r.lastName, code: r.promoCode!.code, reservationNumber: r.number, rentalId: r.rental?.id ?? null, raNumber: r.rental?.raNumber ?? null,
+          pickup: r.rental?.checkOutAt ?? r.pickupAt, return: r.rental ? r.rental.checkedInAt ?? r.rental.expectedReturnAt : r.returnAt,
+          resTotal: tot(r.chargeLines), rentalSubtotal: r.rental ? sub(r.rental.chargeLines) : null, rentalTotal: r.rental ? tot(r.rental.chargeLines) : null, date: r.createdAt,
+          discount: r.discountValue == null ? "" : r.discountType === "PERCENT" ? `${num(r.discountValue)}%` : `$${num(r.discountValue).toFixed(2)}`,
+          discountTotal: round(-lines.filter((l) => l.kind === "DISCOUNT").reduce((a, l) => a + num(l.total), 0)),
+        };
+      });
+      return { rows, totals: { discountTotal: round(rows.reduce((a, r) => a + r.discountTotal, 0)) } };
+    }),
+
   /** Pick-lists for the report filters. */
   filters: staffProcedure.query(async ({ ctx }) => {
     const [locations, makes, types] = await Promise.all([

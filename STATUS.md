@@ -1,6 +1,6 @@
 # Mr Rent A Car — rebuild status
 
-**Updated:** October 21, 2026 (drivers in forms, inspections, file storage).
+**Updated:** October 21, 2026 (drivers in forms, inspections, file storage, vehicle page complete, one way rates, promo codes, more settings).
 
 **What this compares:**
 - Our new system: the ERP at `/admin` and the public website.
@@ -248,7 +248,7 @@ RentCentric's Settings menu, item by item.
 | Website & Email | Mail Server Configuration | ✅ |
 | Website & Email | Reservation Email, Quote Email | 🟡 sent with the templates |
 | Website & Email | Inspection Email | ✅ Subject + body; each inspection has an email button (details + photos attached) 🔑 SMTP |
-| Website & Email | Promotions/Specials | ⬜ |
+| Website & Email | Promotions/Specials | ✅ RentCentric's 9 codes copied (locations + vehicle types); a valid code on an online booking becomes its discount (dates, minimum days, location, vehicle type, one-time use checked). Promo Code report still to do |
 | Website & Email | Rental Policies | ⬜ |
 | Website & Email | Configuration, Style & Format, Add/Edit Webpages | ⬜ (our public site replaces these) |
 | Website & Email | Online Reservation (incl. V3, mobile), I-Frame Widget, I-Frame Rotator | ⬜ (our public site replaces these) |
@@ -292,6 +292,8 @@ Not built yet:
 
 ## 11. Waiting on the client
 
+- Not in use in RentCentric (left out unless wanted): Tours, Claims Management V2, Status Of Repair, Claim Types, Merchandise Items / Orders, Email Templates, Repair Order program.
+
 - Yield pricing (Rate Values Update, Rate Blocking, Rate Utilization, Rates Calendar, Overbooking Control): not used in RentCentric today — needed?
 
 - Stripe test and live keys.
@@ -301,6 +303,13 @@ Not built yet:
 - Printed samples of the Standard and Bill Split invoices.
 - Customer Login: is it needed?
 - Database hosting decision (Neon was planned).
+
+## Next session (Oct 22)
+
+1. Promo Code report (columns copied: First Name, Last Name, Promo Code, Res.#, Rental #, Pickup / Return Date, Res.Total, Rental Subtotal, Rental Total, Date, Discount, Discount Total).
+2. Commission Structures (1 in RentCentric), Claims Management list (all claims).
+3. Partner Login Setup, Import Data tools, Copy Location Setup, Renew Rental Agreements.
+4. Remaining reports, data migration, deployment.
 
 ## 12. Suggested order for what's left
 

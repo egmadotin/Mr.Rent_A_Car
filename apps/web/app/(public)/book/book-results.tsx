@@ -64,6 +64,13 @@ export function BookResults({ search }: { search: BookingSearch }) {
       {q.isLoading && <p className="text-muted-foreground">Finding available cars…</p>}
       {q.error && <p role="alert" className="text-destructive">{q.error.message}</p>}
       {q.data?.length === 0 && <p className="text-muted-foreground">No cars available online for these dates. Try other dates or call us.</p>}
+      {search.promo && q.data?.length ? (
+        q.data.some((r) => r.promo?.ok) ? (
+          <p role="status" className="text-sm font-medium text-success">Promo code {search.promo} applied to the prices below{q.data.some((r) => !r.promo?.ok) ? " (where it applies)" : ""}.</p>
+        ) : (
+          <p role="status" className="text-sm font-medium text-destructive">{q.data[0]?.promo?.message}</p>
+        )
+      ) : null}
 
       <div className="grid gap-4">
         {results.map((r) => (

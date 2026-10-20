@@ -16,12 +16,15 @@ export function BookingSummary({
   vehicle,
   lines,
   total,
+  promo,
 }: {
   pickup: { location: string; when: string };
   dropoff: { location: string; when: string };
   vehicle?: { name: string; imageKey?: string | null };
   lines?: Line[];
   total?: unknown;
+  /** the promo code's result (applied, or why not) */
+  promo?: { ok: boolean; message: string } | null;
 }) {
   const time = (lines ?? []).filter((l) => l.kind === "TIME" || l.kind === "UPGRADE");
   const rest = (lines ?? []).filter((l) => !["TIME", "UPGRADE", "MILEAGE"].includes(l.kind));
@@ -71,6 +74,7 @@ export function BookingSummary({
           )}
         </tbody>
       </table>
+      {promo && <p role="status" className={promo.ok ? "text-sm font-medium text-success lg:col-start-2" : "text-sm font-medium text-destructive lg:col-start-2"}>{promo.message}</p>}
     </div>
   );
 }

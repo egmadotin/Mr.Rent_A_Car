@@ -50,6 +50,48 @@ const companyInput = z.object({
 });
 
 export const setupRouter = router({
+  // ── Settings > Website & Email > Promotions/Specials (DiscountPromoMain / DiscountPromoModify) ──
+
+  promoList: staffProcedure.query(({ ctx }) => ctx.prisma.promoCode.findMany({ orderBy: [{ isActive: "desc" }, { startDate: "desc" }], include: { _count: { select: { reservations: true } } } })),
+  promoSave: permitted("Settings")
+    .input(
+      z
+        .object({
+          id: z.string().optional(),
+          category: z.enum(["RESERVATION", "REGISTRATION"]),
+          code: z.string().trim().min(1, "Promotion Code is required").max(40).regex(/^\S+$/, "No spaces"),
+          startDate: z.coerce.date({ invalid_type_error: "Start Date is required" }),
+          endDate: z.coerce.date({ invalid_type_error: "End Date is required" }),
+          expirationDate: z.preprocess((v) => (v === "" || v == null ? null : v), z.coerce.date().nullable()),
+          discountType: z.enum(["PERCENT", "AMOUNT"], { required_error: "Discount Type is required" }),
+          discountValue: z.coerce.number({ invalid_type_error: "Discount Value is required" }).min(0),
+          kmDiscountType: z.preprocess((v) => (v === "" ? null : v), z.enum(["PERCENT", "AMOUNT"]).nullable()),
+          kmDiscountValue: z.preprocess((v) => (v === "" || v == null ? null : Number(v)), z.number().min(0).nullable()),
+          minDays: z.coerce.number().int().min(1).default(1),
+          isActive: z.boolean(),
+          autoApply: z.boolean(),
+          oneTimeUse: z.boolean(),
+          locationIds: z.array(z.string()).default([]),
+          vehicleTypeIds: z.array(z.string()).default([]),
+        })
+        .superRefine((v, c) => {
+          if (v.endDate < v.startDate) c.addIssue({ code: "custom", path: ["endDate"], message: "End Date must be after Start Date" });
+          if (v.discountType === "PERCENT" && v.discountValue > 100) c.addIssue({ code: "custom", path: ["discountValue"], message: "Can't exceed 100%" });
+        }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { id, ...data } = input;
+      const dup = await ctx.prisma.promoCode.findFirst({ where: { code: { equals: data.code, mode: "insensitive" }, NOT: id ? { id } : undefined }, select: { id: true } });
+      if (dup) throw new TRPCError({ code: "CONFLICT", message: `Promo code "${data.code}" already exists.` });
+      const p = id ? await ctx.prisma.promoCode.update({ where: { id }, data }) : await ctx.prisma.promoCode.create({ data });
+      return { id: p.id };
+    }),
+  promoDelete: permitted("Settings").input(z.object({ id: z.string() })).mutation(async ({ ctx, input }) => {
+    const p = await ctx.prisma.promoCode.findUniqueOrThrow({ where: { id: input.id }, include: { _count: { select: { reservations: true } } } });
+    if (p._count.reservations) throw new TRPCError({ code: "CONFLICT", message: `${p.code} was used on ${p._count.reservations} reservation(s); set it Inactive instead.` });
+    await ctx.prisma.promoCode.delete({ where: { id: p.id } });
+  }),
+
   // ── Settings > Financial / Commission > Referrals (source of referral) ──
 
   referralList: staffProcedure.query(({ ctx }) =>

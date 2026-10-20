@@ -127,6 +127,7 @@ export function BookDetails({ search, vehicleTypeId, insuranceId, extras }: { se
           vehicle={vt}
           lines={quote.data?.lines}
           total={quote.data?.total}
+          promo={quote.data?.promo}
         />
 
         <form onSubmit={submit} noValidate className="mx-auto max-w-2xl space-y-6 border-t pt-8">

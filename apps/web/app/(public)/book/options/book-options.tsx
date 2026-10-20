@@ -89,6 +89,7 @@ export function BookOptions({ search, vehicleTypeId }: { search: BookingSearch; 
           vehicle={vt}
           lines={quote.data?.lines}
           total={quote.data?.total}
+          promo={quote.data?.promo}
         />
         {opts.isLoading && <p className="text-muted-foreground">Loading options…</p>}
         {opts.error && <p role="alert" className="text-destructive">{opts.error.message}</p>}
