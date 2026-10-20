@@ -4,25 +4,13 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  BarChart3Icon,
-  CalendarRangeIcon,
-  CarFrontIcon,
   ChevronsLeftIcon,
   ChevronsRightIcon,
-  FileTextIcon,
-  KeyRoundIcon,
-  LayoutDashboardIcon,
   LogOutIcon,
-  MapPinIcon,
   MenuIcon,
   MonitorIcon,
   MoonIcon,
-  PlusIcon,
-  SettingsIcon,
   SunIcon,
-  UsersIcon,
-  NotebookTabsIcon,
-  type LucideIcon,
 } from "lucide-react";
 import { authClient } from "@mrac/auth/client";
 import { useTheme } from "@mrac/ui/theme";
@@ -40,31 +28,32 @@ import {
 import { Dialog, DialogContent, DialogTitle } from "@mrac/ui/components/dialog";
 import { SIDEBAR_COOKIE, LOCATION_COOKIE } from "../../_lib/cookies";
 import { BrandLogo } from "@mrac/ui/components/brand-logo";
+import { ErpIcon, type ErpIconName } from "@mrac/ui/components/erp-icon";
 
-type NavItem = { href: string; label: string; icon: LucideIcon };
+type NavItem = { href: string; label: string; icon: ErpIconName };
 const NAV: { group?: string; items: NavItem[] }[] = [
-  { items: [{ href: "/admin", label: "Dashboard", icon: LayoutDashboardIcon }] },
+  { items: [{ href: "/admin", label: "Dashboard", icon: "shapes" }] },
   {
     group: "Bookings",
     items: [
-      { href: "/admin/quotes", label: "Quotes", icon: FileTextIcon },
-      { href: "/admin/reservations", label: "Reservations", icon: NotebookTabsIcon },
-      { href: "/admin/rentals", label: "Rentals", icon: KeyRoundIcon },
-      { href: "/admin/calendar", label: "Fleet calendar", icon: CalendarRangeIcon },
+      { href: "/admin/quotes", label: "Quotes", icon: "draft" },
+      { href: "/admin/reservations", label: "Reservations", icon: "approve" },
+      { href: "/admin/rentals", label: "Rentals", icon: "truck" },
+      { href: "/admin/calendar", label: "Fleet calendar", icon: "list" },
     ],
   },
   {
     group: "Records",
     items: [
-      { href: "/admin/vehicles", label: "Vehicles", icon: CarFrontIcon },
-      { href: "/admin/customers", label: "Customers", icon: UsersIcon },
+      { href: "/admin/vehicles", label: "Vehicles", icon: "truck" },
+      { href: "/admin/customers", label: "Customers", icon: "customers" },
     ],
   },
   {
     group: "Admin",
     items: [
-      { href: "/admin/reports", label: "Reports", icon: BarChart3Icon },
-      { href: "/admin/settings", label: "Settings", icon: SettingsIcon },
+      { href: "/admin/reports", label: "Reports", icon: "todays-collection" },
+      { href: "/admin/settings", label: "Settings", icon: "lock" },
     ],
   },
 ];
@@ -96,14 +85,26 @@ export function Sidebar(props: Props) {
   return (
     <>
       {/* Mobile: slim bar with a menu button; the sidebar opens as a drawer. */}
-      <div className="sticky top-0 z-30 flex h-12 items-center gap-2 border-b bg-sidebar px-3 text-sidebar-foreground md:hidden">
-        <Button variant="ghost" size="icon-sm" className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" onClick={() => setMobileOpen(true)} aria-label="Open navigation">
+      <div className="sticky top-0 z-30 flex h-12 items-center gap-2 border-b border-sidebar-border bg-sidebar bg-erp-sidebar-pattern px-3 text-sidebar-foreground md:hidden">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="hover:bg-white/10 hover:text-white"
+          onClick={() => setMobileOpen(true)}
+          aria-label="Open navigation"
+        >
           <MenuIcon />
         </Button>
-        <BrandLogo className="h-7" />
+        <div className="flex items-center gap-2.5">
+          <BrandLogo variant="white" className="h-8 w-auto object-contain" />
+          <span className="text-[10px] uppercase font-bold tracking-[0.18em] text-[#E9E3D5]/80 font-sans">
+            ERP
+          </span>
+        </div>
       </div>
+
       <Dialog open={mobileOpen} onOpenChange={setMobileOpen}>
-        <DialogContent className="top-0 left-0 h-dvh max-h-dvh w-72 max-w-[85vw] translate-x-0 translate-y-0 rounded-none border-0 bg-sidebar p-0 text-sidebar-foreground sm:max-w-72">
+        <DialogContent className="top-0 left-0 h-dvh max-h-dvh w-72 max-w-[85vw] translate-x-0 translate-y-0 rounded-none border-0 bg-sidebar bg-erp-sidebar-pattern p-0 text-sidebar-foreground sm:max-w-72">
           <DialogTitle className="sr-only">Navigation</DialogTitle>
           <SidebarBody {...props} collapsed={false} />
         </DialogContent>
@@ -112,8 +113,8 @@ export function Sidebar(props: Props) {
       <aside
         data-collapsed={collapsed}
         className={cn(
-          "sticky top-0 hidden h-dvh shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-[width] duration-200 md:flex",
-          collapsed ? "w-14" : "w-60",
+          "sticky top-0 hidden h-dvh shrink-0 flex-col border-r border-sidebar-border bg-sidebar bg-erp-sidebar-pattern text-sidebar-foreground transition-[width] duration-200 md:flex",
+          collapsed ? "w-[68px]" : "w-60",
         )}
       >
         <SidebarBody {...props} collapsed={collapsed} />
@@ -122,11 +123,14 @@ export function Sidebar(props: Props) {
             variant="ghost"
             size="sm"
             onClick={toggle}
-            className={cn("w-full justify-start text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground", collapsed && "justify-center px-0")}
+            className={cn(
+              "w-full justify-start text-[#D5D5D5] hover:bg-white/10 hover:text-white font-sans",
+              collapsed && "justify-center px-0",
+            )}
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
-            {collapsed ? <ChevronsRightIcon /> : <ChevronsLeftIcon />}
-            {!collapsed && "Collapse"}
+            {collapsed ? <ChevronsRightIcon className="size-4" /> : <ChevronsLeftIcon className="size-4" />}
+            {!collapsed && <span className="text-xs">Collapse sidebar</span>}
           </Button>
         </div>
       </aside>
@@ -144,32 +148,45 @@ function SidebarBody({ user, locations, currentLocationId, collapsed }: Props & 
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {/* Brand + location switcher */}
-      <div className="space-y-2 p-2">
-        <div className={cn("flex h-10 items-center gap-2 px-1.5", collapsed && "justify-center px-0")}>
+      {/* Brand Header */}
+      <div className="space-y-3 p-3 pb-2 border-b border-sidebar-border/60 mb-1">
+        <div className={cn("flex items-center", collapsed ? "justify-center px-0" : "justify-center w-full")}>
           {collapsed ? (
-            <div className="grid size-7 shrink-0 place-items-center rounded-md bg-sidebar-primary text-sm font-bold text-sidebar-primary-foreground">M</div>
+            <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary text-base font-bold text-white font-serif shadow-sm border border-white/20">
+              M
+            </div>
           ) : (
-            <BrandLogo className="h-8" />
+            <div className="flex w-full flex-col items-center justify-center text-center space-y-1.5 py-0.5">
+              <BrandLogo variant="white" className="h-8 md:h-8.5 w-auto object-contain drop-shadow-sm mx-auto" />
+              <div className="flex items-center justify-center gap-1.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                <span className="text-[9.5px] uppercase font-bold tracking-[0.16em] text-[#E9E3D5]/80 font-sans">
+                  Fleet Management ERP
+                </span>
+              </div>
+            </div>
           )}
         </div>
 
+        {/* Location Switcher */}
         <DropdownMenu>
           <SideTooltip label={`Location: ${current?.name ?? "—"}`} show={collapsed}>
             <DropdownMenuTrigger asChild>
               <button
                 className={cn(
-                  "flex h-9 w-full items-center gap-2 rounded-md border border-sidebar-border px-2 text-left text-xs hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none",
+                  "flex h-9 w-full items-center gap-2 rounded-md border border-sidebar-border bg-black/20 px-2.5 text-left text-xs text-[#E9E3D5] hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none transition-colors font-sans",
                   collapsed && "justify-center px-0",
                 )}
               >
-                <MapPinIcon className="size-4 shrink-0 opacity-70" />
-                {!collapsed && <span className="truncate">{current?.name ?? "Select location"}</span>}
+                <ErpIcon name="location" size={15} className="shrink-0 text-[#E9E3D5]" />
+                {!collapsed && <span className="truncate font-medium">{current?.name ?? "Select location"}</span>}
               </button>
             </DropdownMenuTrigger>
           </SideTooltip>
           <DropdownMenuContent align="start" className="w-64">
-            <DropdownMenuLabel>Working location</DropdownMenuLabel>
+            <DropdownMenuLabel className="font-sans text-xs uppercase tracking-wider text-muted-foreground">
+              Working location
+            </DropdownMenuLabel>
             {locations.map((l) => (
               <DropdownMenuItem
                 key={l.id}
@@ -177,7 +194,7 @@ function SidebarBody({ user, locations, currentLocationId, collapsed }: Props & 
                   setCookie(LOCATION_COOKIE, l.id);
                   router.refresh();
                 }}
-                className={cn(l.id === current?.id && "font-semibold")}
+                className={cn(l.id === current?.id && "font-semibold text-primary")}
               >
                 {l.name}
               </DropdownMenuItem>
@@ -185,11 +202,18 @@ function SidebarBody({ user, locations, currentLocationId, collapsed }: Props & 
           </DropdownMenuContent>
         </DropdownMenu>
 
+        {/* Quick Action "New" */}
         <DropdownMenu>
           <SideTooltip label="New…" show={collapsed}>
             <DropdownMenuTrigger asChild>
-              <Button size="sm" className={cn("w-full bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90", collapsed && "px-0")}>
-                <PlusIcon />
+              <Button
+                size="sm"
+                className={cn(
+                  "w-full bg-primary text-white hover:bg-terra-80 shadow-xs font-medium font-sans border-0",
+                  collapsed && "px-0",
+                )}
+              >
+                <ErpIcon name="add" size={15} className="shrink-0 text-white" />
                 {!collapsed && "New"}
               </Button>
             </DropdownMenuTrigger>
@@ -206,11 +230,13 @@ function SidebarBody({ user, locations, currentLocationId, collapsed }: Props & 
       </div>
 
       {/* Navigation */}
-      <nav className="min-h-0 flex-1 space-y-4 overflow-y-auto px-2 py-2" aria-label="Main">
+      <nav className="min-h-0 flex-1 space-y-3.5 overflow-y-auto px-2.5 py-2" aria-label="Main">
         {NAV.map((section, i) => (
           <div key={i} className="space-y-0.5">
             {section.group && !collapsed && (
-              <div className="px-2 pb-1 text-[11px] font-medium tracking-wide text-sidebar-foreground/50 uppercase">{section.group}</div>
+              <div className="px-2 pb-1 text-[10.5px] font-bold tracking-widest text-[#E9E3D5]/50 uppercase font-sans">
+                {section.group}
+              </div>
             )}
             {section.items.map((item) => {
               const active = isActive(item.href);
@@ -218,14 +244,24 @@ function SidebarBody({ user, locations, currentLocationId, collapsed }: Props & 
                 <SideTooltip key={item.href} label={item.label} show={collapsed}>
                   <Link
                     href={item.href}
+                    prefetch={true}
                     aria-current={active ? "page" : undefined}
                     className={cn(
-                      "flex h-9 items-center gap-2.5 rounded-md px-2 text-sm text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none",
-                      active && "bg-sidebar-accent font-medium text-sidebar-accent-foreground",
-                      collapsed && "justify-center px-0",
+                      "group flex h-9 items-center gap-2.5 rounded-md px-2.5 text-sm transition-colors focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none font-sans",
+                      active
+                        ? "bg-primary font-semibold text-white shadow-xs border-l-[3px] border-l-[#F1B826]"
+                        : "text-[#D5D5D5] hover:bg-white/10 hover:text-white",
+                      collapsed && "justify-center px-0 border-l-0",
                     )}
                   >
-                    <item.icon className={cn("size-4 shrink-0", active && "text-sidebar-primary")} />
+                    <ErpIcon
+                      name={item.icon}
+                      size={17}
+                      className={cn(
+                        "shrink-0 transition-colors",
+                        active ? "text-white" : "text-[#D5D5D5] group-hover:text-white",
+                      )}
+                    />
                     {!collapsed && <span className="truncate">{item.label}</span>}
                   </Link>
                 </SideTooltip>
@@ -235,29 +271,31 @@ function SidebarBody({ user, locations, currentLocationId, collapsed }: Props & 
         ))}
       </nav>
 
-      {/* User menu */}
+      {/* User menu & Active Branch */}
       <div className="border-t border-sidebar-border p-2">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
               className={cn(
-                "flex w-full items-center gap-2 rounded-md p-1.5 text-left hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none",
+                "flex w-full items-center gap-2 rounded-md p-1.5 text-left text-[#E9E3D5] hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none transition-colors",
                 collapsed && "justify-center",
               )}
             >
-              <span className="grid size-7 shrink-0 place-items-center rounded-full bg-sidebar-accent text-xs font-semibold">
+              <span className="grid size-7 shrink-0 place-items-center rounded-full bg-primary text-xs font-bold text-white font-serif">
                 {user.name.slice(0, 1).toUpperCase()}
               </span>
               {!collapsed && (
                 <span className="min-w-0">
-                  <span className="block truncate text-sm">{user.name}</span>
-                  <span className="block truncate text-xs text-sidebar-foreground/60">{user.email}</span>
+                  <span className="block truncate text-xs font-semibold">{user.name}</span>
+                  <span className="block truncate text-[11px] text-[#D5D5D5]/70">{current?.name ?? user.email}</span>
                 </span>
               )}
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" side="top" className="w-56">
-            <DropdownMenuLabel>Theme</DropdownMenuLabel>
+            <DropdownMenuLabel className="font-sans text-xs uppercase tracking-wider text-muted-foreground">
+              Theme
+            </DropdownMenuLabel>
             {(
               [
                 ["light", "Light", SunIcon],
@@ -265,8 +303,12 @@ function SidebarBody({ user, locations, currentLocationId, collapsed }: Props & 
                 ["system", "System", MonitorIcon],
               ] as const
             ).map(([value, label, Icon]) => (
-              <DropdownMenuItem key={value} onSelect={() => setTheme(value)} className={cn(theme === value && "font-semibold")}>
-                <Icon /> {label}
+              <DropdownMenuItem
+                key={value}
+                onSelect={() => setTheme(value)}
+                className={cn(theme === value && "font-semibold text-primary")}
+              >
+                <Icon className="size-4 mr-2" /> {label}
               </DropdownMenuItem>
             ))}
             <DropdownMenuSeparator />
@@ -276,8 +318,9 @@ function SidebarBody({ user, locations, currentLocationId, collapsed }: Props & 
                 router.replace("/admin/login");
                 router.refresh();
               }}
+              className="text-destructive focus:text-destructive"
             >
-              <LogOutIcon /> Sign out
+              <LogOutIcon className="size-4 mr-2" /> Sign out
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

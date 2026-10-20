@@ -10,7 +10,12 @@ import { prisma } from "@mrac/db";
  * Self sign-up is disabled: staff accounts are created by an admin (or the seed).
  * Customer sign-up will be enabled when the customer portal is built.
  */
+const env =
+  (globalThis as unknown as { process?: { env?: Record<string, string | undefined> } }).process?.env ?? {};
+
 export const auth = betterAuth({
+  baseURL: env.BETTER_AUTH_URL ?? "http://localhost:3001",
+  secret: env.BETTER_AUTH_SECRET,
   database: prismaAdapter(prisma, { provider: "postgresql" }),
   emailAndPassword: {
     enabled: true,

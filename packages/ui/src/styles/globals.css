@@ -65,83 +65,120 @@
   --status-overdue: oklch(0.6 0.2 27);
 }
 
-/* ── ERP: functional, dense, cool neutral with a blue primary ────────────── */
+/* ── Staff ERP Brand Scope: [data-brand="erp"] (design.md) ───────────────── */
 [data-brand="erp"] {
   --radius: 0.375rem;
-  --background: oklch(0.985 0.002 250);
-  --foreground: oklch(0.2 0.02 255);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.2 0.02 255);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.2 0.02 255);
-  --primary: oklch(0.48 0.16 255);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.955 0.008 250);
-  --secondary-foreground: oklch(0.25 0.02 255);
-  --muted: oklch(0.955 0.008 250);
-  --muted-foreground: oklch(0.52 0.02 255);
-  --accent: oklch(0.94 0.02 250);
-  --accent-foreground: oklch(0.25 0.03 255);
-  --border: oklch(0.91 0.01 250);
-  --input: oklch(0.88 0.012 250);
-  --ring: oklch(0.6 0.14 255);
 
-  --sidebar: oklch(0.24 0.03 255);
-  --sidebar-foreground: oklch(0.9 0.01 250);
-  --sidebar-primary: oklch(0.65 0.15 255);
-  --sidebar-primary-foreground: oklch(0.99 0 0);
-  --sidebar-accent: oklch(0.31 0.035 255);
-  --sidebar-accent-foreground: oklch(0.99 0 0);
-  --sidebar-border: oklch(0.32 0.03 255);
-  --sidebar-ring: oklch(0.65 0.15 255);
+  /* Canvas & Containers */
+  --background: #E9E3D5;
+  --foreground: #2D2C2C;
+
+  --card: #FFFFFF;
+  --card-foreground: #2D2C2C;
+
+  --popover: #FFFFFF;
+  --popover-foreground: #2D2C2C;
+
+  /* Interactive States */
+  --primary: #9D302D;
+  --primary-foreground: #FFFFFF;
+
+  --secondary: #ECEEE9;
+  --secondary-foreground: #3B511F;
+
+  --muted: #D5D5D5;
+  --muted-foreground: #575656;
+
+  --accent: #F6EBEA;
+  --accent-foreground: #9D302D;
+
+  --destructive: #9D302D;
+  --destructive-foreground: #FFFFFF;
+
+  --success: #3B511F;
+  --success-foreground: #FFFFFF;
+
+  --warning: #F1B826;
+  --warning-foreground: #2D2C2C;
+
+  --border: #D5D5D5;
+  --input: #ABABAB;
+  --ring: #9D302D;
+
+  /* Executive Dark Sidebar */
+  --sidebar: #2D2C2C;
+  --sidebar-foreground: #E9E3D5;
+  --sidebar-primary: #9D302D;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: rgba(255, 255, 255, 0.08);
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: rgba(233, 227, 213, 0.12);
+  --sidebar-ring: #F1B826;
+
+  /* Visual Calendar Booking Status Colors */
+  --status-unassigned: #F1B826;   /* Golden Ember (Yellow 100) */
+  --status-reservation: #B15957;  /* Terra Red 80 */
+  --status-rental: #3B511F;       /* Forest Moss 100 */
+  --status-oneway: #899779;       /* Forest Moss 60 */
+  --status-overdue: #9D302D;      /* Urgent Terra Red 100 */
 }
 
+/* ── Staff ERP: Always Light Warm Natural Canvas as per design.md ──────── */
 [data-brand="erp"].dark {
-  --background: oklch(0.17 0.015 255);
-  --foreground: oklch(0.93 0.01 250);
-  --card: oklch(0.21 0.018 255);
-  --card-foreground: oklch(0.93 0.01 250);
-  --popover: oklch(0.21 0.018 255);
-  --popover-foreground: oklch(0.93 0.01 250);
-  --primary: oklch(0.66 0.15 255);
-  --primary-foreground: oklch(0.15 0.02 255);
-  --secondary: oklch(0.27 0.02 255);
-  --secondary-foreground: oklch(0.93 0.01 250);
-  --muted: oklch(0.25 0.018 255);
-  --muted-foreground: oklch(0.68 0.02 250);
-  --accent: oklch(0.28 0.03 255);
-  --accent-foreground: oklch(0.95 0.01 250);
-  --destructive: oklch(0.65 0.2 25);
-  --border: oklch(0.3 0.02 255);
-  --input: oklch(0.33 0.02 255);
-  --ring: oklch(0.66 0.15 255);
+  --background: #E9E3D5;
+  --foreground: #2D2C2C;
+  --card: #FFFFFF;
+  --card-foreground: #2D2C2C;
+  --popover: #FFFFFF;
+  --popover-foreground: #2D2C2C;
+  --primary: #9D302D;
+  --primary-foreground: #FFFFFF;
+  --secondary: #ECEEE9;
+  --secondary-foreground: #3B511F;
+  --muted: #D5D5D5;
+  --muted-foreground: #575656;
+  --accent: #F6EBEA;
+  --accent-foreground: #9D302D;
+  --destructive: #9D302D;
+  --destructive-foreground: #FFFFFF;
+  --success: #3B511F;
+  --success-foreground: #FFFFFF;
+  --warning: #F1B826;
+  --warning-foreground: #2D2C2C;
+  --border: #D5D5D5;
+  --input: #ABABAB;
+  --ring: #9D302D;
 
-  --sidebar: oklch(0.14 0.015 255);
-  --sidebar-foreground: oklch(0.88 0.01 250);
-  --sidebar-accent: oklch(0.22 0.02 255);
-  --sidebar-border: oklch(0.24 0.02 255);
+  --sidebar: #2D2C2C;
+  --sidebar-foreground: #E9E3D5;
+  --sidebar-primary: #9D302D;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: rgba(255, 255, 255, 0.08);
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: rgba(233, 227, 213, 0.12);
+  --sidebar-ring: #F1B826;
 }
 
-/* ── Public site: marketing, warmer, Mr Rent A Car red ───────────────────── */
+/* ── Public site: design.md palette (Terra Red, warm canvas, Carbon) ─────── */
 [data-brand="public"] {
   --radius: 0.75rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.18 0.01 30);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.18 0.01 30);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.18 0.01 30);
-  --primary: oklch(0.56 0.21 27);
-  --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.2 0.01 30);
-  --secondary-foreground: oklch(0.99 0 0);
-  --muted: oklch(0.965 0.005 30);
-  --muted-foreground: oklch(0.5 0.01 30);
-  --accent: oklch(0.96 0.02 27);
-  --accent-foreground: oklch(0.4 0.15 27);
-  --border: oklch(0.92 0.005 30);
-  --input: oklch(0.89 0.005 30);
-  --ring: oklch(0.56 0.21 27);
+  --background: #FFFFFF;
+  --foreground: #2D2C2C;
+  --card: #FFFFFF;
+  --card-foreground: #2D2C2C;
+  --popover: #FFFFFF;
+  --popover-foreground: #2D2C2C;
+  --primary: #9D302D;
+  --primary-foreground: #FFFFFF;
+  --secondary: #2D2C2C;
+  --secondary-foreground: #FFFFFF;
+  --muted: #F4F0E8;
+  --muted-foreground: #575656;
+  --accent: #F6EBEA;
+  --accent-foreground: #9D302D;
+  --border: #E2DCCF;
+  --input: #D5D5D5;
+  --ring: #9D302D;
 }
 
 [data-brand="public"].dark {
@@ -223,15 +260,15 @@
 /* Printed documents are always light (paper), whatever the app theme. */
 .force-light {
   color-scheme: light;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.2 0.02 255);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.2 0.02 255);
-  --muted: oklch(0.96 0.005 250);
-  --muted-foreground: oklch(0.45 0.02 255);
-  --border: oklch(0.88 0.01 250);
-  --primary: oklch(0.48 0.16 255);
-  --primary-foreground: oklch(0.985 0 0);
+  --background: #FFFFFF;
+  --foreground: #2D2C2C;
+  --card: #FFFFFF;
+  --card-foreground: #2D2C2C;
+  --muted: #EAEAEA;
+  --muted-foreground: #575656;
+  --border: #D5D5D5;
+  --primary: #9D302D;
+  --primary-foreground: #FFFFFF;
   background: var(--background);
   color: var(--foreground);
 }

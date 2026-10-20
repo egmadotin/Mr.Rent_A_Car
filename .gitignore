@@ -16,4 +16,5 @@ dist
 
 # temporary scrape / comparison files (see HANDOFF.md)
 packages/db/prisma/legacy/tools/
-
+# local npm cache override
+.npmrc.native-windows-unused

@@ -1,12 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { ChevronDownIcon, PrinterIcon, SearchIcon } from "lucide-react";
+import { ChevronDownIcon, SearchIcon } from "lucide-react";
 import { Button } from "@mrac/ui/components/button";
 import { Card } from "@mrac/ui/components/card";
 import { Input } from "@mrac/ui/components/input";
 import { Label } from "@mrac/ui/components/label";
 import { TableCell, TableRow } from "@mrac/ui/components/table";
+import { ErpIcon } from "@mrac/ui/components/erp-icon";
 import { cn } from "@mrac/ui/lib/utils";
 
 /**
@@ -92,7 +93,7 @@ export function LegacySearchBar({
 }) {
   const [advanced, setAdvanced] = React.useState(false);
   return (
-    <Card className="gap-0 p-3 print:hidden">
+    <Card className="gap-0 p-3 print:hidden bg-white shadow-xs border-[#D5D5D5]">
       <form
         className="flex flex-wrap items-center gap-3"
         onSubmit={(e) => {
@@ -100,15 +101,29 @@ export function LegacySearchBar({
           onSearch("quick");
         }}
       >
-        <Button type="button" variant="outline" onClick={() => setAdvanced((x) => !x)} aria-expanded={advanced}>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setAdvanced((x) => !x)}
+          aria-expanded={advanced}
+          className="border-[#D5D5D5] bg-white font-medium hover:bg-[#F4EFE6] text-[#2D2C2C]"
+        >
           Advanced Search <ChevronDownIcon className={cn("transition-transform", advanced && "rotate-180")} />
         </Button>
-        <Input className="min-w-64 flex-1" value={quick} onChange={(e) => onQuickChange(e.target.value)} placeholder={placeholder} aria-label={placeholder} />
-        <Button type="submit">Search</Button>
+        <Input
+          className="min-w-64 flex-1 border-[#D5D5D5] bg-white text-[#2D2C2C] shadow-2xs focus-visible:border-primary focus-visible:ring-primary/25"
+          value={quick}
+          onChange={(e) => onQuickChange(e.target.value)}
+          placeholder={placeholder}
+          aria-label={placeholder}
+        />
+        <Button type="submit" className="bg-primary text-white font-bold hover:bg-terra-80 shadow-xs px-5">
+          Search
+        </Button>
       </form>
       {advanced && (
         <form
-          className="mt-3 grid gap-3 border-t pt-3 sm:grid-cols-2 lg:grid-cols-4"
+          className="mt-3 grid gap-3 border-t border-[#EAEAEA] pt-3 sm:grid-cols-2 lg:grid-cols-4"
           onSubmit={(e) => {
             e.preventDefault();
             onSearch("advanced");
@@ -116,7 +131,9 @@ export function LegacySearchBar({
         >
           {children}
           <div className="flex items-end">
-            <Button type="submit" className="w-full">Search</Button>
+            <Button type="submit" className="w-full bg-primary text-white font-bold hover:bg-terra-80 shadow-xs">
+              Search
+            </Button>
           </div>
         </form>
       )}
@@ -128,7 +145,9 @@ export function LegacySearchBar({
 export function SearchField({ label, id, children }: { label: string; id: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <Label htmlFor={id}>{label}</Label>
+      <Label htmlFor={id} className="text-xs font-semibold uppercase tracking-wider text-[#575656]">
+        {label}
+      </Label>
       {children}
     </div>
   );
@@ -137,12 +156,22 @@ export function SearchField({ label, id, children }: { label: string; id: string
 /** Print / Export to Excel under a list. */
 export function ListExportButtons({ onExport }: { onExport: () => void }) {
   return (
-    <div className="flex gap-2 print:hidden">
-      <Button variant="outline" size="sm" onClick={() => window.print()}>
-        <PrinterIcon /> Print
+    <div className="flex gap-2 print:hidden font-sans">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => window.print()}
+        className="border-[#D5D5D5] bg-white hover:bg-[#F4EFE6] text-[#2D2C2C]"
+      >
+        <ErpIcon name="print" size={15} /> Print
       </Button>
-      <Button variant="outline" size="sm" onClick={onExport}>
-        Export to Excel
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={onExport}
+        className="border-[#D5D5D5] bg-white hover:bg-[#F4EFE6] text-[#2D2C2C]"
+      >
+        <ErpIcon name="download" size={15} /> Export to Excel
       </Button>
     </div>
   );

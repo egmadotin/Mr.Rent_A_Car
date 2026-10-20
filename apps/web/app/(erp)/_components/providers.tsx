@@ -7,7 +7,13 @@ import { TRPCReactProvider } from "@mrac/api/client";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <ThemeProvider brand="erp" storageKey="mrac-erp-theme">
+    <ThemeProvider
+      brand="erp"
+      storageKey="mrac-erp-theme"
+      defaultTheme="light"
+      enableSystem={false}
+      forcedTheme="light"
+    >
       <TRPCReactProvider>
         <TooltipProvider delayDuration={300}>
           {children}

@@ -46,8 +46,17 @@ export default async function HomePage() {
         <div className="mx-auto max-w-6xl px-4 text-center">
           <p className="font-serif text-2xl font-bold md:text-3xl">Find Your Ride &amp; Rent in Minutes</p>
           <div className="relative mt-2">
-            <p aria-hidden className="pointer-events-none font-serif text-[18vw] leading-none font-bold tracking-tight text-[#EBD6D5] select-none md:text-[9.5rem]">Rental cars</p>
-            <img src={HERO_CAR} alt="A rental car from the Mr Rent A Car fleet" className="relative mx-auto -mt-[9vw] w-full max-w-3xl mix-blend-multiply md:-mt-24" />
+            <p
+              aria-hidden
+              className="pointer-events-none font-serif text-[18vw] leading-none font-bold tracking-tight text-[#9D302D] select-none md:text-[9.5rem]"
+            >
+              Rental cars
+            </p>
+            <img
+              src={HERO_CAR}
+              alt="A rental car from the Mr Rent A Car fleet"
+              className="relative z-10 mx-auto -mt-[9vw] w-full max-w-3xl drop-shadow-[0_25px_35px_rgba(45,44,44,0.22)] md:-mt-24"
+            />
           </div>
         </div>
         <div className="relative mx-auto -mt-2 max-w-5xl px-4 pb-14">

@@ -17,12 +17,16 @@ const BrandContext = React.createContext<BrandContextValue | null>(null);
 export function ThemeProvider({
   brand: initialBrand,
   storageKey,
-  defaultTheme = "system",
+  defaultTheme = "light",
+  enableSystem = false,
+  forcedTheme,
   children,
 }: {
   brand: string;
   storageKey: string;
   defaultTheme?: "light" | "dark" | "system";
+  enableSystem?: boolean;
+  forcedTheme?: string;
   children: React.ReactNode;
 }) {
   const [brand, setBrandState] = React.useState(initialBrand);
@@ -53,7 +57,8 @@ export function ThemeProvider({
       <NextThemesProvider
         attribute="class"
         defaultTheme={defaultTheme}
-        enableSystem
+        enableSystem={enableSystem}
+        forcedTheme={forcedTheme}
         disableTransitionOnChange
         storageKey={storageKey}
       >

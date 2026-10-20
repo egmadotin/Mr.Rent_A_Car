@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ExternalLinkIcon, MenuIcon, PhoneIcon, XIcon } from "lucide-react";
+import { ExternalLinkIcon, MenuIcon, XIcon } from "lucide-react";
 import { Button } from "@mrac/ui/components/button";
 import { cn } from "@mrac/ui/lib/utils";
 import { BrandLogo } from "@mrac/ui/components/brand-logo";
@@ -17,7 +17,6 @@ const NAV = [
   { href: "/about-us", label: "About Us" },
   { href: "/our-services", label: "Our Services" },
   { href: "/contact-us", label: "Contact Us" },
-  { href: "/blogs", label: "Blogs" },
 ];
 
 export const PHONE = { display: "1.844.mmrrent (667.7368)", tel: "+18446677368" };
@@ -30,13 +29,6 @@ export function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-40">
-      <div className="bg-secondary text-secondary-foreground">
-        <div className="mx-auto flex h-9 max-w-6xl items-center justify-between px-4 text-sm">
-          <a href={`tel:${PHONE.tel}`} className="flex items-center gap-2 hover:underline">
-            <PhoneIcon className="size-3.5" /> {PHONE.display}
-          </a>
-        </div>
-      </div>
       <div className="border-b bg-background/95 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4">
           <Link href="/" className="flex items-center" aria-label="Mr Rent A Car home">
