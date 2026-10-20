@@ -36,6 +36,7 @@ export default async function EditReservationPage({ params }: { params: Promise<
           number: r.number,
           createdAt: r.createdAt.toISOString(),
           options,
+          drivers: r.drivers.map(({ customer: x }) => ({ id: x.id, firstName: x.firstName, lastName: x.lastName, licenseNumber: x.licenseNumber, licenseExpiry: x.licenseExpiry })),
           values: {
             status: r.status,
             customerId: s(r.customerId),

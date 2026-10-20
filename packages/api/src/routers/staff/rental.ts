@@ -10,6 +10,7 @@ import { priceBooking } from "../../lib/pricing";
 import { bookingOptionsInput, staffPricingOptions } from "../../lib/booking-options";
 import { methodData, paymentMethodInput } from "../../lib/payment-methods";
 import { storedRateOverride } from "../../lib/rate-override";
+import { syncDrivers } from "../../lib/booking-drivers";
 import { customerInput, upsertBookingCustomer } from "../../lib/customer-input";
 
 const D = (n: number) => new Prisma.Decimal(n);
@@ -58,6 +59,8 @@ const rentalFields = z.object({
   memoShowAsPopup: z.boolean().default(false),
   isNonRevenue: z.boolean().default(false),
   options: bookingOptionsInput,
+  /** "Drivers / Add More Drivers" on the Customer tab; left out = unchanged */
+  driverIds: z.array(z.string()).max(20).optional(),
 });
 const rentalReturnAfterPickup = (v: { checkOutAt: Date; returnAt: Date }, c: z.RefinementCtx) => {
   if (v.returnAt <= v.checkOutAt) c.addIssue({ code: "custom", path: ["returnAt"], message: "Return must be after pickup" });
@@ -489,6 +492,7 @@ export const rentalRouter = router({
             },
           });
           await tx.vehicleBlock.create({ data: { vehicleId: v.id, rentalId: rental.id, startsAt: input.checkOutAt, endsAt: input.returnAt } });
+          if (input.driverIds) await syncDrivers(tx, { rentalId: rental.id }, customerId, input.driverIds);
           await tx.vehicle.update({ where: { id: v.id }, data: { status: "ON_RENT", currentOdometer: input.odometerOut, fuelLevel: input.fuelOut } });
           if (input.memo) await tx.memo.create({ data: { rentalId: rental.id, body: input.memo, showAsPopup: input.memoShowAsPopup, authorId: ctx.user.id } });
           if (input.payment)
@@ -595,6 +599,7 @@ export const rentalRouter = router({
               openedById: input.openedById,
             },
           });
+          if (input.driverIds) await syncDrivers(tx, { rentalId: r.id }, r.customerId, input.driverIds);
           // the Rental Discount report reads these rows
           await audit(tx, "Rental", r.id, ctx.user.id, { Discount: [discountText(r.discountType, r.discountValue), discountText(input.discountType, input.discountValue)] });
           // re-priced lines replace the old ones; lines entered elsewhere on the rental stay

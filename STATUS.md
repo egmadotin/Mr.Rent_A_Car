@@ -60,7 +60,7 @@ The RentCentric menus, vehicle page and customer page were re-read on Oct 20. No
 | ReservationsSearch | `/admin/reservations` | ✅ |
 | Reserve (Customer and Reservation tabs, payment panel, Check Matching) | `/admin/reservations/new`, `/[id]/edit` | ✅ |
 | Rate (i), Other Charges, Add More Information | | ✅ |
-| Add More Drivers inside the form | drivers are added on the reservation page | 🟡 |
+| Add More Drivers inside the form | Drivers card on the Customer tab (search customers, add / remove); saved with the reservation; ticks the "Additional driver is added" charge × drivers | ✅ |
 | ReservationMain: Start Rental | | ✅ |
 | ReservationMain: Cancel, Delete, Move, Duplicate | | ✅ |
 | ReservationMain: Payments/Charges | edit and delete payments added Oct 20 | ✅ |
@@ -78,7 +78,7 @@ The RentCentric menus, vehicle page and customer page were re-read on Oct 20. No
 | CheckOut3: Edit Rental | `/[id]/edit` | ✅ |
 | CheckIn2: End Rental | `/[id]/end` | ✅ |
 | Rate (i), Other Charges, Add More Information, Upgrade, Fuel Charge | | ✅ |
-| Add More Drivers inside the form | drivers are added on the rental page | 🟡 |
+| Add More Drivers inside the form | same Drivers card on Start / Edit Rental | ✅ |
 | Credit Card (+) saved card | | 🔑 must go through Stripe |
 | AgreementMain: Payments/Charges | including editing and deleting payments | ✅ |
 | AgreementMain: Adjustments | including edit and delete | ✅ |

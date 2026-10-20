@@ -11,6 +11,7 @@ import { storedRateOverride } from "../../lib/rate-override";
 import { customerInput, upsertBookingCustomer } from "../../lib/customer-input";
 import { billSplitData, billSplitInput, transportInput } from "../../lib/bill-split";
 import { emailDocument } from "../../lib/email-document";
+import { syncDrivers } from "../../lib/booking-drivers";
 
 const D = (n: number) => new Prisma.Decimal(n);
 const optStr = z.string().trim().max(2000).optional().nullable().transform((v) => v || null);
@@ -65,6 +66,8 @@ const reservationInput = z
     insuranceId: optStr,
     /** the options grid (same as Add Quote); when given it replaces miscCharges / insuranceId */
     options: bookingOptionsInput.optional(),
+    /** "Drivers / Add More Drivers" on the Customer tab: the additional drivers (customers); left out = unchanged */
+    driverIds: z.array(z.string()).max(20).optional(),
     payment: z
       .object({
         method: paymentMethodInput,
@@ -188,6 +191,7 @@ async function writeBooking(
   }
 
   await tx.chargeLine.createMany({ data: priced.lines.map((l) => ({ ...l, reservationId })) });
+  if (input.driverIds) await syncDrivers(tx, { reservationId }, customerId, input.driverIds);
 
   // availability block — the exclusion constraint rejects double-booking
   await tx.vehicleBlock.deleteMany({ where: { reservationId } });

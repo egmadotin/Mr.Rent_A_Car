@@ -33,7 +33,10 @@ export default async function EditRentalPage({ params }: { params: Promise<{ id:
           closed: r.status === "CLOSED",
           vehicle: { id: r.vehicleId, label: `${r.vehicle.assignedId} — ${r.vehicle.year ?? ""} ${r.vehicle.make.name} ${r.vehicle.model.name}` },
         }}
-        initial={rentalFormInitial(r)}
+        initial={{
+          ...rentalFormInitial(r),
+          drivers: r.drivers.map(({ customer: x }) => ({ id: x.id, firstName: x.firstName, lastName: x.lastName, licenseNumber: x.licenseNumber, licenseExpiry: x.licenseExpiry })),
+        }}
       />
     </>
   );

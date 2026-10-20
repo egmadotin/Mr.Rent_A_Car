@@ -17,6 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@mrac/ui/components/ta
 import { Textarea } from "@mrac/ui/components/textarea";
 import { money } from "@mrac/ui/lib/format";
 import { ChargeSummary, DiscountField, FormAlert, bookingWindow, initialBookingTimes } from "../../../../_components/booking-kit";
+import { DriversCard, withDriverCharges, type DriverPick } from "../../../../_components/booking-drivers";
 import { CUSTOMER_FIELDS, CustomerFields, CustomerNotes, MatchList, PaymentInfoCard, customerValues, type CustomerLayout } from "../../../../_components/booking-customer";
 import { CompanySearch } from "../../../../_components/company-search";
 import { ConfirmAction } from "../../../../_components/confirm-action";
@@ -50,7 +51,7 @@ const STATUSES = [
   ["CONFIRMED", "Confirmed"], ["TENTATIVE", "Tentative"], ["CANCELLED", "Cancelled"], ["CHECKED_OUT", "Rented"], ["CHECKED_IN", "Checked In"],
 ] as const;
 
-export type ReservationFormInitial = { reservationId?: string; number?: number; createdAt?: string; values: Values; options?: BookingOptions };
+export type ReservationFormInitial = { reservationId?: string; number?: number; createdAt?: string; values: Values; options?: BookingOptions; drivers?: DriverPick[] };
 
 /**
  * Reserve (ReservationsModfiy.aspx) — the Customer tab (primary driver profile) and the Reservation tab, field for field,
@@ -89,6 +90,7 @@ export function ReservationForm({
   }));
   const [opts, setOpts] = React.useState<BookingOptions>(initial?.options ?? emptyOptions());
   const [customerId, setCustomerId] = React.useState<string | null>((initial?.values.customerId as string) || null);
+  const [drivers, setDrivers] = React.useState<DriverPick[]>(initial?.drivers ?? []);
   const [paymentReady, setPaymentReady] = React.useState(false);
   const [errors, setErrors] = React.useState<Record<string, string[] | undefined>>({});
   const [formError, setFormError] = React.useState<string | null>(null);
@@ -222,6 +224,7 @@ export function ReservationForm({
       memo: str("memo"),
       memoShowAsPopup: v.memoShowAsPopup === true,
       options: opts,
+      driverIds: drivers.map((d) => d.id),
       // CVV is never stored
       payment: pay
         ? { method: str("payMethod"), transactionType: str("payType") || "AUTHORIZATION", amount: str("payAmount"), authorizationCode: str("payAuth"), transactionCode: str("payTxn") }
@@ -312,6 +315,9 @@ export function ReservationForm({
                 </div>
               </CardContent>
             </Card>
+            <div className="mt-4">
+              <DriversCard drivers={drivers} primaryId={customerId} onChange={(d) => { setDrivers(d); setOpts((x) => withDriverCharges(x, bo.data, d.length)); }} />
+            </div>
           </TabsContent>
 
           {/* ── Reservation tab ──────────────────────────────────────────── */}

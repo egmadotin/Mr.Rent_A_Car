@@ -17,6 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@mrac/ui/components/ta
 import { Textarea } from "@mrac/ui/components/textarea";
 import { fromDateTimeLocal, money, toDateTimeLocal } from "@mrac/ui/lib/format";
 import { ChargeSummary, DiscountField, FormAlert, bookingWindow, initialBookingTimes } from "../../../../_components/booking-kit";
+import { DriversCard, withDriverCharges, type DriverPick } from "../../../../_components/booking-drivers";
 import { CUSTOMER_FIELDS, CustomerFields, CustomerNotes, MatchList, PaymentInfoCard, customerValues, type CustomerLayout } from "../../../../_components/booking-customer";
 import { CompanySearch } from "../../../../_components/company-search";
 import { ConfirmAction } from "../../../../_components/confirm-action";
@@ -40,7 +41,7 @@ const RENTAL_CUSTOMER: CustomerLayout = [
 ];
 const REQUIRED = RENTAL_CUSTOMER.flatMap((c) => (typeof c !== "number" && c[2] ? [c] : []));
 
-export type StartRentalInitial = { values: Values; options?: BookingOptions };
+export type StartRentalInitial = { values: Values; options?: BookingOptions; drivers?: DriverPick[] };
 /** Edit Rental: the agreement being edited (the vehicle changes only through Vehicle Exchange). */
 /** `closed` shows the check-in fields of a closed rental (Return Date, Odometer In, Fuel In). */
 export type RentalEditing = { rentalId: string; raNumber: number; closed: boolean; vehicle: { id: string; label: string } };
@@ -88,6 +89,7 @@ export function StartRentalForm({
   }));
   const [opts, setOpts] = React.useState<BookingOptions>(initial?.options ?? emptyOptions());
   const [customerId, setCustomerId] = React.useState<string | null>((initial?.values.customerId as string) || null);
+  const [drivers, setDrivers] = React.useState<DriverPick[]>(initial?.drivers ?? []);
   const [paymentReady, setPaymentReady] = React.useState(false);
   const [errors, setErrors] = React.useState<Record<string, string[] | undefined>>({});
   const [formError, setFormError] = React.useState<string | null>(null);
@@ -198,7 +200,7 @@ export function StartRentalForm({
     const pay = paymentReady && str("payMethod") && str("payAmount");
     const tz = o?.locations.find((l) => l.id === str("pickupLocationId"))?.timeZone;
     try {
-      const fields = rentalFields(v, opts, { pickupAt: pickupAt as Date, returnAt: returnAt as Date }, allowUndesired);
+      const fields = { ...rentalFields(v, opts, { pickupAt: pickupAt as Date, returnAt: returnAt as Date }, allowUndesired), driverIds: drivers.map((d) => d.id) };
       if (editing) {
         await client.staff.rental.update.mutate({
           ...fields,
@@ -294,6 +296,9 @@ export function StartRentalForm({
                 </div>
               </CardContent>
             </Card>
+            <div className="mt-4">
+              <DriversCard drivers={drivers} primaryId={customerId} onChange={(d) => { setDrivers(d); setOpts((x) => withDriverCharges(x, bo.data, d.length)); }} />
+            </div>
           </TabsContent>
 
           {/* ── Rental tab ───────────────────────────────────────────────── */}
