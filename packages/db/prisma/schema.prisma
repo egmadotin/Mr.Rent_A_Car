@@ -513,6 +513,7 @@ model Vehicle {
   inspections      VehicleInspection[]
   reportedDamages  CustomerReportedDamage[]
   checklists       VehicleChecklistRecord[]
+  ownership        VehicleOwnership?
 
   @@index([vehicleTypeId, rentalLocationId, status])
 }
@@ -854,6 +855,7 @@ model Company {
   rentals      Rental[]
   payments     Payment[]
   billSplits   BillSplit[]
+  vehiclesSold VehicleOwnership[] @relation("VehicleOwnershipSeller")
 }
 
 enum InsuranceType {
@@ -2098,4 +2100,72 @@ model SignatureSetup {
   disclaimer    String             @default("")
   isActive      Boolean            @default(true)
   createdAt     DateTime           @default(now())
+}
+
+/// Ownership Information (VehicleLeaseInfo.aspx): purchase, finance / lease, owner, sale, title and depreciation, one per vehicle.
+model VehicleOwnership {
+  vehicleId            String    @id
+  vehicle              Vehicle   @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  price                Decimal?  @db.Decimal(12, 2) /// Price
+  loanNumber           String? /// Loan Number
+  buyBackValue         Decimal?  @db.Decimal(12, 2) /// Buy Back Value
+  bank                 String? /// Bank
+  monthlyPayment       Decimal?  @db.Decimal(12, 2) /// Monthly Payment
+  leaseTerm            String? /// Lease Term
+  acquisitionType      String? /// Acquisition Type
+  financeAmount        Decimal?  @db.Decimal(12, 2) /// Finance Amount
+  acquisitionDate      DateTime? @db.Date /// Acquisition Date
+  financeDate          DateTime? @db.Date /// Finance Date
+  acquisitionPrice     Decimal?  @db.Decimal(12, 2) /// Acquisition Price
+  interestRate         Decimal?  @db.Decimal(10, 4) /// Interest Rate
+  sellingCompanyId     String? /// Selling Company
+  interestStartDate    DateTime? @db.Date /// Interest Start Date
+  cleanWholesale       Decimal?  @db.Decimal(12, 2) /// Clean Wholesale
+  paymentAmount        Decimal?  @db.Decimal(12, 2) /// Payment Amount
+  avgAuctionValue      Decimal?  @db.Decimal(12, 2) /// average auction value
+  firstPaymentDate     DateTime? @db.Date /// First Payment Date
+  ownerCity            String? /// Owner City
+  ownerFirstName       String? /// Owner First Name
+  lastAmortizationDate DateTime? @db.Date /// Last Amortization Date
+  ownerLastName        String? /// Owner Last Name
+  payoffAmount         Decimal?  @db.Decimal(12, 2) /// Payoff Amount
+  ownerAddress         String? /// Owner Address
+  askingPrice          Decimal?  @db.Decimal(12, 2) /// Asking Price
+  ownerState           String? /// Owner State
+  dateSold             DateTime? @db.Date /// Date Sold
+  ownerZip             String? /// Owner Zip
+  salesPrice           Decimal?  @db.Decimal(12, 2) /// Sales Price
+  ownerPhone           String? /// Owner Phone
+  isSold               Boolean   @default(false) /// Sold
+  soldMethod           String? /// Sold Method
+  ownerFax             String? /// Owner Fax
+  remainingPayments    Int? /// Remaining Payments
+  registeredOwner      String? /// Registered Owner
+  buyer                String? /// Buyer
+  registeredOwnerCont  String? /// Registered Owner Cont.
+  outOfServiceOdometer Int? /// Out Of Service Odometer
+  outOfServiceDate     DateTime? @db.Date /// Out Of Service Date
+  titleComment         String? /// Title Comment
+  sellOnline           Boolean   @default(false) /// Sell Online
+  history              String? /// History
+  balanceOwed          Decimal?  @db.Decimal(12, 2) /// Balance Owed
+  titleLocation        String? /// Title Location
+  titleLocationCont    String? /// Title Location Cont.
+  titleDate            DateTime? @db.Date /// Title Date
+  firstMonthDep        Decimal?  @db.Decimal(12, 2) /// First Month Dep.
+  lastMonthDep         Decimal?  @db.Decimal(12, 2) /// Last Month Dep.
+  bookRetail           Decimal?  @db.Decimal(12, 2) /// Book Retail Book Value
+  accumulatedDep       Decimal?  @db.Decimal(12, 2) /// Accumulated Dep.
+  residual             Decimal?  @db.Decimal(12, 2) /// Residual
+  depOdometer          Int? /// Odometer
+  moDepAmt             Decimal?  @db.Decimal(12, 2) /// Mo. Dep. Amt.
+  startLicDepDate      DateTime? @db.Date /// Start Lic. Dep.
+  dailyDepPercent      Decimal?  @db.Decimal(10, 4) /// Daily Dep.%
+  lastLicDepDate       DateTime? @db.Date /// Last Lic. Dep.
+  moDepPercent         Decimal?  @db.Decimal(10, 4) /// Mo. Dep.%
+  accumLicDep          Decimal?  @db.Decimal(12, 2) /// Accum Lic. Dep.
+  startDepDate         DateTime? @db.Date /// Start Dep.
+  lastDepDate          DateTime? @db.Date /// Last Dep. Date
+  sellingCompany       Company?  @relation("VehicleOwnershipSeller", fields: [sellingCompanyId], references: [id], onDelete: SetNull)
+  updatedAt            DateTime  @updatedAt
 }

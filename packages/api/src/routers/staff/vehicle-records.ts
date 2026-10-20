@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { Prisma } from "@mrac/db";
 import { router, permitted, requirePermission } from "../../trpc";
 import { audit } from "../../lib/audit";
+import { OWNERSHIP_FIELDS } from "../../lib/vehicle-ownership-fields";
 import { deleteFile, isStorageKey } from "../../lib/storage";
 
 /**
@@ -145,6 +146,24 @@ async function setStatus(tx: Tx, vehicleId: string, status: (typeof STATUSES)[nu
   await audit(tx, "Vehicle", vehicleId, userId, { Status: [v.status, status] });
 }
 
+/** Ownership Information input, from the field list: money / numbers, whole numbers, dates, text, ticks. */
+const ownershipInput = z.object(
+  Object.fromEntries(
+    OWNERSHIP_FIELDS.map(([k, label, kind]) => [
+      k,
+      kind === "money" || kind === "num"
+        ? z.preprocess((v) => (v === "" || v == null ? null : Number(v)), z.number({ invalid_type_error: `${label} must be a number` }).finite().nullable())
+        : kind === "int"
+          ? optInt
+          : kind === "date"
+            ? optDate
+            : kind === "bool"
+              ? z.preprocess((v) => v === true || v === "on" || v === "true", z.boolean())
+              : optStr,
+    ]),
+  ) as unknown as Record<(typeof OWNERSHIP_FIELDS)[number][0], z.ZodTypeAny>,
+);
+
 const saveInput = z.discriminatedUnion("kind", KINDS.map((k) => z.object({ kind: z.literal(k), id: z.string().optional(), vehicleId: z.string(), data: inputs[k] })) as unknown as [z.ZodObject<{ kind: z.ZodLiteral<Kind>; id: z.ZodOptional<z.ZodString>; vehicleId: z.ZodString; data: z.ZodTypeAny }>]);
 
 export const vehicleRecordsRouter = router({
@@ -208,6 +227,17 @@ export const vehicleRecordsRouter = router({
         return row.imageKey;
       }).then((imageKey) => (imageKey ? deleteFile(imageKey) : undefined)),
     ),
+
+  /** Ownership Information (VehicleLeaseInfo.aspx). */
+  ownershipGet: permitted("Vehicles").input(z.object({ vehicleId: z.string() })).query(({ ctx, input }) => ctx.prisma.vehicleOwnership.findUnique({ where: { vehicleId: input.vehicleId } })),
+
+  ownershipSave: permitted("VehiclesEdit")
+    .input(z.object({ vehicleId: z.string(), data: ownershipInput }))
+    .mutation(async ({ ctx, input }) => {
+      const data = Object.fromEntries(OWNERSHIP_FIELDS.map(([k, , kind]) => [k, kind === "money" || kind === "num" ? D(input.data[k] as number | null) : input.data[k]]));
+      await ctx.prisma.vehicleOwnership.upsert({ where: { vehicleId: input.vehicleId }, create: { vehicleId: input.vehicleId, ...data }, update: data });
+      await audit(ctx.prisma, "Vehicle", input.vehicleId, ctx.user.id, { "Ownership Information": [null, "saved"] });
+    }),
 
   /** Status Change (VehicleStatusChangeModify.aspx: Status, Change Date/Time, Due Back Date/Time). */
   changeStatus: permitted("VehiclesEdit")

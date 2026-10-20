@@ -26,7 +26,7 @@ The RentCentric menus, vehicle page and customer page were re-read on Oct 20. No
 | Contracts and invoices (templates, printouts, editor) | ✅ (Standard and Bill Split invoice 🔑) |
 | Pricing (rates, seasons, taxes, insurance, misc charges, overrides) | ✅ Standard rate type exact; other rate types approximate |
 | Customers (list, add, edit, view and its actions) | ✅ |
-| Vehicles (list, add, edit, summary) | ✅ vehicle page actions (🟡 Ownership, Condition, Claims, images not yet) |
+| Vehicles (list, add, edit, summary) | ✅ vehicle page actions (🟡 Condition, Claims, images not yet) |
 | Users, user groups and permissions | ✅ (group location limit not enforced) |
 | Settings | 🟡 about 37 of RentCentric's ~100 setting pages built (section 7) |
 | Reports | 🟡 29 of 64 built (see section 8) |
@@ -114,7 +114,8 @@ The RentCentric menus, vehicle page and customer page were re-read on Oct 20. No
 | Vehicle page summary | `/admin/vehicles/[id]` | ✅ |
 | **Vehicle page actions** | `/admin/vehicles/[id]` | ✅ Oct 20 (fields copied from each RentCentric form) |
 | ↳ Insurances | | ✅ |
-| ↳ Ownership Information, Vehicle Condition | | ⬜ (fields copied; not built) |
+| ↳ Ownership Information | | ✅ Oct 21 (all 60 fields: purchase, finance / lease, owner, sale, title, depreciation) |
+| ↳ Vehicle Condition | | ⬜ |
 | ↳ Status Change, Vehicle History, Deactivate | | ✅ |
 | ↳ Technical Log | | — RentCentric's own page is broken (Parser Error) |
 | ↳ Maintenance, Problems, Repairs, Vehicle Services, Carwash | | ✅ |

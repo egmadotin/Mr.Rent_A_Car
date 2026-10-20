@@ -17,11 +17,12 @@ import { CheckField, Field, FormDialog, PAYMENT_METHOD_OPTIONS, SelectField, Tex
 import { ActionLink } from "../../../../_components/legacy-view";
 import { NO_PERMISSION, useCan } from "../../../../_components/permissions";
 import { RowActions } from "../../../../_components/row-actions";
+import { OwnershipPanel } from "./vehicle-ownership";
 import { VehicleChecklistPanel } from "../../../../_components/vehicle-checklist";
 import { InspectionComparisonPanel, InspectionsPanel, PhotoUploader, ReportedDamagesPanel, Thumbs } from "../../../../_components/inspections";
 
 type Kind = "maintenance" | "repair" | "problem" | "carwash" | "damage" | "accident" | "service" | "insurance";
-type Panel = Kind | "status" | "history" | "rentals" | "reservations" | "reported" | "comparison" | "inspection" | "checklist";
+type Panel = Kind | "status" | "history" | "rentals" | "reservations" | "reported" | "comparison" | "inspection" | "checklist" | "ownership";
 type V = Record<string, unknown>;
 
 const STATUS_LABEL: Record<string, string> = {
@@ -126,7 +127,7 @@ export function VehicleActions({ vehicleId, isActive, status }: { vehicleId: str
   }
 
   const links: [string, Panel | null, string?][] = [
-    ["Ownership Information", null, notBuilt],
+    ["Ownership Information", "ownership"],
     ["Damage", "damage"],
     ["Accidents", "accident"],
     ["Insurances", "insurance"],
@@ -183,6 +184,7 @@ export function VehicleActions({ vehicleId, isActive, status }: { vehicleId: str
       {panel === "comparison" && <InspectionComparisonPanel vehicleId={vehicleId} />}
       {panel === "inspection" && <InspectionsPanel vehicleId={vehicleId} />}
       {panel === "checklist" && <VehicleChecklistPanel vehicleId={vehicleId} />}
+      {panel === "ownership" && <OwnershipPanel vehicleId={vehicleId} />}
 
       {data && panel === "maintenance" && (
         <RecordPanel
