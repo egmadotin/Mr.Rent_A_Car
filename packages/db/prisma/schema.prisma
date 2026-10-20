@@ -517,6 +517,7 @@ model Vehicle {
   checklists       VehicleChecklistRecord[]
   ownership        VehicleOwnership?
   condition        VehicleCondition?
+  claims           Claim[]
 
   @@index([vehicleTypeId, rentalLocationId, status])
 }
@@ -1585,8 +1586,11 @@ enum ClaimStatus {
 /// "Claims" (ClaimsModify.aspx). CONFIRM: legacy also has "Claims V2" — which one is in use?
 model Claim {
   id                       String      @id @default(cuid())
-  rentalId                 String
-  rental                   Rental      @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+  /// the rental the claim is for; empty for a claim added on the vehicle (Vehicle Claims)
+  rentalId                 String?
+  rental                   Rental?     @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+  vehicleId                String?
+  vehicle                  Vehicle?    @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
   claimDate                DateTime
   claimNumber              String?
   closeDate                DateTime?

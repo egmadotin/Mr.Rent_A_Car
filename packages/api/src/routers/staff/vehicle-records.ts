@@ -279,6 +279,55 @@ export const vehicleRecordsRouter = router({
     await audit(ctx.prisma, "Vehicle", a.vehicleId, ctx.user.id, { [a.kind === "IMAGE" ? "Images" : "Documents"]: [a.fileName, "deleted"] });
   }),
 
+  /** Vehicle Claims (ClaimsMain.aspx?VehicleID=…: Claim ID (Status), Claim Date, Claim Close Date): its own and its rentals' claims. */
+  claims: permitted("Claims").input(z.object({ vehicleId: z.string() })).query(({ ctx, input }) =>
+    ctx.prisma.claim.findMany({
+      where: { OR: [{ vehicleId: input.vehicleId }, { rental: { vehicleId: input.vehicleId } }] },
+      orderBy: { claimDate: "desc" },
+      include: { rental: { select: { id: true, raNumber: true } } },
+    }),
+  ),
+
+  /** New Claim / edit (ClaimsModify.aspx, the same form as the rental's), the Rental # optional. */
+  claimSave: permitted("Claims")
+    .input(
+      z.object({
+        id: z.string().optional(),
+        vehicleId: z.string(),
+        rentalId: optStr,
+        claimDate: reqDate("Claim Date"),
+        claimNumber: optStr,
+        closeDate: optDate,
+        type: z.enum(["RENTER", "THIRD_PARTY", "OTHER"]),
+        location: optStr,
+        policeDept: optStr,
+        policeRep: optStr,
+        status: z.enum(["OPEN", "PENDING", "CLOSED"]),
+        deductible: optMoney,
+        totalPayments: optMoney,
+        memo: optStr,
+        hasAccidentReport: z.boolean().default(false),
+        hasRenterInsurancePolicy: z.boolean().default(false),
+        hasPoliceReport: z.boolean().default(false),
+        hasRentalAgreement: z.boolean().default(false),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await requirePermission(ctx, input.id ? "ClaimsEdit" : "ClaimsAdd");
+      const { id, deductible, totalPayments, ...rest } = input;
+      if (rest.rentalId && !(await ctx.prisma.rental.findFirst({ where: { id: rest.rentalId, vehicleId: rest.vehicleId }, select: { id: true } })))
+        throw new TRPCError({ code: "BAD_REQUEST", message: "That rental isn't for this vehicle." });
+      const data = { ...rest, deductible: D(deductible), totalPayments: D(totalPayments) };
+      const c = id ? await ctx.prisma.claim.update({ where: { id }, data }) : await ctx.prisma.claim.create({ data });
+      await audit(ctx.prisma, "Vehicle", rest.vehicleId, ctx.user.id, { Claim: [id ? "edited" : null, c.claimNumber ?? "saved"] });
+      return { id: c.id };
+    }),
+
+  claimDelete: permitted("ClaimsDelete").input(z.object({ id: z.string() })).mutation(async ({ ctx, input }) => {
+    const c = await ctx.prisma.claim.delete({ where: { id: input.id } });
+    if (c.vehicleId) await audit(ctx.prisma, "Vehicle", c.vehicleId, ctx.user.id, { Claim: [c.claimNumber ?? "claim", "deleted"] });
+  }),
+
   /** Vehicle Condition (VehicleConditions.aspx). */
   conditionGet: permitted("Vehicles").input(z.object({ vehicleId: z.string() })).query(({ ctx, input }) => ctx.prisma.vehicleCondition.findUnique({ where: { vehicleId: input.vehicleId } })),
 

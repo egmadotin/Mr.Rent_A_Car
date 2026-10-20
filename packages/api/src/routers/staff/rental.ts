@@ -838,11 +838,12 @@ export const rentalRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const { rentalId, deductible, totalPayments, ...rest } = input;
-      await loadRental(ctx.prisma, rentalId);
+      const r = await loadRental(ctx.prisma, rentalId);
       await ctx.prisma.claim.create({
         data: {
           ...rest,
           rentalId,
+          vehicleId: r.vehicleId,
           deductible: deductible == null ? null : D(deductible),
           totalPayments: totalPayments == null ? null : D(totalPayments),
         },

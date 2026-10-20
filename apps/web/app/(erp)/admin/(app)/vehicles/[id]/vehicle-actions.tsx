@@ -17,12 +17,12 @@ import { CheckField, Field, FormDialog, PAYMENT_METHOD_OPTIONS, SelectField, Tex
 import { ActionLink } from "../../../../_components/legacy-view";
 import { NO_PERMISSION, useCan } from "../../../../_components/permissions";
 import { RowActions } from "../../../../_components/row-actions";
-import { ConditionPanel, OwnershipPanel } from "./vehicle-ownership";
+import { ConditionPanel, OwnershipPanel, VehicleClaimsPanel } from "./vehicle-ownership";
 import { VehicleChecklistPanel } from "../../../../_components/vehicle-checklist";
 import { InspectionComparisonPanel, InspectionsPanel, PhotoUploader, ReportedDamagesPanel, Thumbs } from "../../../../_components/inspections";
 
 type Kind = "maintenance" | "repair" | "problem" | "carwash" | "damage" | "accident" | "service" | "insurance";
-type Panel = Kind | "status" | "history" | "rentals" | "reservations" | "reported" | "comparison" | "inspection" | "checklist" | "ownership" | "condition";
+type Panel = Kind | "status" | "history" | "rentals" | "reservations" | "reported" | "comparison" | "inspection" | "checklist" | "ownership" | "condition" | "claims";
 type V = Record<string, unknown>;
 
 const STATUS_LABEL: Record<string, string> = {
@@ -54,7 +54,6 @@ const dtl = (v: unknown) => (v ? toDateTimeLocal(new Date(v as string)) : "");
 const dIn = (v: unknown) => (v ? new Date(v as string).toISOString().slice(0, 10) : "");
 const at = (v: unknown) => (v ? fromDateTimeLocal(v as string) : null);
 const km = (v: unknown) => (v == null ? "—" : Number(v).toLocaleString());
-const notBuilt = "Not built yet";
 
 /** The RentCentric vehicle page actions (VehicleMain.aspx), in its order, each opening its panel. */
 export function VehicleActions({ vehicleId, isActive, status }: { vehicleId: string; isActive: boolean; status: string }) {
@@ -144,7 +143,7 @@ export function VehicleActions({ vehicleId, isActive, status }: { vehicleId: str
     ["Customer Reported Damages", "reported"],
     ["Inspection Comparison", "comparison"],
     ["Vehicle Inspection", "inspection"],
-    ["Vehicle Claims", null, notBuilt],
+    ["Vehicle Claims", "claims"],
     ["Vehicle Checklist", "checklist"],
   ];
 
@@ -187,6 +186,7 @@ export function VehicleActions({ vehicleId, isActive, status }: { vehicleId: str
       {panel === "checklist" && <VehicleChecklistPanel vehicleId={vehicleId} />}
       {panel === "ownership" && <OwnershipPanel vehicleId={vehicleId} />}
       {panel === "condition" && <ConditionPanel vehicleId={vehicleId} />}
+      {panel === "claims" && <VehicleClaimsPanel vehicleId={vehicleId} />}
 
       {data && panel === "maintenance" && (
         <RecordPanel

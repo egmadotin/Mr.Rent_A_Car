@@ -26,7 +26,7 @@ The RentCentric menus, vehicle page and customer page were re-read on Oct 20. No
 | Contracts and invoices (templates, printouts, editor) | ✅ (Standard and Bill Split invoice 🔑) |
 | Pricing (rates, seasons, taxes, insurance, misc charges, overrides) | ✅ Standard rate type exact; other rate types approximate |
 | Customers (list, add, edit, view and its actions) | ✅ |
-| Vehicles (list, add, edit, summary) | ✅ vehicle page actions (🟡 Vehicle Claims not yet) |
+| Vehicles (list, add, edit, summary) | ✅ (every vehicle page action built) |
 | Users, user groups and permissions | ✅ (group location limit not enforced) |
 | Settings | 🟡 about 37 of RentCentric's ~100 setting pages built (section 7) |
 | Reports | 🟡 29 of 64 built (see section 8) |
@@ -122,7 +122,7 @@ The RentCentric menus, vehicle page and customer page were re-read on Oct 20. No
 | ↳ Damage (with Damage Locations / Conditions settings, photo), Accidents | | ✅ |
 | ↳ Customer Reported Damages, Inspection Comparison, Vehicle Inspection | | ✅ Oct 21 — RentCentric only lists these (its apps fill them); ours adds an Add form with photos |
 | ↳ Vehicle Checklist | | ✅ Oct 21 (checklists per vehicle type; items ticked + note per booking) |
-| ↳ Vehicle Claims | | ⬜ |
+| ↳ Vehicle Claims | | ✅ Oct 21 (the vehicle's own claims and its rentals' claims; New Claim with optional Rental #) |
 | ↳ Rentals, Reservations (this vehicle's) | | ✅ |
 | ↳ Notes, Images, Documents | | ✅ Oct 21 (Notes; Add More Images; Add More Documents with Description — PDF / Word / Excel / photos) |
 | Fleet calendar | `/admin/calendar` | ✅ |

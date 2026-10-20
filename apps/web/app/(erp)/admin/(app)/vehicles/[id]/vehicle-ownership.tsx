@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
+import { PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTRPC, useTRPCClient } from "@mrac/api/client";
 import { ACQUISITION_TYPES, CONDITION_COMPONENTS, CONDITION_RATINGS, OWNERSHIP_FIELDS, SOLD_METHODS } from "@mrac/api/vehicle-ownership-fields";
@@ -10,9 +12,12 @@ import { Checkbox } from "@mrac/ui/components/checkbox";
 import { Input } from "@mrac/ui/components/input";
 import { NativeSelect } from "@mrac/ui/components/native-select";
 import { toast } from "@mrac/ui/components/sonner";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@mrac/ui/components/table";
 import { Textarea } from "@mrac/ui/components/textarea";
+import { date } from "@mrac/ui/lib/format";
 import { REGION_OPTIONS } from "@mrac/ui/lib/regions";
-import { FieldShell as F, FormErrorsContext, errorMessage, fieldErrorsOf } from "../../../../_components/form";
+import { ConfirmAction } from "../../../../_components/confirm-action";
+import { CheckField, Field, FieldShell as F, FormDialog, FormErrorsContext, SelectField, TextareaField, errorMessage, fieldErrorsOf } from "../../../../_components/form";
 import { NO_PERMISSION, useCan } from "../../../../_components/permissions";
 
 /** Ownership Information (VehicleLeaseInfo.aspx): every field in RentCentric's order, saved with "Save". */
@@ -152,6 +157,93 @@ export function ConditionPanel({ vehicleId }: { vehicleId: string }) {
             <Button type="submit" disabled={saving || !editable} title={editable ? undefined : NO_PERMISSION}>{saving ? "Saving…" : "Save"}</Button>
           </div>
         </form>
+      </CardContent>
+    </Card>
+  );
+}
+
+const CLAIM_TYPES = [{ value: "RENTER", label: "Renter" }, { value: "THIRD_PARTY", label: "3rd Party" }, { value: "OTHER", label: "Other" }];
+const CLAIM_STATUS = [{ value: "OPEN", label: "Open" }, { value: "PENDING", label: "Pending" }, { value: "CLOSED", label: "Closed" }];
+const ymdOf = (d: Date | string | null | undefined) => (d ? new Date(d).toISOString().slice(0, 10) : "");
+
+/** Vehicle Claims (ClaimsMain.aspx?VehicleID=…: Claim ID (Status), Claim Date, Claim Close Date + New Claim). */
+export function VehicleClaimsPanel({ vehicleId }: { vehicleId: string }) {
+  const trpc = useTRPC();
+  const client = useTRPCClient();
+  const qc = useQueryClient();
+  const can = useCan();
+  const rows = useQuery(trpc.staff.vehicleRecords.claims.queryOptions({ vehicleId })).data;
+  const rentals = (useQuery(trpc.staff.inspections.bookings.queryOptions({ vehicleId })).data?.rentals ?? []).map((r) => ({ value: r.id, label: `Rental# ${r.raNumber} — ${r.customer.firstName} ${r.customer.lastName}` }));
+  const [deleting, setDeleting] = React.useState<string | null>(null);
+  const refresh = () => qc.invalidateQueries({ queryKey: trpc.staff.vehicleRecords.claims.queryKey({ vehicleId }) });
+  type C = NonNullable<typeof rows>[number];
+  const dialog = (c?: C) => (
+    <FormDialog
+      title={c ? "Edit Claim" : "New Claim"}
+      wide
+      trigger={c ? <Button size="icon-sm" variant="ghost" aria-label="Edit claim" disabled={!can("ClaimsEdit")}><PencilIcon /></Button> : <Button size="sm" disabled={!can("ClaimsAdd")} title={can("ClaimsAdd") ? undefined : NO_PERMISSION}><PlusIcon /> New Claim</Button>}
+      onSubmit={async (v) => {
+        await client.staff.vehicleRecords.claimSave.mutate({
+          id: c?.id, vehicleId, rentalId: (v.rentalId as string) || null, claimDate: v.claimDate as never, claimNumber: v.claimNumber as string, closeDate: (v.closeDate as never) || null,
+          type: v.type as "RENTER", location: v.location as string, policeDept: v.policeDept as string, policeRep: v.policeRep as string, status: v.status as "OPEN",
+          deductible: v.deductible as never, totalPayments: v.totalPayments as never, memo: v.memo as string,
+          hasAccidentReport: !!v.hasAccidentReport, hasRenterInsurancePolicy: !!v.hasRenterInsurancePolicy, hasPoliceReport: !!v.hasPoliceReport, hasRentalAgreement: !!v.hasRentalAgreement,
+        });
+        await refresh();
+      }}
+    >
+      <Field label="Claim Date" name="claimDate" type="date" required defaultValue={ymdOf(c?.claimDate)} />
+      <Field label="Claim #" name="claimNumber" defaultValue={c?.claimNumber ?? ""} />
+      <Field label="Claim Close Date" name="closeDate" type="date" defaultValue={ymdOf(c?.closeDate)} />
+      <SelectField label="Rental #" name="rentalId" options={rentals} placeholder="" defaultValue={c?.rentalId ?? ""} />
+      <SelectField label="Claim Type" name="type" options={CLAIM_TYPES} placeholder={false} defaultValue={c?.type ?? "RENTER"} />
+      <SelectField label="Current Status" name="status" options={CLAIM_STATUS} placeholder={false} defaultValue={c?.status ?? "OPEN"} />
+      <Field label="Location" name="location" defaultValue={c?.location ?? ""} />
+      <Field label="Police Dept." name="policeDept" defaultValue={c?.policeDept ?? ""} />
+      <Field label="Police Rep." name="policeRep" defaultValue={c?.policeRep ?? ""} />
+      <Field label="Deductible" name="deductible" type="number" min={0} step="0.01" defaultValue={c?.deductible != null ? String(c.deductible) : ""} />
+      <Field label="Total Payments" name="totalPayments" type="number" min={0} step="0.01" defaultValue={c?.totalPayments != null ? String(c.totalPayments) : ""} />
+      <fieldset className="space-y-1.5 sm:col-span-2">
+        <legend className="mb-1 text-sm font-medium">Documents on file</legend>
+        <div className="grid gap-1.5 sm:grid-cols-2">
+          <CheckField label="Accident Report" name="hasAccidentReport" defaultChecked={c?.hasAccidentReport} />
+          <CheckField label="Renter Insurance Policy" name="hasRenterInsurancePolicy" defaultChecked={c?.hasRenterInsurancePolicy} />
+          <CheckField label="Police Report" name="hasPoliceReport" defaultChecked={c?.hasPoliceReport} />
+          <CheckField label="Rental Agreement" name="hasRentalAgreement" defaultChecked={c?.hasRentalAgreement} />
+        </div>
+      </fieldset>
+      <TextareaField label="Memo" name="memo" rows={3} defaultValue={c?.memo ?? ""} />
+    </FormDialog>
+  );
+  return (
+    <Card className="gap-2 py-4">
+      <CardHeader className="flex-row items-center justify-between px-4">
+        <CardTitle className="font-serif text-lg">Claims</CardTitle>
+        {dialog()}
+      </CardHeader>
+      <CardContent className="px-0">
+        {!rows ? null : rows.length === 0 ? (
+          <p className="px-4 text-sm text-muted-foreground">No Records Found</p>
+        ) : (
+          <Table>
+            <TableHeader><TableRow><TableHead>Claim ID (Status)</TableHead><TableHead>Claim Date</TableHead><TableHead>Claim Close Date</TableHead><TableHead>Rental #</TableHead><TableHead className="w-20" /></TableRow></TableHeader>
+            <TableBody>
+              {rows.map((c) => (
+                <TableRow key={c.id}>
+                  <TableCell>{c.claimNumber || "—"} ({CLAIM_STATUS.find((x) => x.value === c.status)?.label})</TableCell>
+                  <TableCell>{date(c.claimDate)}</TableCell>
+                  <TableCell>{date(c.closeDate)}</TableCell>
+                  <TableCell>{c.rental ? <Link className="text-primary hover:underline" href={`/admin/rentals/${c.rental.id}`}>{c.rental.raNumber}</Link> : "—"}</TableCell>
+                  <TableCell className="flex justify-end">
+                    {dialog(c)}
+                    <Button size="icon-sm" variant="ghost" className="text-destructive hover:bg-destructive/10" aria-label="Delete claim" disabled={!can("ClaimsDelete")} title={can("ClaimsDelete") ? undefined : NO_PERMISSION} onClick={() => setDeleting(c.id)}><Trash2Icon /></Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+        <ConfirmAction open={deleting !== null} onOpenChange={(o) => !o && setDeleting(null)} destructive title="Delete this claim?" description="This cannot be undone." confirmLabel="Delete" onConfirm={() => client.staff.vehicleRecords.claimDelete.mutate({ id: deleting! }).then(refresh, (e) => toast.error(errorMessage(e)))} />
       </CardContent>
     </Card>
   );
