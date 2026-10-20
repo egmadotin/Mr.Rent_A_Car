@@ -28,7 +28,7 @@ The RentCentric menus, vehicle page and customer page were re-read on Oct 20. No
 | Customers (list, add, edit, view and its actions) | ✅ |
 | Vehicles (list, add, edit, summary) | ✅ (every vehicle page action built) |
 | Users, user groups and permissions | ✅ (group location limit not enforced) |
-| Settings | 🟡 about 42 of RentCentric's ~100 setting pages built (section 7) |
+| Settings | 🟡 about 43 of RentCentric's ~100 setting pages built (section 7) |
 | Reports | 🟡 29 of 64 built (see section 8) |
 | Dashboard | ✅ |
 | Public website and online booking | ✅ (customer login and fleet filters 🟡) |
@@ -242,7 +242,7 @@ RentCentric's Settings menu, item by item.
 | Claims | Claim Types | ⬜ (claims themselves work on rentals) |
 | Financial / Commission | Accounting | ⬜ |
 | Financial / Commission | Commissions | ⬜ |
-| Financial / Commission | Referrals | ⬜ (quick-add exists on the forms) |
+| Financial / Commission | Referrals | ✅ list, add, edit, deactivate; delete only when never used (fields as imported from RentCentric) |
 | Financial / Commission | Commission Structures | ⬜ |
 | Website & Email | Mail Server Configuration | ✅ |
 | Website & Email | Reservation Email, Quote Email | 🟡 sent with the templates |

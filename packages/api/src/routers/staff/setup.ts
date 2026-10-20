@@ -50,6 +50,38 @@ const companyInput = z.object({
 });
 
 export const setupRouter = router({
+  // ── Settings > Financial / Commission > Referrals (source of referral) ──
+
+  referralList: staffProcedure.query(({ ctx }) =>
+    ctx.prisma.referral.findMany({ orderBy: [{ isActive: "desc" }, { name: "asc" }], include: { _count: { select: { reservations: true, rentals: true, customers: true, commissions: true } } } }),
+  ),
+  referralSave: permitted("Settings")
+    .input(
+      z.object({
+        id: z.string().optional(),
+        name: req("Referral"),
+        fullName: optStr,
+        email: z.string().trim().email("Enter a valid email").optional().or(z.literal("")).transform((v) => v || null),
+        phone: optStr,
+        fax: optStr,
+        memo: optStr,
+        isActive: z.boolean().default(true),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { id, ...data } = input;
+      const dup = await ctx.prisma.referral.findFirst({ where: { name: { equals: data.name, mode: "insensitive" }, NOT: id ? { id } : undefined }, select: { id: true } });
+      if (dup) throw new TRPCError({ code: "CONFLICT", message: `Referral "${data.name}" already exists.` });
+      const r = id ? await ctx.prisma.referral.update({ where: { id }, data }) : await ctx.prisma.referral.create({ data });
+      return { id: r.id };
+    }),
+  referralDelete: permitted("Settings").input(z.object({ id: z.string() })).mutation(async ({ ctx, input }) => {
+    const r = await ctx.prisma.referral.findUniqueOrThrow({ where: { id: input.id }, include: { _count: { select: { quotes: true, reservations: true, rentals: true, customers: true, commissions: true } } } });
+    const used = Object.values(r._count).reduce((a, n) => a + n, 0);
+    if (used) throw new TRPCError({ code: "CONFLICT", message: `${r.name} is used on ${used} booking(s) / customer(s); make it inactive instead.` });
+    await ctx.prisma.referral.delete({ where: { id: r.id } });
+  }),
+
   // ── Settings > One Way Regions (LocationRegionsMain) and One Way Rates (OneWay.aspx / OneWaysModify.aspx) ──
 
   oneWayRegions: staffProcedure.query(({ ctx }) =>
