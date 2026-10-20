@@ -301,6 +301,51 @@ export const settingsRouter = router({
       },
     }),
   ),
+  /**
+   * Master Rate Batch Update (BaseRateUpdate.aspx): a rate code's values for one season (or the date-range rows), per
+   * vehicle type, to adjust together and save.
+   */
+  rateBatchGrid: staffProcedure.input(z.object({ rateId: z.string(), seasonId: z.string().nullable() })).query(async ({ ctx, input }) => {
+    const [rows, seasons] = await Promise.all([
+      ctx.prisma.rateValue.findMany({
+        where: { rateId: input.rateId, seasonId: input.seasonId },
+        orderBy: { vehicleType: { name: "asc" } },
+        select: { id: true, hourly: true, daily: true, extraDaily: true, weekly: true, monthly: true, kmAllowed: true, kmWeekly: true, kmMonthly: true, vehicleType: { select: { name: true } } },
+      }),
+      ctx.prisma.rateValue.findMany({ where: { rateId: input.rateId, seasonId: { not: null } }, distinct: ["seasonId"], select: { season: { select: { id: true, name: true } } } }),
+    ]);
+    const n = (v: Prisma.Decimal | null) => (v == null ? null : Number(v));
+    return {
+      seasons: seasons.map((x) => x.season!).sort((a, b) => a.name.localeCompare(b.name)),
+      rows: rows.map((r) => ({ id: r.id, vehicleType: r.vehicleType.name, hourly: n(r.hourly), daily: n(r.daily), extraDaily: n(r.extraDaily), weekly: n(r.weekly), monthly: n(r.monthly), kmAllowed: r.kmAllowed, kmWeekly: r.kmWeekly, kmMonthly: r.kmMonthly })),
+    };
+  }),
+
+  rateBatchSave: permitted("RatesEdit")
+    .input(
+      z.object({
+        rateId: z.string(),
+        rows: z.array(
+          z.object({
+            id: z.string(),
+            hourly: z.number().min(0).nullable(), daily: z.number().min(0).nullable(), extraDaily: z.number().min(0).nullable(), weekly: z.number().min(0).nullable(), monthly: z.number().min(0).nullable(),
+            kmAllowed: z.number().int().min(0).nullable(), kmWeekly: z.number().int().min(0).nullable(), kmMonthly: z.number().int().min(0).nullable(),
+          }),
+        ).max(500),
+      }),
+    )
+    .mutation(({ ctx, input }) =>
+      ctx.prisma.$transaction(async (tx) => {
+        const own = await tx.rateValue.count({ where: { rateId: input.rateId, id: { in: input.rows.map((r) => r.id) } } });
+        if (own !== input.rows.length) throw new TRPCError({ code: "BAD_REQUEST", message: "Some rows aren't this rate's." });
+        for (const { id, ...v } of input.rows) {
+          await tx.rateValue.update({ where: { id }, data: { hourly: D(v.hourly), daily: D(v.daily), extraDaily: D(v.extraDaily), weekly: D(v.weekly), monthly: D(v.monthly), kmAllowed: v.kmAllowed, kmWeekly: v.kmWeekly, kmMonthly: v.kmMonthly } });
+        }
+        await audit(tx, "Rate", input.rateId, ctx.user.id, { "Master Rate Batch Update": [null, `${input.rows.length} vehicle type(s)`] });
+        return { saved: input.rows.length };
+      }),
+    ),
+
   rateGet: staffProcedure.input(z.object({ id: z.string() })).query(async ({ ctx, input }) => {
     const r = await ctx.prisma.rate.findUnique({
       where: { id: input.id },

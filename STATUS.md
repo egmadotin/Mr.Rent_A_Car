@@ -28,7 +28,7 @@ The RentCentric menus, vehicle page and customer page were re-read on Oct 20. No
 | Customers (list, add, edit, view and its actions) | ✅ |
 | Vehicles (list, add, edit, summary) | ✅ (every vehicle page action built) |
 | Users, user groups and permissions | ✅ (group location limit not enforced) |
-| Settings | 🟡 about 43 of RentCentric's ~100 setting pages built (section 7) |
+| Settings | 🟡 about 45 of RentCentric's ~100 setting pages built (section 7) |
 | Reports | 🟡 29 of 64 built (see section 8) |
 | Dashboard | ✅ |
 | Public website and online booking | ✅ (customer login and fleet filters 🟡) |
@@ -159,8 +159,8 @@ RentCentric's Settings menu, item by item.
 | Taxes | ✅ |
 | Miscellaneous Charges | ✅ |
 | Rental/Discount Reason | ✅ (two lists) |
-| Rental Rates | ⬜ |
-| Master Rate Batch Update | ⬜ |
+| Rental Rates | ✅ RentCentric's "Rate Setup" menu page; our Settings › Rates group is the same menu |
+| Master Rate Batch Update | ✅ Location / Rate Code / Season → grid per vehicle type; six Adjust rows (Percent % / Flat / Total) → Update Grid → Save |
 | Rate Values Update | ⬜ |
 | Rate Blocking | ⬜ |
 | Rate Utilization | ⬜ |

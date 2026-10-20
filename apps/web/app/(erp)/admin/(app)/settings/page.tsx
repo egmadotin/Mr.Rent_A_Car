@@ -20,7 +20,7 @@ const CATEGORIES: SettingsCategory[] = [
   { title: "Users", items: [{ label: "Users", href: "/admin/settings/users", desc: "Staff accounts: group, default location, admin, active, password reset" }, { label: "User Groups & Permissions", href: "/admin/settings/user-groups", desc: "What each group may do (RentCentric's permission list), max discount, location" }] },
   { title: "Rates", items: [
     { label: "Master Rates", href: "/admin/settings/rates", desc: "Rate codes, min/max length, seasons and per-type prices" },
-    { label: "Master Rate Batch Update" },
+    { label: "Master Rate Batch Update", href: "/admin/settings/rate-batch-update", desc: "Adjust a rate code for every vehicle type at once" },
     { label: "Rate Values Update" },
     { label: "Rate Blocking" },
     { label: "Rate Utilization" },
