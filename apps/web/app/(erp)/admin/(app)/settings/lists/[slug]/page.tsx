@@ -15,6 +15,8 @@ const LISTS: Record<string, { kind: LookupKind; title: string; noun: string; sec
   regions: { kind: "CUSTOMER_REGION", title: "Customer Areas/Regions", noun: "Region", section: "Location Information", description: "Areas offered on the customer form." },
   "discount-reasons": { kind: "DISCOUNT_REASON", title: "Discount Reasons", noun: "Reason", section: "Rates", description: "Reasons offered next to Discount on quotes, reservations and rentals." },
   "rental-reasons": { kind: "RENTAL_REASON", title: "Rental Reasons", noun: "Reason", section: "Rates", description: "Reasons offered on the rental form." },
+  "damage-locations": { kind: "DAMAGE_LOCATION", title: "Damage Locations", noun: "Damage location", section: "Vehicle Setup", description: "Spots on the car offered on Add Vehicle Damage (e.g. 1 Front bumper)." },
+  "damage-conditions": { kind: "DAMAGE_CONDITION", title: "Damage Conditions", noun: "Damage condition", section: "Vehicle Setup", description: "Conditions offered on Add Vehicle Damage (Broken, Crack, Dent …)." },
   "payment-details": { kind: "PAYMENT_DETAIL", title: "Payment Details", noun: "Detail", section: "Payment Settings", description: "Detail choices on Add/Edit Other Charges." },
 };
 

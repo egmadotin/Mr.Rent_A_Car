@@ -224,6 +224,8 @@ enum LookupKind {
   DISCOUNT_REASON
   RENTAL_REASON
   PAYMENT_DETAIL // Settings > Payment Details: the "Detail" choices on Add/Edit Other Charges (empty in RentCentric today)
+  DAMAGE_LOCATION // Settings > Vehicle Setup > Damage Setup > Damage Locations (spots on the car diagram)
+  DAMAGE_CONDITION // Damage Setup > Damage Conditions: Broken, Crack, Dent, Rock Chip, Rust, Scratch. Chip
 }
 
 model Lookup {
@@ -244,6 +246,8 @@ model Lookup {
   reservationsDiscount Reservation[]
   rentalsDiscount      Rental[]        @relation("RentalDiscountReason")
   rentalsReason        Rental[]        @relation("RentalReason")
+  damagesLocation      VehicleDamage[] @relation("DamageLocation")
+  damagesCondition     VehicleDamage[] @relation("DamageCondition")
 
   @@unique([kind, name])
 }
@@ -491,8 +495,16 @@ model Vehicle {
   attachments    Attachment[]
   memos          Memo[]
 
-  // VERIFY (Vehicle detail module): Accidents, Damage, Maintenance, Repairs, Carwash,
-  // Insurances, Problems, Inspection, Checklist, Status Change history sub-records.
+  // Vehicle page sub-records (VehicleMain.aspx actions)
+  maintenances     VehicleMaintenance[]
+  repairs          VehicleRepair[]
+  problems         VehicleProblem[]
+  carwashes        VehicleCarwash[]
+  damages          VehicleDamage[]
+  accidents        VehicleAccident[]
+  serviceVouchers  VehicleServiceVoucher[]
+  insuranceRecords VehicleInsuranceRecord[]
+  statusChanges    VehicleStatusChange[]
 
   @@index([vehicleTypeId, rentalLocationId, status])
 }
@@ -1678,4 +1690,180 @@ model EmailLog {
   createdAt     DateTime @default(now())
 
   @@index([entityType, entityId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Vehicle page records (RentCentric VehicleMain.aspx actions; fields as on each *Modify.aspx form)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Maintenance (VehicleMaintenanceModify.aspx)
+model VehicleMaintenance {
+  id               String         @id @default(cuid())
+  vehicleId        String
+  vehicle          Vehicle        @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  date             DateTime /// "Current Maintenance Date"
+  type             String? /// "Current Maintenance Type"
+  odometer         Int? /// "Current Maintenance Odometer"
+  nextDateRequired Boolean        @default(false) /// "Future Maintenance Reminder"
+  nextDate         DateTime?
+  nextType         String?
+  nextOdometer     Int?
+  shop             String?
+  shopContactName  String?
+  shopPhone        String?
+  labourCost       Decimal?       @db.Decimal(10, 2)
+  partsCost        Decimal?       @db.Decimal(10, 2)
+  paymentMethod    PaymentMethod?
+  paymentAmount    Decimal?       @db.Decimal(10, 2)
+  poNumber         String?
+  memo             String?
+  enteredById      String?
+  createdAt        DateTime       @default(now())
+
+  @@index([vehicleId, date])
+}
+
+/// Repairs (VehicleRepairsModify.aspx)
+model VehicleRepair {
+  id                  String    @id @default(cuid())
+  vehicleId           String
+  vehicle             Vehicle   @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  date                DateTime /// "Repair Date"
+  dateDue             DateTime?
+  pickupDate          DateTime? /// out to the shop
+  returnDate          DateTime?
+  pickupLocationId    String?
+  returnLocationId    String?
+  odometerOut         Int?
+  odometerIn          Int?
+  shopName            String?
+  totalParts          Decimal?  @db.Decimal(10, 2)
+  totalLabour         Decimal?  @db.Decimal(10, 2)
+  repairOrderNumber   String?
+  purchaseOrderNumber String?
+  description         String?
+  enteredById         String?
+  createdAt           DateTime  @default(now())
+
+  @@index([vehicleId, date])
+}
+
+/// Problems (VehicleProblemsModify.aspx); Status also changes the vehicle's status
+model VehicleProblem {
+  id          String         @id @default(cuid())
+  vehicleId   String
+  vehicle     Vehicle        @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  date        DateTime
+  odometer    Int?
+  status      VehicleStatus?
+  description String?
+  enteredById String?
+  createdAt   DateTime       @default(now())
+
+  @@index([vehicleId, date])
+}
+
+/// Carwash (VehicleCarwashModify.aspx)
+model VehicleCarwash {
+  id             String   @id @default(cuid())
+  vehicleId      String
+  vehicle        Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  date           DateTime
+  odometer       Int?
+  updateOdometer Boolean  @default(false)
+  washedBy       String? /// "Car Washed By"
+  spotNumber     String?
+  memo           String?
+  enteredById    String?
+  createdAt      DateTime @default(now())
+
+  @@index([vehicleId, date])
+}
+
+/// Damage (VehicleDamagesModify2.aspx): one line per damaged spot
+model VehicleDamage {
+  id          String   @id @default(cuid())
+  vehicleId   String
+  vehicle     Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  date        DateTime
+  rentalId    String? /// the rental the damage happened on
+  locationId  String?
+  location    Lookup?  @relation("DamageLocation", fields: [locationId], references: [id])
+  conditionId String?
+  condition   Lookup?  @relation("DamageCondition", fields: [conditionId], references: [id])
+  total       Decimal  @db.Decimal(10, 2)
+  imageKey    String? /// photo (needs file storage)
+  memo        String?
+  enteredById String?
+  createdAt   DateTime @default(now())
+
+  @@index([vehicleId, date])
+}
+
+/// Accidents (VehicleAccidentsModify.aspx)
+model VehicleAccident {
+  id          String   @id @default(cuid())
+  vehicleId   String
+  vehicle     Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  date        DateTime
+  rentalId    String? /// "Rental #"
+  fullName    String?
+  location    String?
+  description String?
+  memo        String?
+  enteredById String?
+  createdAt   DateTime @default(now())
+
+  @@index([vehicleId, date])
+}
+
+/// Vehicle Services (VehicleServicesModify.aspx): service vouchers
+model VehicleServiceVoucher {
+  id             String    @id @default(cuid())
+  vehicleId      String
+  vehicle        Vehicle   @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  companyName    String
+  voucherNumber  String?
+  expirationDate DateTime? @db.Date
+  memo           String?
+  enteredById    String?
+  createdAt      DateTime  @default(now())
+}
+
+enum VehicleInsuranceAction {
+  NO_INSURANCE
+  FULL_COVERAGE
+  LIABILITY_ONLY
+  COMPREHENSIVE_ONLY
+}
+
+/// Insurances (VehicleInsurancesModify.aspx)
+model VehicleInsuranceRecord {
+  id               String                 @id @default(cuid())
+  vehicleId        String
+  vehicle          Vehicle                @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  date             DateTime
+  expiryDate       DateTime?              @db.Date
+  actionType       VehicleInsuranceAction
+  insuranceAmount  Decimal?               @db.Decimal(10, 2)
+  deductibleAmount Decimal?               @db.Decimal(10, 2)
+  policyNumber     String?
+  reason           String? /// "Reason for Add/Remove"
+  enteredById      String?
+  createdAt        DateTime               @default(now())
+}
+
+/// Status Change (VehicleStatusChangeModify.aspx); also sets the vehicle's status
+model VehicleStatusChange {
+  id          String         @id @default(cuid())
+  vehicleId   String
+  vehicle     Vehicle        @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  status      VehicleStatus
+  fromStatus  VehicleStatus?
+  changedAt   DateTime
+  dueBackAt   DateTime?
+  enteredById String?
+  createdAt   DateTime       @default(now())
+
+  @@index([vehicleId, changedAt])
 }

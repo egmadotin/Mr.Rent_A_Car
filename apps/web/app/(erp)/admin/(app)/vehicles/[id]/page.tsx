@@ -10,13 +10,11 @@ import { date, fuel, money } from "@mrac/ui/lib/format";
 import { PageHeader } from "../../../../_components/page-header";
 import { api } from "../../../../_lib/session";
 import { VehicleStatusBadge } from "../vehicles-list";
+import { VehicleActions } from "./vehicle-actions";
 
 export const metadata = { title: "Vehicle" };
 
-/**
- * Vehicle summary (Edit opens the full form). The full Vehicle detail redesign (Accidents, Damage, Maintenance,
- * Repairs, Inspections … the legacy ~16 action links) is a later module.
- */
+/** Vehicle page (VehicleMain.aspx): the action links and their panels, then the vehicle's details (Edit opens the full form). */
 export default async function VehiclePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const v = await (await api()).vehicle.byId({ vehicleId: id }).catch(() => null);
@@ -74,6 +72,9 @@ export default async function VehiclePage({ params }: { params: Promise<{ id: st
           </Button>
         }
       />
+      <div className="p-4 pb-0 md:p-6 md:pb-0">
+        <VehicleActions vehicleId={v.id} isActive={v.isActive} status={v.status} />
+      </div>
       <div className="grid gap-4 p-4 md:p-6 xl:grid-cols-2">
         {v.vehicleType.imageKey && (
           <Card>

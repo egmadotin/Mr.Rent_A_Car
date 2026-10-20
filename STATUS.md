@@ -26,7 +26,7 @@ The RentCentric menus, vehicle page and customer page were re-read on Oct 20. No
 | Contracts and invoices (templates, printouts, editor) | ✅ (Standard and Bill Split invoice 🔑) |
 | Pricing (rates, seasons, taxes, insurance, misc charges, overrides) | ✅ Standard rate type exact; other rate types approximate |
 | Customers (list, add, edit, view and its actions) | ✅ |
-| Vehicles (list, add, edit, summary) | 🟡 the 24 actions on the vehicle page are not built |
+| Vehicles (list, add, edit, summary) | ✅ vehicle page actions (🟡 Ownership, Condition, inspections, checklist, images not yet) |
 | Users, user groups and permissions | ✅ (group location limit not enforced) |
 | Settings | 🟡 about 34 of RentCentric's ~100 setting pages built (section 7) |
 | Reports | ⬜ none of RentCentric's ~70 reports built |
@@ -111,14 +111,16 @@ The RentCentric menus, vehicle page and customer page were re-read on Oct 20. No
 | VehiclesSearch | `/admin/vehicles` | ✅ |
 | VehicleAdd / VehicleSpecs (73 fields) | `/new`, `/[id]/edit` | ✅ |
 | Vehicle page summary | `/admin/vehicles/[id]` | ✅ |
-| **Vehicle page actions** — none of the 24 below are built | | ⬜ |
-| ↳ Ownership Information, Insurances, Vehicle Condition | | ⬜ |
-| ↳ Status Change, Vehicle History, Deactivate, Technical Log | | ⬜ |
-| ↳ Maintenance, Problems, Repairs, Vehicle Services, Carwash | | ⬜ |
-| ↳ Damage, Accidents | | ⬜ |
+| **Vehicle page actions** | `/admin/vehicles/[id]` | ✅ Oct 20 (fields copied from each RentCentric form) |
+| ↳ Insurances | | ✅ |
+| ↳ Ownership Information, Vehicle Condition | | ⬜ (fields copied; not built) |
+| ↳ Status Change, Vehicle History, Deactivate | | ✅ |
+| ↳ Technical Log | | — RentCentric's own page is broken (Parser Error) |
+| ↳ Maintenance, Problems, Repairs, Vehicle Services, Carwash | | ✅ |
+| ↳ Damage (with Damage Locations / Conditions settings), Accidents | | ✅ (damage photo needs file storage) |
 | ↳ Customer Reported Damages, Inspection Comparison, Vehicle Inspection | | ⬜ |
 | ↳ Vehicle Claims, Vehicle Checklist | | ⬜ |
-| ↳ Rentals, Reservations (this vehicle's) | | ⬜ |
+| ↳ Rentals, Reservations (this vehicle's) | | ✅ |
 | ↳ Notes, Images, Documents | | ⬜ (needs file storage, S3) |
 | Fleet calendar | `/admin/calendar` | ✅ |
 
@@ -218,7 +220,7 @@ RentCentric's Settings menu, item by item.
 | Codes | ⬜ |
 | Status | ⬜ |
 | Groups | ⬜ |
-| Damage Setup | ⬜ |
+| Damage Setup (Damage Locations, Damage Conditions) | ✅ |
 | Title Locations | ⬜ |
 | Registered Owners | ⬜ |
 | SIPP Codes | ⬜ |
@@ -307,7 +309,7 @@ None of these are built. Our Reports page is a design placeholder. RentCentric's
 
 ## 12. Suggested order for what's left
 
-1. **Vehicle page actions:**
+1. ~~Vehicle page actions~~ (done Oct 20, except Ownership, Condition, inspections, checklist):
    - Maintenance, Repairs, Problems, Damage, Carwash, Status Change, History, Deactivate.
    - Then Inspection, Checklist and Customer Reported Damages, which unlock Reservation Inspection and rental Inspection Comparison.
 2. **Dashboard lists:** leaving and returning today, vehicles requiring service; the Tasks module.

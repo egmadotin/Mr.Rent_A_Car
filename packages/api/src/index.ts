@@ -15,6 +15,7 @@ import { templateRouter } from "./routers/staff/template";
 import { emailRouter } from "./routers/staff/email";
 import { usersRouter } from "./routers/staff/users";
 import { setupRouter } from "./routers/staff/setup";
+import { vehicleRecordsRouter } from "./routers/staff/vehicle-records";
 
 export const staffRouter = router({
   meta: metaRouter,
@@ -31,6 +32,7 @@ export const staffRouter = router({
   email: emailRouter,
   users: usersRouter,
   setup: setupRouter,
+  vehicleRecords: vehicleRecordsRouter,
 });
 
 export const appRouter = router({

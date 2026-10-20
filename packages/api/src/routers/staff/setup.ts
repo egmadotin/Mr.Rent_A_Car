@@ -11,7 +11,7 @@ import { router, staffProcedure, permitted, requirePermission } from "../../trpc
 const optStr = z.string().trim().max(4000).optional().nullable().transform((v) => v || null);
 const optInt = z.preprocess((v) => (v === "" || v == null ? null : Number(v)), z.number().int().min(0).nullable());
 const req = (label: string) => z.string({ required_error: `${label} is required` }).trim().min(1, `${label} is required`);
-const kind = z.enum(["VEHICLE_CATEGORY", "VEHICLE_BODY", "FUEL_TYPE", "ENGINE_BRAND", "ENGINE_TYPE", "VEHICLE_OPTION", "COMPANY_TYPE", "CUSTOMER_REGION", "DISCOUNT_REASON", "RENTAL_REASON", "PAYMENT_DETAIL"]);
+const kind = z.enum(["VEHICLE_CATEGORY", "VEHICLE_BODY", "FUEL_TYPE", "ENGINE_BRAND", "ENGINE_TYPE", "VEHICLE_OPTION", "COMPANY_TYPE", "CUSTOMER_REGION", "DISCOUNT_REASON", "RENTAL_REASON", "PAYMENT_DETAIL", "DAMAGE_LOCATION", "DAMAGE_CONDITION"]);
 const time = z.string().regex(/^\d{2}:\d{2}$/, "Use hh:mm").optional().nullable().or(z.literal("")).transform((v) => v || null);
 
 const inUse = (what: string) => new TRPCError({ code: "CONFLICT", message: `This ${what} is in use, so it can't be deleted. Make it inactive instead.` });
@@ -66,7 +66,7 @@ export const setupRouter = router({
     // the links are optional (the database would just clear them on vehicles, customers, rentals …), so check first
     const l = await ctx.prisma.lookup.findUnique({
       where: { id: input.id },
-      select: { _count: { select: { vehiclesCategory: true, vehiclesBody: true, vehiclesFuelType: true, vehiclesEngineBrand: true, vehiclesEngineType: true, vehicleOptions: true, companies: true, customersRegion: true, reservationsDiscount: true, rentalsDiscount: true, rentalsReason: true } } },
+      select: { _count: { select: { vehiclesCategory: true, vehiclesBody: true, vehiclesFuelType: true, vehiclesEngineBrand: true, vehiclesEngineType: true, vehicleOptions: true, companies: true, customersRegion: true, reservationsDiscount: true, rentalsDiscount: true, rentalsReason: true, damagesLocation: true, damagesCondition: true } } },
     });
     if (!l) throw new TRPCError({ code: "NOT_FOUND", message: "Not found" });
     if (Object.values(l._count).some(Boolean)) throw inUse("item");
