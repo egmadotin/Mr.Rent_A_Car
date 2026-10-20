@@ -217,3 +217,34 @@ export function CustomerNotesReport() {
     </ReportFrame>
   );
 }
+
+/** Checklist Overview Report (ReportsChecklistOverview.aspx): vehicle checklists by Date Out, with their ticked items. */
+export function ChecklistOverviewReport() {
+  const trpc = useTRPC();
+  const [v, setV] = React.useState({ from: "", to: "", assignedId: "" });
+  const [run, setRun] = React.useState<typeof v | null>(null);
+  const q = useQuery({ ...trpc.staff.checklists.overview.queryOptions({ from: fromDay(run?.from ?? ""), to: fromDay(run?.to ?? ""), assignedId: run?.assignedId || undefined }), enabled: !!run, retry: false });
+  const set = (k: keyof typeof v) => (x: string) => setV({ ...v, [k]: x });
+  return (
+    <ReportFrame title="Checklist Overview Report" generated={!!run} onGenerate={() => setRun({ ...v })} loading={q.isLoading} error={q.error?.message}
+      filters={<>
+        <DateField id="co-f" label="Date Out - From" value={v.from} onChange={set("from")} />
+        <DateField id="co-t" label="To" value={v.to} onChange={set("to")} />
+        {text("co-v", "Vehicle ID", v.assignedId, set("assignedId"))}
+      </>}
+      header={[["Date Out - From", run?.from ?? ""], ["To", run?.to ?? ""]]}
+    >
+      {q.data && (
+        <ReportTable head={["Pickup Date", "Return Date", "Mileage", "Delivery/PickUp", "Vehicle ID", "Reservation#", "Full Name", "Checklist"]}
+          right={[2]}
+          rows={q.data.map((r) => [
+            ymdhm(r.pickupAt), ymdhm(r.returnAt), r.mileage?.toLocaleString() ?? "", r.deliveryOrPickup === "DELIVERY" ? "Delivery" : "PickUp",
+            <Link key="v" className="text-primary hover:underline" href={`/admin/vehicles/${r.vehicleId}`}>{r.assignedId}</Link>,
+            r.reservationId ? <Link key="r" className="text-primary hover:underline" href={`/admin/reservations/${r.reservationId}`}>{r.reservationNumber}</Link> : "",
+            r.fullName,
+            <span key="c" className="text-xs">{r.items.map((i) => `${i.checked ? "✓" : "✗"} ${i.name}${i.note ? ` (${i.note})` : ""}`).join(" · ")}</span>,
+          ])} />
+      )}
+    </ReportFrame>
+  );
+}

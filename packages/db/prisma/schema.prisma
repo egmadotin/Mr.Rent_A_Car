@@ -512,6 +512,7 @@ model Vehicle {
   statusChanges    VehicleStatusChange[]
   inspections      VehicleInspection[]
   reportedDamages  CustomerReportedDamage[]
+  checklists       VehicleChecklistRecord[]
 
   @@index([vehicleTypeId, rentalLocationId, status])
 }
@@ -1133,6 +1134,7 @@ model Reservation {
   vehicleBlock    VehicleBlock?
   inspections     VehicleInspection[]
   reportedDamages CustomerReportedDamage[]
+  checklists      VehicleChecklistRecord[]
 
   @@index([pickupAt])
   @@index([status, pickupLocationId])
@@ -1996,4 +1998,71 @@ model CustomerReportedDamage {
   createdAt     DateTime     @default(now())
 
   @@index([vehicleId, createdAt])
+}
+
+/// Settings > Vehicle CheckList (VehicleCheckListAdd.aspx: Vehicle CheckList Name, Vehicle Types, Memo).
+model VehicleChecklist {
+  id             String                 @id @default(cuid())
+  name           String
+  /// the vehicle types it applies to; empty = all ("All Vehicle Types")
+  vehicleTypeIds String[]               @default([])
+  memo           String?
+  isActive       Boolean                @default(true)
+  items          VehicleChecklistItem[]
+  createdAt      DateTime               @default(now())
+}
+
+enum ChecklistColor {
+  NONE
+  RED
+  GREEN
+}
+
+/// Settings > Vehicle CheckList Items (VehicleCheckListItemsAdd.aspx: Vehicle CheckList Name, Item Name, Status Color, Memo, Vehicle Types).
+model VehicleChecklistItem {
+  id             String                   @id @default(cuid())
+  checklistId    String
+  checklist      VehicleChecklist         @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+  name           String
+  statusColor    ChecklistColor           @default(NONE)
+  vehicleTypeIds String[]                 @default([])
+  memo           String?
+  sortOrder      Int                      @default(0)
+  results        VehicleChecklistResult[]
+}
+
+enum DeliveryOrPickup {
+  PICKUP
+  DELIVERY
+}
+
+/// A vehicle's checklist for a booking (VehicleCheckListOutReturnModify.aspx: Reservation #, Full Name, Pickup Date,
+/// Return Date, Milage, Delivery Or PickUp, Memo, then each checklist's items with a Note).
+model VehicleChecklistRecord {
+  id               String                   @id @default(cuid())
+  vehicleId        String
+  vehicle          Vehicle                  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  reservationId    String?
+  reservation      Reservation?             @relation(fields: [reservationId], references: [id], onDelete: SetNull)
+  pickupAt         DateTime
+  returnAt         DateTime
+  mileage          Int?
+  deliveryOrPickup DeliveryOrPickup         @default(PICKUP)
+  memo             String?
+  results          VehicleChecklistResult[]
+  enteredById      String?
+  createdAt        DateTime                 @default(now())
+
+  @@index([vehicleId, pickupAt])
+}
+
+model VehicleChecklistResult {
+  recordId String
+  record   VehicleChecklistRecord @relation(fields: [recordId], references: [id], onDelete: Cascade)
+  itemId   String
+  item     VehicleChecklistItem   @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  checked  Boolean                @default(false)
+  note     String?
+
+  @@id([recordId, itemId])
 }

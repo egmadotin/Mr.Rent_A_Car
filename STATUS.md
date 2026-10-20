@@ -26,10 +26,10 @@ The RentCentric menus, vehicle page and customer page were re-read on Oct 20. No
 | Contracts and invoices (templates, printouts, editor) | ✅ (Standard and Bill Split invoice 🔑) |
 | Pricing (rates, seasons, taxes, insurance, misc charges, overrides) | ✅ Standard rate type exact; other rate types approximate |
 | Customers (list, add, edit, view and its actions) | ✅ |
-| Vehicles (list, add, edit, summary) | ✅ vehicle page actions (🟡 Ownership, Condition, checklist, images not yet) |
+| Vehicles (list, add, edit, summary) | ✅ vehicle page actions (🟡 Ownership, Condition, Claims, images not yet) |
 | Users, user groups and permissions | ✅ (group location limit not enforced) |
-| Settings | 🟡 about 34 of RentCentric's ~100 setting pages built (section 7) |
-| Reports | 🟡 28 of 64 built (see section 8) |
+| Settings | 🟡 about 36 of RentCentric's ~100 setting pages built (section 7) |
+| Reports | 🟡 29 of 64 built (see section 8) |
 | Dashboard | ✅ |
 | Public website and online booking | ✅ (customer login and fleet filters 🟡) |
 | Email | ✅ built, 🔑 needs the client's email (SMTP) account |
@@ -120,7 +120,8 @@ The RentCentric menus, vehicle page and customer page were re-read on Oct 20. No
 | ↳ Maintenance, Problems, Repairs, Vehicle Services, Carwash | | ✅ |
 | ↳ Damage (with Damage Locations / Conditions settings, photo), Accidents | | ✅ |
 | ↳ Customer Reported Damages, Inspection Comparison, Vehicle Inspection | | ✅ Oct 21 — RentCentric only lists these (its apps fill them); ours adds an Add form with photos |
-| ↳ Vehicle Claims, Vehicle Checklist | | ⬜ |
+| ↳ Vehicle Checklist | | ✅ Oct 21 (checklists per vehicle type; items ticked + note per booking) |
+| ↳ Vehicle Claims | | ⬜ |
 | ↳ Rentals, Reservations (this vehicle's) | | ✅ |
 | ↳ Notes, Images, Documents | | ⬜ (file storage now exists — local disk; S3 driver needed at deployment) |
 | Fleet calendar | `/admin/calendar` | ✅ |
@@ -226,8 +227,8 @@ RentCentric's Settings menu, item by item.
 | Registered Owners | ⬜ |
 | SIPP Codes | ⬜ |
 | Repair Order/Maintenance Program | ⬜ |
-| Vehicle CheckList | ⬜ |
-| Vehicle CheckList Items | ⬜ |
+| Vehicle CheckList | ✅ |
+| Vehicle CheckList Items | ✅ |
 
 ### Other setting groups
 
@@ -256,26 +257,15 @@ RentCentric's Settings menu, item by item.
 
 ## 8. Reports
 
-Built (Oct 20, same filters, columns and totals as RentCentric, 31-day limit on the daily ones): **Daily Business Report, Daily Cash Summary, Month to Date, Rental Status, Reservation Manifest, Vehicle Due In, Revenue By Customer, Revenue By Vehicle, Revenue By Location, Revenue By Company (Full Report / Commission), Vehicles Summary, Vehicle License Expiration, Maintenance Alert, Customer List, Undesired Customers, Traffic Tickets, Vehicle Maintenance, Vehicle Repairs, Source Of Referral (Revenue By Referrals), Customer By Region, Payments & Charges, Reservations No Showup/Cancelled, Tasks List, Commissions (Consolidated Commission Report), Adjustment Details, Rental Days, Rental Discount, Customer Notes** (`/admin/reports`). Rental discount changes are now written to the rental's change log, which Rental Discount reads. Promo Code waits for Promotions/Specials (no promo codes in the system yet). Revenue By Rate opens a blank window in RentCentric (probably a file download) — to check. Not built yet — the rest of RentCentric's list:
+Built (29 of 64; same filters, columns and totals as RentCentric, 31-day limit on the daily ones): **Daily Business Report, Daily Cash Summary Report, Month to Date Report, Adjustment Details, Tasks List, Commissions, Revenue By Customer, Revenue By Vehicle, Revenue By Location, Revenue By Company, Rental Status, Reservation Manifest, Reservations No Showup/Cancelled, Rental Days, Rental Discount, Vehicle Due In, Vehicles Summary, Vehicle License Expiration, Vehicle Repairs, Vehicle Maintenance, Maintenance Alert, Checklist Overview, Customer List, Customer By Region, Traffic Tickets, Source Of Referral, Payments & Charges, Customer Notes, Undesired Customers** (`/admin/reports`).
 
-- **Vehicles:**
-  - Vehicles Summary, Vehicles Summary with QR Code.
-  - Vehicle Utilization (Today), Fleet Utilization History, Fleet Utilization For Cast, Fleet Utilization Snapshot.
-  - Vehicle License Expiration, Vehicle Due In, Vehicle Profit/Loss.
-  - Repair Orders, Vehicle Repairs, Vehicle Lease/Loan, Vehicle Maintenance, Maintenance Alert.
-  - Snap Shot For Rentals / Vehicle Type, Vehicle Insurance, KM Difference/Missing, Checklist Overview.
-- **Customers:** Customer List, Customer By Region, Traffic Tickets, Source Of Referral, Payments & Charges, Customer Notes, Undesired Customers.
-- **Rentals & Reservations:**
-  - Rental Status, Vehicle Rental Calendar, Fleet Grid, Custom Reports.
-  - Corporate A/R By Bills, Customer A/R Report, Reservation A/R by Bills, Corporate A/R Analysis.
-  - Reservation Manifest, Reservation Forecast, Reservation Grid, Reservations No Showup/Cancelled, Reservations Calendar.
-  - Dynamic Scheduler, Visual Scheduler, Promo Code, Rental Days, Rental Discount.
-- **Management:**
-  - Daily Business Report, Daily Cash Summary Report, Month to Date Report.
-  - Rental Details, Adjustment Details, Invoices.
-  - Rental Event Tracking, Reservation Event Tracking, Tasks List.
-  - Commissions, Broker Commission, Sales Projection, Work In Process.
-  - Revenue By Rate / Admin / Options, Non-Revenue (Customer / Vehicle / Location / Company built).
+Notes: rental discount changes are written to the rental's change log, which Rental Discount reads. Promo Code waits for Promotions/Specials (no promo codes in the system yet). Revenue By Rate opens a blank window in RentCentric (probably a file download) — to check.
+
+Not built yet:
+
+- **Management Reports:** Rental Details, Invoices, Rental Event Tracking, Reservation Event Tracking, Broker Commission, Sales Projection, Work In Process, Revenue By Rate, Revenue By Admin, Revenue By Options, Non-Revenue.
+- **Rentals & Reservations:** Vehicle Rental Calendar, Corporate A/R By Bills, Customer A/R Report, Reservation A/R by Bills, Corporate A/R Analysis, Fleet Grid, Custom Reports, Reservation Forecast, Reservation Grid, Reservations Calendar, Dynamic Scheduler, Visual Scheduler, Promo Code.
+- **Vehicles:** Vehicles Summary with QR Code, Vehicle Utilization (Today), Fleet Utilization History, Fleet Utilization For Cast, Vehicle Profit/Loss, Repair Orders, Vehicle Lease/Loan, Snap Shot For Rentals / Vehicle Type, Vehicle Insurance, KM Difference/Missing, Fleet Utilization Snapshot.
 
 ## 9. Dashboard
 
@@ -312,7 +302,7 @@ Built (Oct 20, same filters, columns and totals as RentCentric, 31-day limit on 
 
 1. ~~Vehicle page actions~~ (done Oct 20, except Ownership, Condition, inspections, checklist):
    - Maintenance, Repairs, Problems, Damage, Carwash, Status Change, History, Deactivate.
-   - ~~Inspection and Customer Reported Damages~~ done Oct 21 (Reservation Inspection and rental Inspection Comparison with them); Checklist next.
+   - ~~Inspection and Customer Reported Damages~~ done Oct 21 (Reservation Inspection and rental Inspection Comparison with them); Checklist done Oct 21.
 2. **Dashboard lists:** leaving and returning today, vehicles requiring service; the Tasks module.
 3. **Core reports:**
    - Daily Business Report, Daily Cash Summary Report, Month to Date Report.
