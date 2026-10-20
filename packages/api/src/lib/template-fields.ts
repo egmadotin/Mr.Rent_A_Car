@@ -367,7 +367,7 @@ export async function rentalTemplateFields(db: Db, rentalId: string) {
     include: {
       customer: true,
       company: true,
-      vehicle: { include: { make: true, model: true } },
+      vehicle: { include: { make: true, model: true, condition: true } },
       vehicleType: true,
       checkOutLocation: { include: locInclude },
       checkInLocation: true,
@@ -415,7 +415,10 @@ export async function rentalTemplateFields(db: Db, rentalId: string) {
     fuelOut: r.fuelOut,
     fuelIn: r.fuelIn,
     drivers: r.drivers.map((x) => x.customer),
-  }) };
+  }),
+  // Vehicle Condition › Special Comment 1-4
+  VehicleConditionComment1: r.vehicle.condition?.comment1 ?? "", VehicleConditionComment2: r.vehicle.condition?.comment2 ?? "",
+  VehicleConditionComment3: r.vehicle.condition?.comment3 ?? "", VehicleConditionComment4: r.vehicle.condition?.comment4 ?? "" };
 }
 
 /** Reservation Confirmation / HTMLReservation: the same fields, with the reservation # as RANumber (as RentCentric does). */

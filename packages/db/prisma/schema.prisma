@@ -514,6 +514,7 @@ model Vehicle {
   reportedDamages  CustomerReportedDamage[]
   checklists       VehicleChecklistRecord[]
   ownership        VehicleOwnership?
+  condition        VehicleCondition?
 
   @@index([vehicleTypeId, rentalLocationId, status])
 }
@@ -2168,4 +2169,19 @@ model VehicleOwnership {
   lastDepDate          DateTime? @db.Date /// Last Dep. Date
   sellingCompany       Company?  @relation("VehicleOwnershipSeller", fields: [sellingCompanyId], references: [id], onDelete: SetNull)
   updatedAt            DateTime  @updatedAt
+}
+
+/// Vehicle Condition (VehicleConditions.aspx): per component (Fairing … Other Accessories, General Conditions) the ticked
+/// conditions (E Excellent, G Good, F Fair, P Poor, N None, D Damaged), and Special Comment 1-4 (printed as
+/// VehicleConditionComment1-4 on contracts).
+model VehicleCondition {
+  vehicleId String   @id
+  vehicle   Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  /// { "Fairing": ["G"], "Front Tire": ["F", "D"], … }
+  ratings   Json     @default("{}")
+  comment1  String?
+  comment2  String?
+  comment3  String?
+  comment4  String?
+  updatedAt DateTime @updatedAt
 }

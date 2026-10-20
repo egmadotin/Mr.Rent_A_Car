@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTRPC, useTRPCClient } from "@mrac/api/client";
-import { ACQUISITION_TYPES, OWNERSHIP_FIELDS, SOLD_METHODS } from "@mrac/api/vehicle-ownership-fields";
+import { ACQUISITION_TYPES, CONDITION_COMPONENTS, CONDITION_RATINGS, OWNERSHIP_FIELDS, SOLD_METHODS } from "@mrac/api/vehicle-ownership-fields";
 import { Button } from "@mrac/ui/components/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@mrac/ui/components/card";
 import { Checkbox } from "@mrac/ui/components/checkbox";
@@ -83,6 +83,75 @@ export function OwnershipPanel({ vehicleId }: { vehicleId: string }) {
             </div>
           </form>
         </FormErrorsContext.Provider>
+      </CardContent>
+    </Card>
+  );
+}
+
+/** Vehicle Condition (VehicleConditions.aspx): Component/Condition grid of ticks, then Special Comment 1-4. */
+export function ConditionPanel({ vehicleId }: { vehicleId: string }) {
+  const trpc = useTRPC();
+  const client = useTRPCClient();
+  const qc = useQueryClient();
+  const can = useCan();
+  const q = useQuery(trpc.staff.vehicleRecords.conditionGet.queryOptions({ vehicleId }));
+  const [saving, setSaving] = React.useState(false);
+  if (q.isLoading) return null;
+  const ratings = (q.data?.ratings ?? {}) as Record<string, string[]>;
+  const editable = can("VehiclesEdit");
+
+  async function save(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    const r = Object.fromEntries(CONDITION_COMPONENTS.map((c) => [c, CONDITION_RATINGS.map(([k]) => k).filter((k) => fd.get(`${c}|${k}`) === "on")]));
+    setSaving(true);
+    try {
+      await client.staff.vehicleRecords.conditionSave.mutate({
+        vehicleId, ratings: r as never,
+        comment1: String(fd.get("comment1") ?? ""), comment2: String(fd.get("comment2") ?? ""), comment3: String(fd.get("comment3") ?? ""), comment4: String(fd.get("comment4") ?? ""),
+      });
+      await qc.invalidateQueries({ queryKey: trpc.staff.vehicleRecords.conditionGet.queryKey({ vehicleId }) });
+      toast.success("Vehicle Condition saved");
+    } catch (err) {
+      toast.error(errorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Card className="gap-2 py-4">
+      <CardHeader className="px-4"><CardTitle className="font-serif text-lg">Vehicle Condition</CardTitle></CardHeader>
+      <CardContent className="px-4">
+        <form onSubmit={save}>
+          <fieldset disabled={!editable} className="space-y-4">
+            <div className="overflow-x-auto rounded-md border">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50">
+                  <tr><th className="px-2 py-1.5 text-left font-medium">Component/Condition</th>{CONDITION_RATINGS.map(([k, l]) => <th key={k} className="px-2 py-1.5 font-medium">{l}</th>)}</tr>
+                </thead>
+                <tbody>
+                  {CONDITION_COMPONENTS.map((c) => (
+                    <tr key={c} className="border-t">
+                      <td className="px-2 py-1">{c}</td>
+                      {CONDITION_RATINGS.map(([k, l]) => (
+                        <td key={k} className="px-2 py-1 text-center"><Checkbox name={`${c}|${k}`} aria-label={`${c}: ${l}`} defaultChecked={ratings[c]?.includes(k)} /></td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {([1, 2, 3, 4] as const).map((n) => (
+                <F key={n} label={`Special Comment ${n}`} name={`comment${n}`}><Textarea id={`comment${n}`} name={`comment${n}`} rows={2} defaultValue={q.data?.[`comment${n}`] ?? ""} /></F>
+              ))}
+            </div>
+          </fieldset>
+          <div className="mt-4 flex justify-end">
+            <Button type="submit" disabled={saving || !editable} title={editable ? undefined : NO_PERMISSION}>{saving ? "Saving…" : "Save"}</Button>
+          </div>
+        </form>
       </CardContent>
     </Card>
   );

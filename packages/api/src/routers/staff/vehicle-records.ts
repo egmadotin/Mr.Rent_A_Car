@@ -3,7 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { Prisma } from "@mrac/db";
 import { router, permitted, requirePermission } from "../../trpc";
 import { audit } from "../../lib/audit";
-import { OWNERSHIP_FIELDS } from "../../lib/vehicle-ownership-fields";
+import { CONDITION_COMPONENTS, OWNERSHIP_FIELDS } from "../../lib/vehicle-ownership-fields";
 import { deleteFile, isStorageKey } from "../../lib/storage";
 
 /**
@@ -237,6 +237,24 @@ export const vehicleRecordsRouter = router({
       const data = Object.fromEntries(OWNERSHIP_FIELDS.map(([k, , kind]) => [k, kind === "money" || kind === "num" ? D(input.data[k] as number | null) : input.data[k]]));
       await ctx.prisma.vehicleOwnership.upsert({ where: { vehicleId: input.vehicleId }, create: { vehicleId: input.vehicleId, ...data }, update: data });
       await audit(ctx.prisma, "Vehicle", input.vehicleId, ctx.user.id, { "Ownership Information": [null, "saved"] });
+    }),
+
+  /** Vehicle Condition (VehicleConditions.aspx). */
+  conditionGet: permitted("Vehicles").input(z.object({ vehicleId: z.string() })).query(({ ctx, input }) => ctx.prisma.vehicleCondition.findUnique({ where: { vehicleId: input.vehicleId } })),
+
+  conditionSave: permitted("VehiclesEdit")
+    .input(
+      z.object({
+        vehicleId: z.string(),
+        ratings: z.record(z.enum(CONDITION_COMPONENTS), z.array(z.enum(["E", "G", "F", "P", "N", "D"]))),
+        comment1: optStr, comment2: optStr, comment3: optStr, comment4: optStr,
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { vehicleId, ...data } = input;
+      const ratings = Object.fromEntries(Object.entries(data.ratings).filter(([, v]) => v.length));
+      await ctx.prisma.vehicleCondition.upsert({ where: { vehicleId }, create: { vehicleId, ...data, ratings }, update: { ...data, ratings } });
+      await audit(ctx.prisma, "Vehicle", vehicleId, ctx.user.id, { "Vehicle Condition": [null, "saved"] });
     }),
 
   /** Status Change (VehicleStatusChangeModify.aspx: Status, Change Date/Time, Due Back Date/Time). */

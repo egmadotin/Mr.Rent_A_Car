@@ -65,3 +65,11 @@ export const OWNERSHIP_FIELDS = [
 export type OwnershipKind = (typeof OWNERSHIP_FIELDS)[number][2];
 export const ACQUISITION_TYPES = ["H-D Program", "Dealer", "Auction", "Other"];
 export const SOLD_METHODS = ["Retail", "Wholesale", "Export", "Originating Dealer", "HDDX", "Auction"];
+
+/** Vehicle Condition (VehicleConditions.aspx): the components in RentCentric's order and its condition columns. */
+export const CONDITION_COMPONENTS = [
+  "Fairing", "Tank", "Seat", "Front Fender", "Rear Fender", "Front Tire", "Rear Tire", "Front Wheel", "Rear Wheel", "Chrome", "Turn Signals", "Headlight", "Taillight",
+  "Battery", "Engine", "Clutch", "Front Brake", "Rear Brake", "Transmission", "Mirrors", "Handlebars", "Footrests", "Paint", "Windshield", "H-D Accessories", "Other Accessories",
+  "General Conditions",
+] as const;
+export const CONDITION_RATINGS = [["E", "Excellent"], ["G", "Good"], ["F", "Fair"], ["P", "Poor"], ["N", "None"], ["D", "Damaged"]] as const;
