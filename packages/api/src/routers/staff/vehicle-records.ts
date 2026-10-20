@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { Prisma } from "@mrac/db";
 import { router, permitted, requirePermission } from "../../trpc";
 import { audit } from "../../lib/audit";
+import { deleteFile, isStorageKey } from "../../lib/storage";
 
 /**
  * The vehicle page's records (RentCentric VehicleMain.aspx actions): Maintenance, Repairs, Problems, Carwash, Damage,
@@ -64,6 +65,8 @@ const inputs = {
     conditionId: optStr,
     total: z.preprocess((v) => (v === "" || v == null ? undefined : Number(v)), z.number({ required_error: "Total is required" }).min(0, "Can't be negative")),
     memo: optStr,
+    /** the damage photo (uploaded to /api/files); left out = unchanged */
+    imageKey: z.string().refine(isStorageKey, "Bad file key").optional(),
   }),
   accident: z.object({ date: reqDate("Accident Date"), rentalId: optStr, fullName: optStr, location: optStr, description: optStr, memo: optStr }),
   service: z.object({ companyName: z.string().trim().min(1, "Company Name is required"), voucherNumber: optStr, expirationDate: optDate, memo: optStr }),
@@ -172,31 +175,38 @@ export const vehicleRecordsRouter = router({
   /** Add / edit one record (Maintenance, Repair, Problem, Carwash, Damage, Accident, Service, Insurance). */
   save: permitted("Vehicles")
     .input(saveInput)
-    .mutation(({ ctx, input }) =>
-      ctx.prisma.$transaction(async (tx) => {
+    .mutation(async ({ ctx, input }) => {
+      const afterCommit: string[] = [];
+      const res = await ctx.prisma.$transaction(async (tx) => {
         const { kind, id, vehicleId } = input as { kind: Kind; id?: string; vehicleId: string; data: Record<string, unknown> };
         const data = (input as { data: Record<string, unknown> }).data;
         await requirePermission(ctx, PERMS[kind][id ? 1 : 0]);
         const v = await tx.vehicle.findUnique({ where: { id: vehicleId }, select: { id: true, currentOdometer: true } });
         if (!v) throw new TRPCError({ code: "NOT_FOUND", message: "Vehicle not found" });
         const row = toData(kind, data);
+        // a replaced damage photo is removed from storage once the save commits
+        const oldImage = kind === "damage" && id && data.imageKey ? (await tx.vehicleDamage.findUnique({ where: { id }, select: { imageKey: true } }))?.imageKey : null;
+        if (oldImage && oldImage !== data.imageKey) afterCommit.push(oldImage);
         const saved = (await write(tx, kind, id ? "update" : "create", id, id ? row : { ...row, vehicleId, enteredById: ctx.user.id })) as { id: string };
         // RentCentric side effects: a Problem's Status sets the vehicle's status; "Update Odometer" on Carwash sets it
         if (kind === "problem" && data.status) await setStatus(tx, vehicleId, data.status as (typeof STATUSES)[number], ctx.user.id);
         if (kind === "carwash" && data.updateOdometer && data.odometer != null) await tx.vehicle.update({ where: { id: vehicleId }, data: { currentOdometer: data.odometer as number } });
         await audit(tx, "Vehicle", vehicleId, ctx.user.id, { [LABEL[kind]]: [id ? "edited" : null, id ? "saved" : "added"] });
         return { id: saved.id };
-      }),
-    ),
+      });
+      await Promise.all(afterCommit.map(deleteFile));
+      return res;
+    }),
 
   delete: permitted("Vehicles")
     .input(z.object({ kind: z.enum(KINDS), id: z.string() }))
     .mutation(({ ctx, input }) =>
       ctx.prisma.$transaction(async (tx) => {
         await requirePermission(ctx, PERMS[input.kind][2]);
-        const row = (await write(tx, input.kind, "delete", input.id, {})) as { vehicleId: string };
+        const row = (await write(tx, input.kind, "delete", input.id, {})) as { vehicleId: string; imageKey?: string | null };
         await audit(tx, "Vehicle", row.vehicleId, ctx.user.id, { [LABEL[input.kind]]: ["deleted", null] });
-      }),
+        return row.imageKey;
+      }).then((imageKey) => (imageKey ? deleteFile(imageKey) : undefined)),
     ),
 
   /** Status Change (VehicleStatusChangeModify.aspx: Status, Change Date/Time, Due Back Date/Time). */

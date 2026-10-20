@@ -52,7 +52,7 @@ export function Thumbs({ images, onDelete }: { images: Img[]; onDelete?: (id: st
 }
 
 /** Photo picker for a form: uploads each file to /api/files and submits the keys as the hidden `images` field. */
-export function PhotoUploader({ folder }: { folder: "inspections" | "damages" }) {
+export function PhotoUploader({ folder, single, label = "Images" }: { folder: "inspections" | "damages"; single?: boolean; label?: string }) {
   const [files, setFiles] = React.useState<Upload[]>([]);
   const [busy, setBusy] = React.useState(0);
   async function add(list: FileList | null) {
@@ -65,7 +65,7 @@ export function PhotoUploader({ folder }: { folder: "inspections" | "damages" })
         const res = await fetch("/api/files", { method: "POST", body });
         const json = (await res.json()) as Upload & { error?: string };
         if (!res.ok) throw new Error(json.error ?? "Upload failed");
-        setFiles((x) => [...x, json]);
+        setFiles((x) => (single ? [json] : [...x, json]));
       } catch (e) {
         toast.error(`${f.name}: ${(e as Error).message}`);
       } finally {
@@ -75,7 +75,7 @@ export function PhotoUploader({ folder }: { folder: "inspections" | "damages" })
   }
   return (
     <div className="space-y-2 sm:col-span-2">
-      <span className="text-sm font-medium">Images</span>
+      <span className="text-sm font-medium">{label}</span>
       <input type="hidden" name="images" value={JSON.stringify(files)} />
       <div className="flex flex-wrap items-center gap-2">
         {files.map((f) => (
@@ -85,8 +85,8 @@ export function PhotoUploader({ folder }: { folder: "inspections" | "damages" })
           </span>
         ))}
         <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm hover:bg-accent">
-          {busy ? <Loader2Icon className="size-4 animate-spin" /> : <ImagePlusIcon className="size-4" />} Add photos
-          <input type="file" accept="image/*,application/pdf" multiple capture="environment" className="sr-only" onChange={(e) => { add(e.target.files); e.target.value = ""; }} />
+          {busy ? <Loader2Icon className="size-4 animate-spin" /> : <ImagePlusIcon className="size-4" />} {single ? "Choose photo" : "Add photos"}
+          <input type="file" accept={single ? "image/*" : "image/*,application/pdf"} multiple={!single} capture="environment" className="sr-only" onChange={(e) => { add(e.target.files); e.target.value = ""; }} />
         </label>
       </div>
       <p className="text-xs text-muted-foreground">JPG, PNG, WebP, HEIC or PDF, up to 15 MB each.</p>

@@ -118,7 +118,7 @@ The RentCentric menus, vehicle page and customer page were re-read on Oct 20. No
 | ↳ Status Change, Vehicle History, Deactivate | | ✅ |
 | ↳ Technical Log | | — RentCentric's own page is broken (Parser Error) |
 | ↳ Maintenance, Problems, Repairs, Vehicle Services, Carwash | | ✅ |
-| ↳ Damage (with Damage Locations / Conditions settings), Accidents | | ✅ (damage photo needs file storage) |
+| ↳ Damage (with Damage Locations / Conditions settings, photo), Accidents | | ✅ |
 | ↳ Customer Reported Damages, Inspection Comparison, Vehicle Inspection | | ✅ Oct 21 — RentCentric only lists these (its apps fill them); ours adds an Add form with photos |
 | ↳ Vehicle Claims, Vehicle Checklist | | ⬜ |
 | ↳ Rentals, Reservations (this vehicle's) | | ✅ |

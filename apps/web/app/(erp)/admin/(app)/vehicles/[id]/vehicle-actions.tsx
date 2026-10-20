@@ -17,7 +17,7 @@ import { CheckField, Field, FormDialog, PAYMENT_METHOD_OPTIONS, SelectField, Tex
 import { ActionLink } from "../../../../_components/legacy-view";
 import { NO_PERMISSION, useCan } from "../../../../_components/permissions";
 import { RowActions } from "../../../../_components/row-actions";
-import { InspectionComparisonPanel, InspectionsPanel, ReportedDamagesPanel } from "../../../../_components/inspections";
+import { InspectionComparisonPanel, InspectionsPanel, PhotoUploader, ReportedDamagesPanel, Thumbs } from "../../../../_components/inspections";
 
 type Kind = "maintenance" | "repair" | "problem" | "carwash" | "damage" | "accident" | "service" | "insurance";
 type Panel = Kind | "status" | "history" | "rentals" | "reservations" | "reported" | "comparison" | "inspection";
@@ -386,7 +386,7 @@ export function VehicleActions({ vehicleId, isActive, status }: { vehicleId: str
   );
 }
 
-type DamageRow = { id: string; date: string | Date; rentalId: string | null; locationId: string | null; conditionId: string | null; total: unknown; memo: string | null; location: { name: string } | null; condition: { name: string } | null };
+type DamageRow = { id: string; date: string | Date; rentalId: string | null; locationId: string | null; conditionId: string | null; total: unknown; memo: string | null; imageKey: string | null; location: { name: string } | null; condition: { name: string } | null };
 
 /** Add Vehicle Damage (VehicleDamagesModify2.aspx): several damaged spots can be listed, then saved together. */
 function DamagePanel({ rows, locations, conditions, canAdd, canEdit, onSave, onDelete }: {
@@ -395,6 +395,7 @@ function DamagePanel({ rows, locations, conditions, canAdd, canEdit, onSave, onD
 }) {
   const [open, setOpen] = React.useState(false);
   const [items, setItems] = React.useState<V[]>([]);
+  const [photoKey, setPhotoKey] = React.useState(0); // remounts the photo picker for the next "Add to list" line
   const fields = (r?: DamageRow) => (
     <>
       <Field label="Date" name="date" type="datetime-local" required defaultValue={r ? dtl(r.date) : toDateTimeLocal(new Date())} />
@@ -403,9 +404,16 @@ function DamagePanel({ rows, locations, conditions, canAdd, canEdit, onSave, onD
       <SelectField label="Damage Condition" name="conditionId" options={conditions} placeholder="Please select" defaultValue={s(r?.conditionId)} />
       <Field label="Total" name="total" type="number" min={0} step="0.01" required defaultValue={r ? Number(r.total).toFixed(2) : ""} />
       <TextareaField label="Memo" name="memo" rows={2} defaultValue={s(r?.memo)} />
+      {r?.imageKey && <div className="sm:col-span-2"><span className="text-sm font-medium">Current photo</span><Thumbs images={[{ id: r.id, s3Key: r.imageKey, fileName: "Damage photo", contentType: "image/jpeg" }]} /></div>}
+      <PhotoUploader key={photoKey} folder="damages" single label={r?.imageKey ? "Replace photo" : "Photo"} />
     </>
   );
-  const toData = (v: V) => ({ ...v, date: at(v.date) });
+  // the first uploaded file is the damage photo
+  const toData = (v: V) => {
+    const { images, ...rest } = v;
+    const key = (typeof images === "string" && images ? (JSON.parse(images) as { key: string }[]) : [])[0]?.key;
+    return { ...rest, date: at(v.date), ...(key ? { imageKey: key } : {}) };
+  };
   return (
     <Card className="gap-2 py-4">
       <CardHeader className="flex-row items-center justify-between px-4">
@@ -415,11 +423,11 @@ function DamagePanel({ rows, locations, conditions, canAdd, canEdit, onSave, onD
       <CardContent className="px-0">
         {rows.length === 0 ? <p className="px-4 text-sm text-muted-foreground">No records.</p> : (
           <Table>
-            <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Description</TableHead><TableHead>Damage Location</TableHead><TableHead>Damage Condition</TableHead><TableHead className="text-right">Total</TableHead><TableHead className="w-20" /></TableRow></TableHeader>
+            <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Description</TableHead><TableHead>Damage Location</TableHead><TableHead>Damage Condition</TableHead><TableHead>Photo</TableHead><TableHead className="text-right">Total</TableHead><TableHead className="w-20" /></TableRow></TableHeader>
             <TableBody>
               {rows.map((r) => (
                 <TableRow key={r.id}>
-                  <TableCell>{date(r.date)}</TableCell><TableCell>{r.memo ?? "—"}</TableCell><TableCell>{r.location?.name ?? "—"}</TableCell><TableCell>{r.condition?.name ?? "—"}</TableCell><TableCell className="text-right tabular-nums">{money(r.total as string)}</TableCell>
+                  <TableCell>{date(r.date)}</TableCell><TableCell>{r.memo ?? "—"}</TableCell><TableCell>{r.location?.name ?? "—"}</TableCell><TableCell>{r.condition?.name ?? "—"}</TableCell><TableCell>{r.imageKey ? <Thumbs images={[{ id: r.id, s3Key: r.imageKey, fileName: "Damage photo", contentType: "image/jpeg" }]} /> : "—"}</TableCell><TableCell className="text-right tabular-nums">{money(r.total as string)}</TableCell>
                   <TableCell><RowActions label="damage" canEdit={canEdit} canDelete={canEdit} editTitle="Edit Vehicle Damage" onSave={(v) => onSave(r.id, toData(v))} onDelete={() => onDelete(r.id)}>{fields(r)}</RowActions></TableCell>
                 </TableRow>
               ))}
@@ -451,6 +459,7 @@ function DamagePanel({ rows, locations, conditions, canAdd, canEdit, onSave, onD
               new FormData(form).forEach((val, key) => { if (val !== "") v[key] = val; });
               setItems((x) => [...x, toData(v)]);
               form.reset();
+              setPhotoKey((k) => k + 1);
               toast.success("Added to list");
             }}
           >
