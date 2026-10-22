@@ -63,6 +63,9 @@ async function priceOnline(
 const cents = (d: Prisma.Decimal) => Math.round(Number(d) * 100);
 
 export const customerRouter = router({
+  /** Step 3's rental policy (Settings > Rental Policies). */
+  rentalPolicies: publicProcedure.query(async ({ ctx }) => (await ctx.prisma.emailSettings.findUnique({ where: { id: "default" }, select: { rentalPolicies: true } }))?.rentalPolicies ?? ""),
+
   /** Whether step 3 shows the card field (Settings > Payment Gateway), and Stripe's publishable key. */
   paymentConfig: publicProcedure.query(async ({ ctx }) => {
     const g = await ctx.prisma.paymentGateway.findUnique({ where: { provider: "STRIPE" } });

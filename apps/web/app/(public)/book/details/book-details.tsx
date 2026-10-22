@@ -58,6 +58,7 @@ export function BookDetails({ search, vehicleTypeId, insuranceId, extras }: { se
   const [pending, setPending] = React.useState(false);
   const [birth, setBirth] = React.useState("2000-01-01");
   const pay = useQuery(trpc.customer.paymentConfig.queryOptions()).data;
+  const policy = useQuery(trpc.customer.rentalPolicies.queryOptions()).data;
   const confirmCard = React.useRef<ConfirmCard | null>(null);
 
   const searchInput = {
@@ -175,6 +176,13 @@ export function BookDetails({ search, vehicleTypeId, insuranceId, extras }: { se
 
           <div className="space-y-2">
             <h2 className="text-xl">Terms &amp; Conditions</h2>
+            {policy && (
+              <details className="rounded border p-3 text-sm">
+                <summary className="cursor-pointer font-semibold text-primary">Rental Policy</summary>
+                {/* written by staff in Settings > Rental Policies */}
+                <div className="mt-2 space-y-2 text-muted-foreground" dangerouslySetInnerHTML={{ __html: policy }} />
+              </details>
+            )}
             <label className="flex items-center gap-2 text-sm font-semibold">
               <input type="checkbox" name="acceptPolicy" className="size-4 accent-primary" /> I accept the rental policy
             </label>

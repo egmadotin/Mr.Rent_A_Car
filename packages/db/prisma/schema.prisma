@@ -1731,6 +1731,8 @@ model EmailSettings {
   /// Settings > Inspection Email (InspectionCustomerEmail.aspx): the email that sends a customer their inspection photos
   inspectionSubject String   @default("Inspection Info")
   inspectionBody    String   @default("")
+  /// Settings > Rental Policies (WebCustomerRentalPolicies.aspx, "Master Policies"): shown to online customers before "I accept the rental policy" (HTML)
+  rentalPolicies    String   @default("")
 }
 
 /// Every email the system sends (agreements, invoices, confirmations, quotes), for the record.

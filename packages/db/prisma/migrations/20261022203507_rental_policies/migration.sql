@@ -1,0 +1,7 @@
+-- AlterTable
+ALTER TABLE "EmailSettings" ADD COLUMN     "rentalPolicies" TEXT NOT NULL DEFAULT '';
+
+-- RentCentric's Master Policies (WebCustomerRentalPolicies.aspx), the same for every location
+INSERT INTO "EmailSettings" ("id", "updatedAt", "rentalPolicies") VALUES ('default', NOW(), $policy$I and/or additional driver have read and accepted the terms and conditions on the front and back of this Agreement and details of the automobile supplied to me. My signature below shall be deemed to have been made on my applicable credit card voucher and I authorize Mr. Rent-A-Car to process such voucher for any and all amounts payable by me pursuant to the terms of this Agreement, including, without limitation, parking ticket expenses, traffic violation fines and costs relating thereto, vehicle damage charges and the cost of any additional coverages accepted by me. Unlimited km rates,when available,are for the province from which you rented. Vehicles taken outside of the province or bordering restrictions will receive 100kms@day and a charge of $.25up@km. Written permission required to leave the Province of BC. Only authorized person listed on this Agreement holding a valid driver's license are authorized to drive the rental vehicle.<br />
+All accounts due when rendered at time of return of the motor vehicle and interest of 2% per month (24% per annum) charges on overdue accounts.$policy$)
+ON CONFLICT ("id") DO UPDATE SET "rentalPolicies" = EXCLUDED."rentalPolicies";

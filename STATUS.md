@@ -251,7 +251,7 @@ RentCentric's Settings menu, item by item.
 | Website & Email | Reservation Email, Quote Email | 🟡 sent with the templates |
 | Website & Email | Inspection Email | ✅ Subject + body; each inspection has an email button (details + photos attached) 🔑 SMTP |
 | Website & Email | Promotions/Specials | ✅ RentCentric's 9 codes copied (locations + vehicle types); a valid code on an online booking becomes its discount (dates, minimum days, location, vehicle type, one-time use checked). Promo Code report built |
-| Website & Email | Rental Policies | ⬜ |
+| Website & Email | Rental Policies | ✅ RentCentric's Master Policies copied (same text for every location); shown on the online booking's last step above "I accept the rental policy"; editable with a preview (`/admin/settings/rental-policies`). New route: restart the server once |
 | Website & Email | Configuration, Style & Format, Add/Edit Webpages | ⬜ (our public site replaces these) |
 | Website & Email | Online Reservation (incl. V3, mobile), I-Frame Widget, I-Frame Rotator | ⬜ (our public site replaces these) |
 | Website & Email | Merchandise Items, Orders | ⏸ not in use in RentCentric |

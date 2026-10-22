@@ -152,6 +152,15 @@ export const inspectionsRouter = router({
     return { subject: s?.inspectionSubject ?? "Inspection Info", body: s?.inspectionBody ?? "" };
   }),
 
+  /** Settings > Rental Policies: the policy text online customers accept (HTML). */
+  rentalPoliciesGet: staffProcedure.query(async ({ ctx }) => (await ctx.prisma.emailSettings.findUnique({ where: { id: "default" }, select: { rentalPolicies: true } }))?.rentalPolicies ?? ""),
+
+  rentalPoliciesSave: permitted("AgreementFormsEdit")
+    .input(z.object({ text: z.string().max(100_000) }))
+    .mutation(async ({ ctx, input }) => {
+      await ctx.prisma.emailSettings.upsert({ where: { id: "default" }, create: { id: "default", rentalPolicies: input.text, updatedById: ctx.session.user.id }, update: { rentalPolicies: input.text, updatedById: ctx.session.user.id } });
+    }),
+
   /** The body is HTML sent as-is, so the same permission as editing templates. */
   inspectionEmailSave: permitted("AgreementFormsEdit")
     .input(z.object({ subject: z.string().trim().min(1, "Subject is required").max(200), body: z.string().max(100_000) }))
