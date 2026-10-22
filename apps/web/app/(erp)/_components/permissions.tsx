@@ -1,5 +1,6 @@
 "use client";
 
+import type * as React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTRPC } from "@mrac/api/client";
 
@@ -15,4 +16,10 @@ export function useCan() {
 }
 
 /** Tooltip text for a control the user's group doesn't allow. */
-export const NO_PERMISSION = "Your user group doesn't allow this — ask an admin (Settings > User Groups).";
+export const NO_PERMISSION = "You don't have permission for this — ask an admin (Settings > Users).";
+
+/** Show the children only when the user holds every listed permission (the server refuses the action anyway). */
+export function Can({ perm, children, fallback = null }: { perm: string | string[]; children: React.ReactNode; fallback?: React.ReactNode }) {
+  const can = useCan();
+  return <>{can(...(Array.isArray(perm) ? perm : [perm])) ? children : fallback}</>;
+}

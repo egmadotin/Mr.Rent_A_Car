@@ -5,6 +5,7 @@ import * as React from "react";
 import Link from "next/link";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useTRPC } from "@mrac/api/client";
+import { Can } from "../../../_components/permissions";
 import { VEHICLE_STATUSES, type VehicleStatusValue } from "@mrac/api/vehicle-status";
 import { Badge } from "@mrac/ui/components/badge";
 import { Button } from "@mrac/ui/components/button";
@@ -81,8 +82,8 @@ export function VehiclesList({ initialStatus }: { initialStatus?: string }) {
                 <TableCell className="text-right">
                   {v.status === "AVAILABLE" && (
                     <span className="flex justify-end gap-1">
-                      <Button size="sm" variant="ghost" asChild><Link href={`/admin/reservations/new?vehicleId=${v.id}`}>Reserve</Link></Button>
-                      <Button size="sm" variant="ghost" asChild><Link href={`/admin/rentals/new?vehicleId=${v.id}`}>Rent</Link></Button>
+                      <Can perm="ReservationsAdd"><Button size="sm" variant="ghost" asChild><Link href={`/admin/reservations/new?vehicleId=${v.id}`}>Reserve</Link></Button></Can>
+                      <Can perm="CheckOuts"><Button size="sm" variant="ghost" asChild><Link href={`/admin/rentals/new?vehicleId=${v.id}`}>Rent</Link></Button></Can>
                     </span>
                   )}
                 </TableCell>

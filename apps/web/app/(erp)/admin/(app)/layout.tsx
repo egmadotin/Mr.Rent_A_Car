@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { Sidebar } from "../../_components/shell/sidebar";
 import { SIDEBAR_COOKIE } from "../../_lib/cookies";
-import { myLocations, requireStaff, workingLocationId } from "../../_lib/session";
+import { myLocations, myPermissions, requireStaff, workingLocationId } from "../../_lib/session";
 
 /** Authenticated ERP shell: persistent, collapsible left sidebar + content. */
 export default async function ErpAppLayout({ children }: { children: React.ReactNode }) {
@@ -18,6 +18,7 @@ export default async function ErpAppLayout({ children }: { children: React.React
         locations={locations}
         currentLocationId={currentLocationId}
         defaultCollapsed={jar.get(SIDEBAR_COOKIE)?.value === "1"}
+        permissions={[...(await myPermissions())]}
       />
       <main className="min-w-0 flex-1">{children}</main>
     </div>

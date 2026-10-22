@@ -2,9 +2,14 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import QRCode from "qrcode";
 import { Prisma } from "@mrac/db";
-import { router, staffProcedure } from "../../trpc";
+import { permitted, router, staffProcedure } from "../../trpc";
+
 import { methodData, methodLabel } from "../../lib/payment-methods";
 import { roleCommission, type Role, type Rules } from "../../lib/commissions";
+
+/** Every report needs "Reports & Administration › Reports" (the shared filter lists don't). */
+const reportProcedure = permitted("Reports");
+
 
 /**
  * Core reports, as RentCentric's (same filters, columns and totals):
@@ -208,7 +213,7 @@ function vehicleFilter(i: { makeId?: string; assignedId?: string; year?: number;
 
 export const reportsRouter = router({
   /** Daily Business Report: closed rentals by close date (one day or a range ≤ 31 days) and/or return date. */
-  dailyBusiness: staffProcedure
+  dailyBusiness: reportProcedure
     .input(z.object({ closeDate: optDate, closeFrom: optDate, closeTo: optDate, returnFrom: optDate, returnTo: optDate, ...locationFilters }))
     .query(async ({ ctx, input }) => {
       within31(input.closeFrom, input.closeTo, "Rental close date range");
@@ -224,7 +229,7 @@ export const reportsRouter = router({
     }),
 
   /** Month to Date: the same revenue summary for one month, by rental return month or close month. */
-  monthToDate: staffProcedure
+  monthToDate: reportProcedure
     .input(z.object({ month: z.string().regex(/^\d{4}-\d{2}$/, "Choose a month"), by: z.enum(["CLOSE", "RETURN"]).default("CLOSE"), ...locationFilters }))
     .query(async ({ ctx, input }) => {
       const [y, m] = input.month.split("-").map(Number) as [number, number];
@@ -239,7 +244,7 @@ export const reportsRouter = router({
     }),
 
   /** Daily Cash Summary: every payment taken in the period (≤ 31 days), on rentals and reservations. */
-  dailyCash: staffProcedure
+  dailyCash: reportProcedure
     .input(z.object({ date: optDate, from: optDate, to: optDate, ...locationFilters }))
     .query(async ({ ctx, input }) => {
       within31(input.from, input.to);
@@ -285,7 +290,7 @@ export const reportsRouter = router({
     }),
 
   /** Rental Status: rentals by pickup / return date, vehicle, locations and status. */
-  rentalStatus: staffProcedure
+  rentalStatus: reportProcedure
     .input(z.object({ pickupFrom: optDate, pickupTo: optDate, returnFrom: optDate, returnTo: optDate, makeId: optId, vehicleTypeId: optId, status: z.enum(["ALL", "OPEN", "CLOSED"]).default("ALL"), ...locationFilters }))
     .query(async ({ ctx, input }) => {
       const rentals = await ctx.prisma.rental.findMany({
@@ -317,7 +322,7 @@ export const reportsRouter = router({
     }),
 
   /** Reservation Manifest: reservations by pickup / return / reservation date, vehicle and location; grouped and sorted. */
-  reservationManifest: staffProcedure
+  reservationManifest: reportProcedure
     .input(z.object({
       pickupFrom: optDate, pickupTo: optDate, returnFrom: optDate, returnTo: optDate, createdFrom: optDate, createdTo: optDate,
       assignedId: z.string().trim().optional(), makeId: optId, vehicleStatus: optId, vehicleTypeId: optId, locationId: optId,
@@ -355,7 +360,7 @@ export const reportsRouter = router({
     }),
 
   /** Vehicle Due In: open rentals (or reservations) due back in a period. */
-  vehicleDueIn: staffProcedure
+  vehicleDueIn: reportProcedure
     .input(z.object({ makeId: optId, assignedId: z.string().trim().optional(), returnFrom: optDate, returnTo: optDate, returnLocationId: optId, currentLocationId: optId, vehicleTypeId: optId, filterBy: z.enum(["RENTAL", "RESERVATION"]).default("RENTAL") }))
     .query(async ({ ctx, input }) => {
       const due = range(input.returnFrom, input.returnTo);
@@ -399,7 +404,7 @@ export const reportsRouter = router({
     }),
 
   /** Revenue By Customer (ReportsCustomerRevenue): rentals grouped by customer. */
-  revenueByCustomer: staffProcedure
+  revenueByCustomer: reportProcedure
     .input(z.object({ pickupFrom: optDate, pickupTo: optDate, dateInFrom: optDate, dateInTo: optDate, firstName: z.string().trim().optional(), lastName: z.string().trim().optional(), locationId: optId, owningLocationId: optId, status: z.enum(["ALL", "OPEN", "CLOSED"]).default("ALL") }))
     .query(async ({ ctx, input }) => {
       const rentals = await ctx.prisma.rental.findMany({
@@ -416,7 +421,7 @@ export const reportsRouter = router({
     }),
 
   /** Revenue By Vehicle (ReportsVehicleRevenue): rentals grouped by vehicle. */
-  revenueByVehicle: staffProcedure
+  revenueByVehicle: reportProcedure
     .input(z.object({ assignedId: z.string().trim().optional(), makeId: optId, year: z.coerce.number().int().optional(), pickupFrom: optDate, pickupTo: optDate, dateInFrom: optDate, dateInTo: optDate, customer: z.string().trim().optional(), locationId: optId, vehicleTypeId: optId, vehicleStatus: z.enum(["ALL", "ACTIVE", "INACTIVE"]).default("ALL") }))
     .query(async ({ ctx, input }) => {
       const rentals = await ctx.prisma.rental.findMany({
@@ -439,7 +444,7 @@ export const reportsRouter = router({
     }),
 
   /** Revenue By Location (ReportsLocationRevenue): rentals grouped by pickup location. */
-  revenueByLocation: staffProcedure
+  revenueByLocation: reportProcedure
     .input(z.object({ pickupFrom: optDate, pickupTo: optDate, returnFrom: optDate, returnTo: optDate }))
     .query(async ({ ctx, input }) => {
       const rentals = await ctx.prisma.rental.findMany({
@@ -452,7 +457,7 @@ export const reportsRouter = router({
     }),
 
   /** Revenue By Company (ReportsRevenueByCompany): company rentals by close (return) date; Full Report or Commission. */
-  revenueByCompany: staffProcedure
+  revenueByCompany: reportProcedure
     .input(z.object({ companyId: optId, returnFrom: optDate, returnTo: optDate, mode: z.enum(["FULL", "COMMISSION"]).default("FULL") }))
     .query(async ({ ctx, input }) => {
       const rentals = await ctx.prisma.rental.findMany({
@@ -472,7 +477,7 @@ export const reportsRouter = router({
     }),
 
   /** Vehicles Summary (ReportsVehicleList): vehicles by make / model / ID / year / status / owning location / type, grouped. */
-  vehiclesSummary: staffProcedure
+  vehiclesSummary: reportProcedure
     .input(z.object({ makeId: optId, assignedId: z.string().trim().optional(), year: z.coerce.number().int().optional(), status: optId, owningLocationId: optId, vehicleTypeId: optId, groupBy: z.enum(["NONE", "MAKE", "MODEL", "YEAR", "STATUS", "TYPE", "LOCATION"]).default("LOCATION") }))
     .query(async ({ ctx, input }) => {
       const vs = await ctx.prisma.vehicle.findMany({
@@ -496,7 +501,7 @@ export const reportsRouter = router({
     }),
 
   /** Vehicle License Expiration (ReportsVehicleLicenseExpiration). */
-  licenseExpiration: staffProcedure
+  licenseExpiration: reportProcedure
     .input(z.object({ makeId: optId, assignedId: z.string().trim().optional(), from: optDate, to: optDate, year: z.coerce.number().int().optional(), owningLocationId: optId, vehicleTypeId: optId, licenseProvince: z.string().trim().optional() }))
     .query(({ ctx, input }) =>
       ctx.prisma.vehicle
@@ -518,7 +523,7 @@ export const reportsRouter = router({
     ),
 
   /** Maintenance Alert (ReportsVehicleMaintanaceAlert): last service, interval, next service and km to go per vehicle. */
-  maintenanceAlert: staffProcedure
+  maintenanceAlert: reportProcedure
     .input(z.object({ assignedId: z.string().trim().optional(), makeId: optId, year: z.coerce.number().int().optional(), owningLocationId: optId, vehicleTypeId: optId, status: optId }))
     .query(async ({ ctx, input }) => {
       const vs = await ctx.prisma.vehicle.findMany({
@@ -551,7 +556,7 @@ export const reportsRouter = router({
     }),
 
   /** Customer List (ReportsCustomerList). */
-  customerList: staffProcedure
+  customerList: reportProcedure
     .input(z.object({ firstName: z.string().trim().optional(), lastName: z.string().trim().optional(), city: z.string().trim().optional(), address: z.string().trim().optional(), phone: z.string().trim().optional(), postal: z.string().trim().optional(), locationId: optId, active: z.enum(["ALL", "ACTIVE", "INACTIVE"]).default("ALL"), undesiredOnly: z.boolean().default(false) }))
     .query(({ ctx, input }) => {
       const has = (v?: string) => (v ? { contains: v, mode: "insensitive" as const } : undefined);
@@ -576,7 +581,7 @@ export const reportsRouter = router({
     }),
 
   /** Traffic Tickets (ReportsTrafficTickets). */
-  trafficTickets: staffProcedure
+  trafficTickets: reportProcedure
     .input(z.object({ from: optDate, to: optDate, firstName: z.string().trim().optional(), lastName: z.string().trim().optional(), city: z.string().trim().optional(), amount: z.coerce.number().optional(), locationId: optId }))
     .query(({ ctx, input }) =>
       ctx.prisma.trafficTicket
@@ -599,7 +604,7 @@ export const reportsRouter = router({
     ),
 
   /** Vehicle Maintenance (ReportsVehicleMaintanace): maintenance entries by date, vehicle and location. */
-  vehicleMaintenance: staffProcedure
+  vehicleMaintenance: reportProcedure
     .input(z.object({ from: optDate, to: optDate, makeId: optId, assignedId: z.string().trim().optional(), year: z.coerce.number().int().optional(), locationId: optId, vehicleTypeId: optId }))
     .query(({ ctx, input }) =>
       ctx.prisma.vehicleMaintenance
@@ -613,7 +618,7 @@ export const reportsRouter = router({
     ),
 
   /** Vehicle Repairs (ReportsVehicleRepairs): repairs by repair date, vehicle and owning location. */
-  vehicleRepairs: staffProcedure
+  vehicleRepairs: reportProcedure
     .input(z.object({ from: optDate, to: optDate, makeId: optId, assignedId: z.string().trim().optional(), owningLocationId: optId, vehicleTypeId: optId }))
     .query(({ ctx, input }) =>
       ctx.prisma.vehicleRepair
@@ -627,7 +632,7 @@ export const reportsRouter = router({
     ),
 
   /** Source Of Referral ("Revenue By Referrals", ReportsReferral): rentals grouped by referral. */
-  sourceOfReferral: staffProcedure
+  sourceOfReferral: reportProcedure
     .input(z.object({ referralId: optId, from: optDate, to: optDate, owningLocationId: optId, vehicleTypeId: optId }))
     .query(async ({ ctx, input }) => {
       const rentals = await ctx.prisma.rental.findMany({
@@ -649,7 +654,7 @@ export const reportsRouter = router({
     }),
 
   /** Customer By Region (ReportsCustomerByRegion): customers grouped by area / region. */
-  customerByRegion: staffProcedure
+  customerByRegion: reportProcedure
     .input(z.object({ firstName: z.string().trim().optional(), lastName: z.string().trim().optional(), city: z.string().trim().optional(), phone: z.string().trim().optional(), regionId: optId }))
     .query(async ({ ctx, input }) => {
       const has = (v?: string) => (v ? { contains: v, mode: "insensitive" as const } : undefined);
@@ -671,7 +676,7 @@ export const reportsRouter = router({
     }),
 
   /** Payments & Charges (ReportsTransactions): every transaction, grouped by payment method. */
-  paymentsAndCharges: staffProcedure
+  paymentsAndCharges: reportProcedure
     .input(z.object({ from: optDate, to: optDate, method: z.string().optional(), type: z.enum(["ALL", "PAYMENT", "AUTHORIZATION", "REFUND"]).default("PAYMENT"), firstName: z.string().trim().optional(), lastName: z.string().trim().optional(), authorizationCode: z.string().trim().optional(), transactionCode: z.string().trim().optional(), amount: z.coerce.number().optional(), raNumber: z.coerce.number().int().optional(), reservationNumber: z.coerce.number().int().optional(), takenBy: z.string().trim().optional(), locationId: optId }))
     .query(async ({ ctx, input }) => {
       const name = input.firstName || input.lastName ? { ...(input.firstName ? { firstName: { contains: input.firstName, mode: "insensitive" as const } } : {}), ...(input.lastName ? { lastName: { contains: input.lastName, mode: "insensitive" as const } } : {}) } : null;
@@ -705,7 +710,7 @@ export const reportsRouter = router({
     }),
 
   /** Reservations No Showup/Cancelled (ReportsReservationsNoShowCancelled). */
-  noShowCancelled: staffProcedure
+  noShowCancelled: reportProcedure
     .input(z.object({ pickupFrom: optDate, pickupTo: optDate, returnFrom: optDate, returnTo: optDate, createdFrom: optDate, createdTo: optDate, makeId: optId, vehicleTypeId: optId, locationId: optId, pickupLocationId: optId, returnLocationId: optId, status: z.enum(["ALL", "NO_SHOW", "CANCELLED"]).default("ALL") }))
     .query(async ({ ctx, input }) => {
       const rs = await ctx.prisma.reservation.findMany({
@@ -745,7 +750,7 @@ export const reportsRouter = router({
     }),
 
   /** Tasks (ReportsTasks): tasks dated in the range, with who entered them and who they were sent to. */
-  tasks: staffProcedure
+  tasks: reportProcedure
     .input(z.object({ from: optDate, to: optDate, subject: z.string().trim().optional(), description: z.string().trim().optional() }))
     .query(async ({ ctx, input }) => {
       const ts = await ctx.prisma.task.findMany({
@@ -771,7 +776,7 @@ export const reportsRouter = router({
    * earn from their Commission Structures (rentals opened in the range), plus commissions entered on the rental (entered in
    * the range; counted under the role their earner had on the rental, otherwise Walk In).
    */
-  commissions: staffProcedure
+  commissions: reportProcedure
     .input(z.object({ from: optDate, to: optDate, locationId: optId, agentId: optId }))
     .query(async ({ ctx, input }) => {
       // agents with Commission Structures (Users form) earn on rentals opened in the period; commissions entered by hand count too
@@ -836,7 +841,7 @@ export const reportsRouter = router({
    * Adjustment Details (ReportsAdjustmentDetailsReport): rentals with adjustments. Adjust Paid is what was paid beyond
    * the rental's other charges (payments go to the original charges first).
    */
-  adjustmentDetails: staffProcedure
+  adjustmentDetails: reportProcedure
     .input(z.object({ dateInFrom: optDate, dateInTo: optDate, adjustmentFrom: optDate, adjustmentTo: optDate, paymentFrom: optDate, paymentTo: optDate, locationOutId: optId, locationInId: optId }))
     .query(async ({ ctx, input }) => {
       const rentals = await ctx.prisma.rental.findMany({
@@ -873,7 +878,7 @@ export const reportsRouter = router({
     }),
 
   /** Rental Days Report (ReportsRentalDays): hours / days / weeks / months charged per rental and their rates. */
-  rentalDays: staffProcedure
+  rentalDays: reportProcedure
     .input(z.object({ from: optDate, to: optDate, dateInFrom: optDate, dateInTo: optDate, locationOutId: optId, locationInId: optId, status: z.enum(["ALL", "OPEN", "CLOSED"]).default("ALL") }))
     .query(async ({ ctx, input }) => {
       const rentals = await ctx.prisma.rental.findMany({
@@ -910,7 +915,7 @@ export const reportsRouter = router({
     }),
 
   /** Rental Discount (ReportsRentalDiscount): discounts added, changed or removed on rentals (from the rental's change log). */
-  rentalDiscount: staffProcedure
+  rentalDiscount: reportProcedure
     .input(z.object({ from: optDate, to: optDate, locationOutId: optId, locationInId: optId, status: z.enum(["ALL", "OPEN", "CLOSED"]).default("ALL") }))
     .query(async ({ ctx, input }) => {
       const logs = await ctx.prisma.auditLog.findMany({
@@ -942,7 +947,7 @@ export const reportsRouter = router({
     }),
 
   /** Customer Notes (ReportsCustomerNotes): the customer's notes (memos), grouped by customer. */
-  customerNotes: staffProcedure
+  customerNotes: reportProcedure
     .input(z.object({ customerId: z.coerce.number().int().optional(), firstName: z.string().trim().optional(), lastName: z.string().trim().optional(), city: z.string().trim().optional(), address: z.string().trim().optional(), phone: z.string().trim().optional(), keyword: z.string().trim().optional(), locationId: optId }))
     .query(async ({ ctx, input }) => {
       const has = (v?: string) => (v ? { contains: v, mode: "insensitive" as const } : undefined);
@@ -978,7 +983,7 @@ export const reportsRouter = router({
    * Promo Code (PromoCodeReport): reservations booked with a promo code (Usage = the reservation date): First / Last Name,
    * Promo Code, Res.#, Rental #, Pickup / Return Date, Res.Total, Rental Subtotal, Rental Total, Date, Discount, Discount Total.
    */
-  promoCodes: staffProcedure
+  promoCodes: reportProcedure
     .input(z.object({ from: optDate, to: optDate, locationIds: z.array(z.string()).default([]), category: z.enum(["", "RESERVATION", "REGISTRATION"]).default(""), code: z.string().trim().optional() }))
     .query(async ({ ctx, input }) => {
       const rs = await ctx.prisma.reservation.findMany({
@@ -1016,7 +1021,7 @@ export const reportsRouter = router({
    * Rental Details (ReportsRentalDetailsReport): per rental the customer, booking and every charge column (RA#, Customer ID,
    * names, phone, email, Res#, vehicle, type, locations, dates, status, opened / closed by, Days, Time … Balance), with a Total row.
    */
-  rentalDetails: staffProcedure
+  rentalDetails: reportProcedure
     .input(z.object({ from: optDate, to: optDate, dateInFrom: optDate, dateInTo: optDate, locationOutId: optId, locationInId: optId, status: z.enum(["ALL", "OPEN", "CLOSED"]).default("ALL") }))
     .query(async ({ ctx, input }) => {
       const where: Prisma.RentalWhereInput = {
@@ -1059,7 +1064,7 @@ export const reportsRouter = router({
    * License#, RA #, Location, Pickup Loc / Date, Return Loc, Drop Off Date, Total, Pay./Credit., Balance. Each rental's
    * payments are applied to its invoices oldest first.
    */
-  rentalInvoices: staffProcedure
+  rentalInvoices: reportProcedure
     .input(z.object({ locationId: optId, from: optDate, to: optDate, type: z.enum(["ALL", "INVOICE", "CREDIT"]).default("ALL"), balance: z.enum(["ALL", "ZERO", "OWING"]).default("ALL") }))
     .query(async ({ ctx, input }) => {
       const invs = await ctx.prisma.rentalInvoice.findMany({
@@ -1106,7 +1111,7 @@ export const reportsRouter = router({
    * rental or reservation (User, IP, Entered Date, RA # / Res #, FullName and what changed), by booking dates, name,
    * vehicle type, IP, keyword, user and location.
    */
-  eventTracking: staffProcedure
+  eventTracking: reportProcedure
     .input(
       z.object({
         kind: z.enum(["Rental", "Reservation"]),
@@ -1164,7 +1169,7 @@ export const reportsRouter = router({
     }),
 
   /** Revenue By Admin (ReportsCommissions): commissions entered, by the user who earned them — Full Name, Rental#, Commission Amount, Date Entered. */
-  revenueByAdmin: staffProcedure
+  revenueByAdmin: reportProcedure
     .input(z.object({ from: optDate, to: optDate, locationOutId: optId, locationInId: optId }))
     .query(async ({ ctx, input }) => {
       const cs = await ctx.prisma.commission.findMany({
@@ -1192,7 +1197,7 @@ export const reportsRouter = router({
    * it — RA#, Pickup Date, First / Last Name, Vehicle Type, Assigned ID, Created By, Pickup / Return Location, No. Days,
    * Time, Mileage, Total, Option Amount — by rental close date, locations and customer.
    */
-  revenueByOptions: staffProcedure
+  revenueByOptions: reportProcedure
     .input(
       z.object({
         closeFrom: optDate, closeTo: optDate, locationIds: z.array(z.string()).default([]), locationOutId: optId, locationInId: optId, customer: z.string().trim().optional(),
@@ -1244,13 +1249,13 @@ export const reportsRouter = router({
     }),
 
   /** Option names (insurances / taxes / misc charges) used on rentals, for the Revenue By Options picker. */
-  optionNames: staffProcedure.query(async ({ ctx }) => {
+  optionNames: reportProcedure.query(async ({ ctx }) => {
     const rows = await ctx.prisma.chargeLine.groupBy({ by: ["kind", "name"], where: { rentalId: { not: null }, kind: { in: ["PROTECTION", "TAX", "MISC"] } }, orderBy: { name: "asc" } });
     return rows.map((r) => ({ kind: r.kind, name: r.name }));
   }),
 
   /** Non-Revenue (ReportsNonRevenueMove): rentals marked Non-Revenue — Rental#, Full Name, Vehicle ID, Model, Pickup / Return Date. */
-  nonRevenue: staffProcedure
+  nonRevenue: reportProcedure
     .input(
       z.object({
         outFrom: optDate, outTo: optDate, inFrom: optDate, inTo: optDate, makeId: optId, locationOutId: optId, locationInId: optId, vehicleTypeId: optId,
@@ -1282,7 +1287,7 @@ export const reportsRouter = router({
    * Vehicle Insurance (ReportsLocationInsurance): per vehicle its insurance records in the period — Insurance Expiry, how many
    * No Insurance / Full Coverage / Liability Only / Comprehensive Only records and their amounts, and the latest Action Type.
    */
-  vehicleInsurance: staffProcedure
+  vehicleInsurance: reportProcedure
     .input(z.object({ makeId: optId, from: optDate, to: optDate, locationId: optId, currentLocationId: optId, vehicleTypeId: optId, actionType: z.enum(["", "NO_INSURANCE", "FULL_COVERAGE", "LIABILITY_ONLY", "COMPREHENSIVE_ONLY"]).default("") }))
     .query(async ({ ctx, input }) => {
       const recs = await ctx.prisma.vehicleInsuranceRecord.findMany({
@@ -1308,7 +1313,7 @@ export const reportsRouter = router({
     }),
 
   /** Vehicle Lease/Loan (ReportsVehicleLeaseLoan): vehicles with Ownership Information — selling company, bank, loan and payments. */
-  vehicleLeaseLoan: staffProcedure
+  vehicleLeaseLoan: reportProcedure
     .input(z.object({ companyId: optId, makeId: optId, year: z.coerce.number().int().optional(), locationId: optId, currentLocationId: optId, vehicleTypeId: optId }))
     .query(async ({ ctx, input }) => {
       const rows = await ctx.prisma.vehicleOwnership.findMany({
@@ -1332,7 +1337,7 @@ export const reportsRouter = router({
    * Days Diff (idle days since the previous rental), Odometer Out / In, Kilometers Diff (km driven between rentals, i.e.
    * missing from any rental), Exchanged.
    */
-  kmDifference: staffProcedure
+  kmDifference: reportProcedure
     .input(z.object({ makeId: optId, from: optDate, to: optDate, assignedId: z.string().trim().optional(), locationId: optId, vehicleTypeId: optId }))
     .query(async ({ ctx, input }) => {
       const rs = await ctx.prisma.rental.findMany({
@@ -1362,7 +1367,7 @@ export const reportsRouter = router({
     }),
 
   /** Vehicle Utilization (Today) (ReportsVehicleStatus): every active vehicle's status now and its open rental. */
-  vehicleUtilization: staffProcedure
+  vehicleUtilization: reportProcedure
     .input(z.object({ makeId: optId, year: z.coerce.number().int().optional(), locationId: optId, currentLocationId: optId, vehicleTypeId: optId }))
     .query(async ({ ctx, input }) => {
       const vs = await ctx.prisma.vehicle.findMany({
@@ -1388,7 +1393,7 @@ export const reportsRouter = router({
    * (rental charges before tax), Depreciation (Ownership "Mo. Dep. Amt." × months in the period), Expenses (maintenance
    * payments + repair parts and labour + damage totals), Price (Ownership price), Profit = Income − Depreciation − Expenses.
    */
-  vehicleProfit: staffProcedure
+  vehicleProfit: reportProcedure
     .input(z.object({ makeId: optId, from: optDate, to: optDate, assignedId: z.string().trim().optional(), locationId: optId, owningLocationId: optId, currentLocationId: optId, vehicleTypeId: optId }))
     .query(async ({ ctx, input }) => {
       const when = range(input.from, input.to);
@@ -1427,7 +1432,7 @@ export const reportsRouter = router({
    * Name, Rental#, Close Date, Amount Due (the split), Payments (pre-paid + payments received from the company), Balance,
    * PO#, RO#, Claim — by company / company type, close date, locations, balance, age and status.
    */
-  corporateAr: staffProcedure
+  corporateAr: reportProcedure
     .input(
       z.object({
         companyId: optId, companyTypeId: optId, from: optDate, to: optDate, locationId: optId, locationOutId: optId, locationInId: optId,
@@ -1483,7 +1488,7 @@ export const reportsRouter = router({
    * Pickup / Return Date, Customer, Company, Total, Paid, Customer Balance (the renter's part), Company Balance (Bill Split
    * part still owed), Total Balance.
    */
-  customerAr: staffProcedure
+  customerAr: reportProcedure
     .input(
       z.object({
         from: optDate, to: optDate, locationId: optId, locationOutId: optId, locationInId: optId, companyId: optId,
@@ -1531,7 +1536,7 @@ export const reportsRouter = router({
    * Reservation A/R By Bills (ReportsCompanyInvoiceSummary): a company's reservations billed to it (Bill Split) —
    * Reservation#, Customer, Company, Reservation Date, Pickup Date, Location Code, Amount Due, Payments, Balance, PO#.
    */
-  reservationAr: staffProcedure
+  reservationAr: reportProcedure
     .input(z.object({ companyId: optId, from: optDate, to: optDate, locationId: optId, balance: z.enum(["ALL", "OWING", "ZERO"]).default("ALL") }))
     .query(async ({ ctx, input }) => {
       const splits = await ctx.prisma.billSplit.findMany({
@@ -1563,7 +1568,7 @@ export const reportsRouter = router({
     }),
 
   /** Corporate A/R Analysis (ReportsCorporateARAnalysis): what each company still owes, by age since the rental closed (< 30, 30–60, > 60 days). */
-  corporateArAnalysis: staffProcedure
+  corporateArAnalysis: reportProcedure
     .input(z.object({ from: optDate, to: optDate, locationId: optId }))
     .query(async ({ ctx, input }) => {
       const splits = await ctx.prisma.billSplit.findMany({
@@ -1597,7 +1602,7 @@ export const reportsRouter = router({
    * Revenue By Rate (ReportsRateUsage): rentals grouped by their rate — Rental#, Pickup / Return Date, Days and the time
    * charges split into Hourly, Daily, Extra Daily, Weekly and Monthly, with their Total.
    */
-  revenueByRate: staffProcedure
+  revenueByRate: reportProcedure
     .input(z.object({ outFrom: optDate, outTo: optDate, inFrom: optDate, inTo: optDate, locationId: optId, locationOutId: optId, locationInId: optId }))
     .query(async ({ ctx, input }) => {
       const rs = await ctx.prisma.rental.findMany({
@@ -1632,7 +1637,7 @@ export const reportsRouter = router({
    * Broker Commission (ReportsBrokerCommissionsLog): rentals booked through a company (broker) — RA#, Reservation#, First
    * Name, Customer ID, Last Name, Pickup / Return Date, Days, Vehicle, Company, User, Total, Disc., Total Amount.
    */
-  brokerCommission: staffProcedure
+  brokerCommission: reportProcedure
     .input(z.object({ from: optDate, to: optDate, locationId: optId, companyId: optId, userId: optId }))
     .query(async ({ ctx, input }) => {
       const rs = await ctx.prisma.rental.findMany({
@@ -1665,7 +1670,7 @@ export const reportsRouter = router({
    * Sales Projection (ReportSalesProjection): what the rentals and the upcoming reservations in the period will bring in —
    * per booking T&M, Others, Ins., Misc., Taxes and Total Amt.; Agreements + Reservations = Sales Projections Amount.
    */
-  salesProjection: staffProcedure
+  salesProjection: reportProcedure
     .input(
       z.object({
         outFrom: optDate, outTo: optDate, inFrom: optDate, inTo: optDate, makeId: optId, vehicleTypeId: optId, vehicleStatus: z.string().optional(), locationId: optId, enteredBy: z.string().trim().optional(),
@@ -1731,7 +1736,7 @@ export const reportsRouter = router({
    * Work In Process (ReportsWorkInProgress): rentals by referral — Rental#, Customer, Vehicle ID, Pickup Date / Location,
    * Return Date / Location, Daily Rate, Days, T&M, Ins., Misc., Taxes, Total.
    */
-  workInProcess: staffProcedure
+  workInProcess: reportProcedure
     .input(
       z.object({
         from: optDate, to: optDate, makeId: optId, user: z.string().trim().optional(), locationId: optId, pickupLocationId: optId, vehicleTypeId: optId, companyId: optId,
@@ -1781,7 +1786,7 @@ export const reportsRouter = router({
    * (since acquisition / added), Total Days Rented (rental days inside the period), Utilization, Total Time Income, Total
    * Mileage Income, Total Billed.
    */
-  fleetUtilizationHistory: staffProcedure
+  fleetUtilizationHistory: reportProcedure
     .input(
       z.object({
         from: z.coerce.date(), to: z.coerce.date(), makeId: optId, outFrom: optDate, outTo: optDate, inFrom: optDate, inTo: optDate, locationId: optId, owningLocationId: optId,
@@ -1834,7 +1839,7 @@ export const reportsRouter = router({
    * (active vehicles), On Rent (open rentals not due back yet), Reserved (reservations to pick up), Available and the
    * projected Utilization.
    */
-  fleetUtilizationForecast: staffProcedure
+  fleetUtilizationForecast: reportProcedure
     .input(z.object({ from: z.coerce.date(), to: z.coerce.date(), locationId: optId, vehicleTypeId: optId, active: z.enum(["ALL", "ACTIVE", "INACTIVE"]).default("ACTIVE") }))
     .query(async ({ ctx, input }) => {
       within31(input.from, input.to);
@@ -1873,7 +1878,7 @@ export const reportsRouter = router({
     }),
 
   /** Snap Shot For Rentals / Vehicle Type (ReportsSnapShot): rentals out in the period by vehicle type — Vehicle ID, Make, Model, Rental #, Pickup Date, Loc. Out, Return Date, Loc In. */
-  snapShot: staffProcedure
+  snapShot: reportProcedure
     .input(
       z.object({
         from: optDate, to: optDate, makeId: optId, user: z.string().trim().optional(), locationId: optId, currentLocationId: optId, vehicleTypeId: optId,
@@ -1909,7 +1914,7 @@ export const reportsRouter = router({
     }),
 
   /** Fleet Utilization Snapshot (ReportsFleetUtilizationSnapShot): vehicles by status now — VIN, Current Location, Assigned ID, Odometer, Status, and for one on rent its Date of Return, Customer and Phone #. */
-  fleetSnapshot: staffProcedure
+  fleetSnapshot: reportProcedure
     .input(z.object({ status: z.string().optional(), locationId: optId }))
     .query(async ({ ctx, input }) => {
       const vs = await ctx.prisma.vehicle.findMany({
@@ -1931,7 +1936,7 @@ export const reportsRouter = router({
     }),
 
   /** Vehicles Summary with QR Code (ReportsVehicleListWithQRCode): vehicles by type, each with a QR code of its Assigned ID (for the mobile scanner). */
-  vehiclesQr: staffProcedure
+  vehiclesQr: reportProcedure
     .input(
       z.object({
         makeId: optId, year: z.coerce.number().int().optional(), status: z.string().optional(), locationId: optId, owningLocationId: optId, currentLocationId: optId, vehicleTypeId: optId,
@@ -1969,7 +1974,7 @@ export const reportsRouter = router({
    * vehicles still available each day — fleet − on rent − reserved, the reservations reduced by the expected No Show % —
    * and Reservation Grid the reservations out each day.
    */
-  bookingGrid: staffProcedure
+  bookingGrid: reportProcedure
     .input(
       z.object({
         kind: z.enum(["FLEET", "RESERVATION"]), from: z.coerce.date(), to: z.coerce.date(), locationId: optId, vehicleTypeId: optId,
@@ -2020,7 +2025,7 @@ export const reportsRouter = router({
    * Reservation Forecast (ReportsReservationForcast): per day, by vehicle type, the reservations picking up and the
    * rentals / reservations due back; "By Reservation" lists the reservations themselves.
    */
-  reservationForecast: staffProcedure
+  reservationForecast: reportProcedure
     .input(
       z.object({
         from: z.coerce.date(), to: z.coerce.date(), locationId: optId, vehicleTypeId: optId, active: z.enum(["ALL", "ACTIVE", "INACTIVE"]).default("ACTIVE"),
@@ -2073,7 +2078,7 @@ export const reportsRouter = router({
     }),
 
   /** Vehicle Rental Calendar (VehiclesCalendar → a chart): vehicle × day, each day showing the rental the vehicle is out on. */
-  vehicleRentalCalendar: staffProcedure
+  vehicleRentalCalendar: reportProcedure
     .input(z.object({ from: z.coerce.date(), to: z.coerce.date(), locationId: optId, locationOutId: optId, locationInId: optId, vehicleTypeId: optId }))
     .query(async ({ ctx, input }) => {
       if (+input.to < +input.from || +input.to - +input.from > 62 * DAY) throw new TRPCError({ code: "BAD_REQUEST", message: "Date range can't exceed 62 days." });
@@ -2107,7 +2112,7 @@ export const reportsRouter = router({
     }),
 
   /** Reservations Calendar (ReservationsCalendar): a calendar of the reservations by pickup day — Res #, customer, vehicle type and time. */
-  reservationsCalendar: staffProcedure
+  reservationsCalendar: reportProcedure
     .input(z.object({ from: z.coerce.date(), to: z.coerce.date(), vehicleTypeId: optId, locationId: optId }))
     .query(async ({ ctx, input }) => {
       if (+input.to < +input.from || +input.to - +input.from > 62 * DAY) throw new TRPCError({ code: "BAD_REQUEST", message: "Date range can't exceed 62 days." });

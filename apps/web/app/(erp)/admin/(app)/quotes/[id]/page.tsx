@@ -6,7 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@mrac/ui/components/ca
 import { LocalDateTime } from "@mrac/ui/components/local-time";
 import { money } from "@mrac/ui/lib/format";
 import { PageHeader } from "../../../../_components/page-header";
-import { api } from "../../../../_lib/session";
+import { NoAccess } from "../../../../_components/no-access";
+import { api, can } from "../../../../_lib/session";
 import { QuoteMemo } from "./quote-memos";
 import { SendQuoteDialogs } from "./send-dialogs";
 import { PrintChargeTable } from "../../../print/_components/print-kit";
@@ -14,6 +15,7 @@ import { PrintChargeTable } from "../../../print/_components/print-kit";
 export const metadata = { title: "Quote" };
 
 export default async function QuotePage({ params }: { params: Promise<{ id: string }> }) {
+  if (!(await can("CheckViewQuote"))) return <NoAccess what="see quotes" />;
   const { id } = await params;
   const data = await (await api()).quote.byId({ quoteId: id }).catch(() => null);
   if (!data) notFound();
@@ -30,7 +32,7 @@ export default async function QuotePage({ params }: { params: Promise<{ id: stri
         actions={
           <>
             {/* same actions and labels as RentCentric QuoteMain.aspx */}
-            <Button variant="outline" asChild><Link href={`/admin/quotes/${q.id}/edit`}><PencilIcon /> Edit</Link></Button>
+            {(await can("CheckEditkOuote")) && <Button variant="outline" asChild><Link href={`/admin/quotes/${q.id}/edit`}><PencilIcon /> Edit</Link></Button>}
             <SendQuoteDialogs
               quoteId={q.id}
               firstName={q.firstName ?? q.customer?.firstName ?? ""}
@@ -40,8 +42,8 @@ export default async function QuotePage({ params }: { params: Promise<{ id: stri
               smsText={`Quote: ${q.number}, From ${q.pickupLocation.name}, Vehicle ${q.vehicleType.name}, Date: ${us(q.pickupAt)} to ${us(q.returnAt)}, Total ${money(data.total)}, Phone: ${(q.pickupLocation.phone ?? "").replace(/\D/g, "")}, Website:http://www.mrrentacar.com`}
             />
             <Button variant="outline" asChild><Link href={`/admin/print/quotes/${q.id}`} target="_blank"><PrinterIcon /> Print Quote</Link></Button>
-            <Button asChild><Link href={`/admin/reservations/new?quoteId=${q.id}`}><NotebookTabsIcon /> Make New Reservation</Link></Button>
-            <Button variant="outline" asChild><Link href={`/admin/reservations/new?quoteId=${q.id}&start=1`}><KeyRoundIcon /> Start Rental</Link></Button>
+            {(await can("ReservationsAdd")) && <Button asChild><Link href={`/admin/reservations/new?quoteId=${q.id}`}><NotebookTabsIcon /> Make New Reservation</Link></Button>}
+            {(await can("ReservationsAdd", "CheckOuts")) && <Button variant="outline" asChild><Link href={`/admin/reservations/new?quoteId=${q.id}&start=1`}><KeyRoundIcon /> Start Rental</Link></Button>}
           </>
         }
       />

@@ -5,7 +5,7 @@ import { Card } from "@mrac/ui/components/card";
 import { cn } from "@mrac/ui/lib/utils";
 import { ErpIcon, type ErpIconName } from "@mrac/ui/components/erp-icon";
 import { PageHeader } from "../../_components/page-header";
-import { api } from "../../_lib/session";
+import { api, can } from "../../_lib/session";
 import { DashboardPanels } from "./_components/dashboard-panels";
 import { KpiRow } from "./_components/dashboard-insights";
 
@@ -40,9 +40,9 @@ export default async function DashboardPage() {
       <PageHeader title="Dashboard" description={`${today} · fleet, bookings and revenue at a glance`} />
       <div className="space-y-6 p-4 md:p-6">
         <div className="flex flex-wrap items-center gap-2">
-          <Button asChild><Link href="/admin/reservations/new"><CalendarPlusIcon /> Make reservation</Link></Button>
-          <Button asChild variant="outline"><Link href="/admin/rentals/new"><CarIcon /> Start rental</Link></Button>
-          <Button asChild variant="outline"><Link href="/admin/quotes/new"><FileTextIcon /> New quote</Link></Button>
+          {(await can("ReservationsAdd")) && <Button asChild><Link href="/admin/reservations/new"><CalendarPlusIcon /> Make reservation</Link></Button>}
+          {(await can("CheckOuts")) && <Button asChild variant="outline"><Link href="/admin/rentals/new"><CarIcon /> Start rental</Link></Button>}
+          {(await can("CheckAddQuote")) && <Button asChild variant="outline"><Link href="/admin/quotes/new"><FileTextIcon /> New quote</Link></Button>}
           <Button asChild variant="ghost"><Link href="/admin/calendar"><CalendarDaysIcon /> Fleet calendar</Link></Button>
         </div>
 

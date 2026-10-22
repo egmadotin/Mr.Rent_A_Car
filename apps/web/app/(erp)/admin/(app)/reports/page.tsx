@@ -4,13 +4,15 @@ import { Badge } from "@mrac/ui/components/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@mrac/ui/components/card";
 import { ErpIcon } from "@mrac/ui/components/erp-icon";
 import { PageHeader } from "../../../_components/page-header";
-import { requireStaff } from "../../../_lib/session";
+import { NoAccess } from "../../../_components/no-access";
+import { can, requireStaff } from "../../../_lib/session";
 import { REPORT_CATEGORIES } from "./report-list";
 
 export const metadata = { title: "Reports" };
 
 /** RentCentric's Reports menu, by category; built reports open, the rest are marked. */
 export default async function ReportsPage() {
+  if (!(await can("Reports"))) return <NoAccess what="see reports" />;
   await requireStaff();
   const built = REPORT_CATEGORIES.flatMap((c) => c.reports).filter((r) => r.slug).length;
   const total = REPORT_CATEGORIES.flatMap((c) => c.reports).length;

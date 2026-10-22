@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import type { RouterOutputs, Wire } from "@mrac/api";
 import { useTRPC, useTRPCClient } from "@mrac/api/client";
+import { Can } from "../../../../_components/permissions";
 import { Badge } from "@mrac/ui/components/badge";
 import { Button } from "@mrac/ui/components/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@mrac/ui/components/card";
@@ -85,19 +86,23 @@ export function CustomerDetail({ customerId }: { customerId: string }) {
             {openRental ? (
               <Button asChild><Link href={`/admin/rentals/${openRental.id}`}><FlagIcon /> End rental #{openRental.raNumber}</Link></Button>
             ) : (
-              c.isUndesired ? (
-                <Button disabled title="On the do-not-rent list"><KeyRoundIcon /> Start rental</Button>
+              <Can perm="CheckOuts">
+                {c.isUndesired ? (
+                  <Button disabled title="On the do-not-rent list"><KeyRoundIcon /> Start rental</Button>
+                ) : (
+                  <Button asChild><Link href={`/admin/rentals/new?customerId=${c.id}`}><KeyRoundIcon /> Start rental</Link></Button>
+                )}
+              </Can>
+            )}
+            <Can perm="ReservationsAdd"><Button variant="outline" asChild><Link href={`/admin/reservations/new?customerId=${c.id}`}><NotebookTabsIcon /> New reservation</Link></Button></Can>
+            <Can perm="CustomersEdit"><Button variant="outline" asChild><Link href={`/admin/customers/${c.id}/edit`}><PencilIcon /> Edit</Link></Button></Can>
+            <Can perm="CustomersDelete">
+              {c.isActive ? (
+                <Button variant="destructive-outline" onClick={() => setDeactivate(true)}><PowerIcon /> Deactivate</Button>
               ) : (
-                <Button asChild><Link href={`/admin/rentals/new?customerId=${c.id}`}><KeyRoundIcon /> Start rental</Link></Button>
-              )
-            )}
-            <Button variant="outline" asChild><Link href={`/admin/reservations/new?customerId=${c.id}`}><NotebookTabsIcon /> New reservation</Link></Button>
-            <Button variant="outline" asChild><Link href={`/admin/customers/${c.id}/edit`}><PencilIcon /> Edit</Link></Button>
-            {c.isActive ? (
-              <Button variant="destructive-outline" onClick={() => setDeactivate(true)}><PowerIcon /> Deactivate</Button>
-            ) : (
-              <Button variant="outline" onClick={() => run(client.staff.customer.setActive.mutate({ customerId, isActive: true }))}><PowerIcon /> Reactivate</Button>
-            )}
+                <Button variant="outline" onClick={() => run(client.staff.customer.setActive.mutate({ customerId, isActive: true }))}><PowerIcon /> Reactivate</Button>
+              )}
+            </Can>
           </>
         }
       />

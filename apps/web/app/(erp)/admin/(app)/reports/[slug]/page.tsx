@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { PageHeader } from "../../../../_components/page-header";
-import { requireStaff } from "../../../../_lib/session";
+import { NoAccess } from "../../../../_components/no-access";
+import { can, requireStaff } from "../../../../_lib/session";
 import { DailyCashReport, RentalStatusReport, ReservationManifestReport, VehicleDueInReport } from "../_components/list-reports";
 import { DailyBusinessReport, MonthToDateReport } from "../_components/revenue-reports";
 import { CustomerListReport, LicenseExpirationReport, MaintenanceAlertReport, TrafficTicketsReport, UndesiredCustomersReport, VehiclesSummaryReport } from "../_components/fleet-customer-reports";
@@ -86,6 +87,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 const REDIRECTS: Record<string, string> = { "visual-scheduler": "/admin/calendar", "dynamic-scheduler": "/admin/calendar", "custom-reports": "/admin/reports/daily-business" };
 
 export default async function ReportPage({ params }: { params: Promise<{ slug: string }> }) {
+  if (!(await can("Reports"))) return <NoAccess what="see reports" />;
   await requireStaff();
   const { slug } = await params;
   if (REDIRECTS[slug]) redirect(REDIRECTS[slug]);

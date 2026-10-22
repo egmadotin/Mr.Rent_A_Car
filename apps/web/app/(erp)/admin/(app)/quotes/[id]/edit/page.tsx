@@ -1,12 +1,14 @@
 import { notFound } from "next/navigation";
 import { PageHeader } from "../../../../../_components/page-header";
-import { api } from "../../../../../_lib/session";
+import { NoAccess } from "../../../../../_components/no-access";
+import { api, can } from "../../../../../_lib/session";
 import { QuoteForm } from "../../_components/quote-form";
 import { quoteToValues } from "../../_components/quote-values";
 
 export const metadata = { title: "Edit quote" };
 
 export default async function EditQuotePage({ params }: { params: Promise<{ id: string }> }) {
+  if (!(await can("CheckEditkOuote"))) return <NoAccess what="edit quotes" />;
   const { id } = await params;
   const data = await (await api()).quote.byId({ quoteId: id }).catch(() => null);
   if (!data) notFound();

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { XIcon } from "lucide-react";
 import { useTRPC, useTRPCClient } from "@mrac/api/client";
+import { useCan } from "../../../_components/permissions";
 import { Button } from "@mrac/ui/components/button";
 import { Card } from "@mrac/ui/components/card";
 import { Input } from "@mrac/ui/components/input";
@@ -31,6 +32,7 @@ export function QuotesList({ defaultLocationId }: { defaultLocationId?: string }
   const [filters, setFilters] = React.useState<Filters>({ locationId: defaultLocationId });
   const [paging, setPaging] = React.useState({ page: 1, pageSize: 200 });
   const [deleting, setDeleting] = React.useState<{ id: string; number: number } | null>(null);
+  const canDelete = useCan()("CheckDeleteQuote");
   const set = (k: keyof Filters) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setDraft((d) => ({ ...d, [k]: e.target.value }));
 
   const { data, isLoading } = useQuery({
@@ -98,9 +100,11 @@ export function QuotesList({ defaultLocationId }: { defaultLocationId?: string }
                 <TableCell>{q.phone}</TableCell>
                 <TableCell>{q.locationName}</TableCell>
                 <TableCell className="text-center print:hidden">
-                  <Button size="icon-sm" variant="ghost" className="text-destructive hover:bg-destructive/10" aria-label={`Delete quote ${q.number}`} onClick={() => setDeleting({ id: q.id, number: q.number })}>
-                    <XIcon />
-                  </Button>
+                  {canDelete && (
+                    <Button size="icon-sm" variant="ghost" className="text-destructive hover:bg-destructive/10" aria-label={`Delete quote ${q.number}`} onClick={() => setDeleting({ id: q.id, number: q.number })}>
+                      <XIcon />
+                    </Button>
+                  )}
                 </TableCell>
               </TableRow>
             ))}

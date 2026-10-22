@@ -35,3 +35,12 @@ export async function workingLocationId() {
   const wanted = (await cookies()).get(LOCATION_COOKIE)?.value ?? session.user.defaultLocationId;
   return mine.find((l) => l.id === wanted)?.id ?? mine[0]?.id;
 }
+
+/** The signed-in staff member's permissions (group ± their own changes; Full Admins: all), for hiding what they can't do. */
+export const myPermissions = cache(async () => new Set((await (await api()).users.me()).permissions));
+
+/** Server Components: whether the staff member holds every listed permission. */
+export async function can(...perms: string[]) {
+  const mine = await myPermissions();
+  return perms.every((p) => mine.has(p));
+}

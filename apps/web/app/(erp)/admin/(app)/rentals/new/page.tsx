@@ -1,6 +1,7 @@
 import { PageHeader } from "../../../../_components/page-header";
+import { NoAccess } from "../../../../_components/no-access";
 import { customerValues } from "../../../../_components/booking-values";
-import { api, requireStaff, workingLocationId } from "../../../../_lib/session";
+import { api, can, requireStaff, workingLocationId } from "../../../../_lib/session";
 import { StartRentalForm, type StartRentalInitial } from "./start-rental-form";
 
 export const metadata = { title: "Start a Rental" };
@@ -11,6 +12,7 @@ export const metadata = { title: "Start a Rental" };
  * ?vehicleId=…  "Rent" from the vehicle list (type, vehicle and location prefilled).
  */
 export default async function NewRentalPage({ searchParams }: { searchParams: Promise<{ vehicleId?: string; customerId?: string }> }) {
+  if (!(await can("CheckOuts"))) return <NoAccess what="start rentals" />;
   const sp = await searchParams;
   const session = await requireStaff();
   const locationId = await workingLocationId();

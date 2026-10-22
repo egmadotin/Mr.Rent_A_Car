@@ -30,29 +30,30 @@ import { SIDEBAR_COOKIE, LOCATION_COOKIE } from "../../_lib/cookies";
 import { BrandLogo } from "@mrac/ui/components/brand-logo";
 import { ErpIcon, type ErpIconName } from "@mrac/ui/components/erp-icon";
 
-type NavItem = { href: string; label: string; icon: ErpIconName };
+/** `perm`: shown only to staff with that permission (Full Admins see everything). */
+type NavItem = { href: string; label: string; icon: ErpIconName; perm?: string };
 const NAV: { group?: string; items: NavItem[] }[] = [
   { items: [{ href: "/admin", label: "Dashboard", icon: "shapes" }, { href: "/admin/tasks", label: "My Tasks", icon: "pending" }] },
   {
     group: "Bookings",
     items: [
-      { href: "/admin/quotes", label: "Quotes", icon: "draft" },
-      { href: "/admin/reservations", label: "Reservations", icon: "approve" },
-      { href: "/admin/rentals", label: "Rentals", icon: "truck" },
+      { href: "/admin/quotes", label: "Quotes", icon: "draft", perm: "CheckViewQuote" },
+      { href: "/admin/reservations", label: "Reservations", icon: "approve", perm: "Reservations" },
+      { href: "/admin/rentals", label: "Rentals", icon: "truck", perm: "Agreements" },
       { href: "/admin/calendar", label: "Fleet calendar", icon: "list" },
     ],
   },
   {
     group: "Records",
     items: [
-      { href: "/admin/vehicles", label: "Vehicles", icon: "truck" },
-      { href: "/admin/customers", label: "Customers", icon: "customers" },
+      { href: "/admin/vehicles", label: "Vehicles", icon: "truck", perm: "Vehicles" },
+      { href: "/admin/customers", label: "Customers", icon: "customers", perm: "Customers" },
     ],
   },
   {
     group: "Admin",
     items: [
-      { href: "/admin/reports", label: "Reports", icon: "todays-collection" },
+      { href: "/admin/reports", label: "Reports", icon: "todays-collection", perm: "Reports" },
       { href: "/admin/settings", label: "Settings", icon: "lock" },
     ],
   },
@@ -63,6 +64,8 @@ type Props = {
   locations: { id: string; name: string }[];
   currentLocationId: string | null;
   defaultCollapsed: boolean;
+  /** the signed-in staff member's permissions (from the server, so the menu doesn't flicker) */
+  permissions: string[];
 };
 
 function setCookie(name: string, value: string) {
@@ -138,7 +141,8 @@ export function Sidebar(props: Props) {
   );
 }
 
-function SidebarBody({ user, locations, currentLocationId, collapsed }: Props & { collapsed: boolean }) {
+function SidebarBody({ user, locations, currentLocationId, collapsed, permissions }: Props & { collapsed: boolean }) {
+  const can = (p: string) => permissions.includes(p);
   const pathname = usePathname();
   const router = useRouter();
   const { theme, setTheme } = useTheme();
@@ -219,12 +223,13 @@ function SidebarBody({ user, locations, currentLocationId, collapsed }: Props & 
             </DropdownMenuTrigger>
           </SideTooltip>
           <DropdownMenuContent align="start" className="w-52">
-            <DropdownMenuItem asChild><Link href="/admin/reservations/new">Make reservation</Link></DropdownMenuItem>
-            <DropdownMenuItem asChild><Link href="/admin/rentals/new">Start rental</Link></DropdownMenuItem>
-            <DropdownMenuItem asChild><Link href="/admin/quotes/new">New quote</Link></DropdownMenuItem>
+            {can("ReservationsAdd") && <DropdownMenuItem asChild><Link href="/admin/reservations/new">Make reservation</Link></DropdownMenuItem>}
+            {can("CheckOuts") && <DropdownMenuItem asChild><Link href="/admin/rentals/new">Start rental</Link></DropdownMenuItem>}
+            {can("CheckAddQuote") && <DropdownMenuItem asChild><Link href="/admin/quotes/new">New quote</Link></DropdownMenuItem>}
             <DropdownMenuSeparator />
-            <DropdownMenuItem asChild><Link href="/admin/customers/new">Add customer</Link></DropdownMenuItem>
-            <DropdownMenuItem asChild><Link href="/admin/vehicles/new">Add vehicle</Link></DropdownMenuItem>
+            {can("CustomersAdd") && <DropdownMenuItem asChild><Link href="/admin/customers/new">Add customer</Link></DropdownMenuItem>}
+            {can("VehiclesAdd") && <DropdownMenuItem asChild><Link href="/admin/vehicles/new">Add vehicle</Link></DropdownMenuItem>}
+            {!["ReservationsAdd", "CheckOuts", "CheckAddQuote", "CustomersAdd", "VehiclesAdd"].some((p) => can(p)) && <div className="px-2 py-1.5 text-sm text-muted-foreground">Nothing you can add</div>}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -238,7 +243,7 @@ function SidebarBody({ user, locations, currentLocationId, collapsed }: Props & 
                 {section.group}
               </div>
             )}
-            {section.items.map((item) => {
+            {section.items.filter((item) => !item.perm || can(item.perm)).map((item) => {
               const active = isActive(item.href);
               return (
                 <SideTooltip key={item.href} label={item.label} show={collapsed}>
