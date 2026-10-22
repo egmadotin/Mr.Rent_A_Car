@@ -30,7 +30,7 @@ The RentCentric menus, vehicle page and customer page were re-read on Oct 20. No
 | Vehicles (list, add, edit, summary) | ✅ (every vehicle page action built) |
 | Users, user groups and permissions | ✅ (group location limit not enforced) |
 | Settings | 🟡 about 64 of RentCentric's ~100 setting pages built (section 7) |
-| Reports | 🟡 63 of 64 built (see section 8) |
+| Reports | ✅ 63 of 64 built; Repair Orders not in use (see section 8) |
 | Dashboard | ✅ |
 | Public website and online booking | ✅ (customer login and fleet filters 🟡) |
 | Email | ✅ built, 🔑 needs the client's email (SMTP) account |
@@ -236,7 +236,7 @@ RentCentric's Settings menu, item by item.
 
 | Group | Item | Status |
 |---|---|---|
-| Tour Setup | Manage Tours, Customer Tours | ⬜ |
+| Tour Setup | Manage Tours, Customer Tours | ⏸ not in use in RentCentric |
 | Equipment Setup | Equipment Inventory | ✅ |
 | Claims | Claims Management | ✅ every claim on rentals and vehicles (status / date / claim # filters) |
 | Claims | Claims Management V2 | ⏸ no V2 claims in RentCentric |
@@ -254,7 +254,7 @@ RentCentric's Settings menu, item by item.
 | Website & Email | Rental Policies | ⬜ |
 | Website & Email | Configuration, Style & Format, Add/Edit Webpages | ⬜ (our public site replaces these) |
 | Website & Email | Online Reservation (incl. V3, mobile), I-Frame Widget, I-Frame Rotator | ⬜ (our public site replaces these) |
-| Website & Email | Merchandise Items, Orders | ⬜ |
+| Website & Email | Merchandise Items, Orders | ⏸ not in use in RentCentric |
 | Email Marketing | Send Marketing Email, Email Template | ⬜ |
 | Tasks & Messages | | ✅ My Tasks / Add Task / Tasks List (Email Task needs SMTP) |
 | Paperless Counter, Counter Agent Pro, Mobile Scanner | | ⬜ (hardware / integrations phase) |
