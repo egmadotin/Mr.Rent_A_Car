@@ -1,5 +1,6 @@
 "use client";
 
+import { useCan } from "./permissions";
 import * as React from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckIcon, PlusIcon, RotateCcwIcon } from "lucide-react";
@@ -61,7 +62,14 @@ function toInput(v: Record<string, unknown>) {
   };
 }
 
+/** Add Task: admins and user groups with "Add Task". */
 export function AddTaskButton({ size = "sm" }: { size?: "sm" | "default" }) {
+  const can = useCan();
+  if (!can("TasksAdd")) return null;
+  return <AddTaskDialog size={size} />;
+}
+
+function AddTaskDialog({ size }: { size: "sm" | "default" }) {
   const trpc = useTRPC();
   const client = useTRPCClient();
   const me = useQuery({ ...trpc.staff.users.me.queryOptions(), staleTime: 60_000 }).data?.id;

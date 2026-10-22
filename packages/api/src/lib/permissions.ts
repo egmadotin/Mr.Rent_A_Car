@@ -41,6 +41,7 @@ export const PERMISSION_SECTIONS: { title: string; items: [key: string, label: s
   { title: "Users", items: [["Admins", "View"], ["AdminsAdd", "Add"], ["AdminsDelete", "Delete"], ["AdminsEdit", "Edit"]] },
   { title: "Commissions", items: [["Commissions", "View"], ["CommissionsAdd", "Add"], ["CommissionsDelete", "Delete"], ["CommissionsEdit", "Edit"]] },
   { title: "Reports shown", items: [["cbDisplayDailyCashSummaryReport", "Display Daily Cash Summary Report"], ["cbDisplayAgreementsReport", "Display Rentals Report"]] },
+  { title: "Tasks", items: [["TasksAdd", "Add Task"]] },
   { title: "Notes", items: [["ViewNotes", "View"], ["AddNotesCheckbox", "Add"], ["EditNotesCheckbox", "Edit"], ["DeleteNotesCheckbox", "Delete"]] },
   { title: "Traffic Tickets", items: [["TrafficTickets", "View"], ["TrafficTicketsAdd", "Add"], ["TrafficTicketsDelete", "Delete"], ["TrafficTicketsEdit", "Edit"]] },
   { title: "Other", items: [["cbUseMobileAps", "Use Mobile Apps"], ["cbWordPress", "Wordpress Access"], ["cbOverrideHoursOfOperation", "Override Hours Of Operation"]] },

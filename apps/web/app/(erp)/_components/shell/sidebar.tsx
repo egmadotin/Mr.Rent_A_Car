@@ -32,7 +32,7 @@ import { ErpIcon, type ErpIconName } from "@mrac/ui/components/erp-icon";
 
 type NavItem = { href: string; label: string; icon: ErpIconName };
 const NAV: { group?: string; items: NavItem[] }[] = [
-  { items: [{ href: "/admin", label: "Dashboard", icon: "shapes" }] },
+  { items: [{ href: "/admin", label: "Dashboard", icon: "shapes" }, { href: "/admin/tasks", label: "My Tasks", icon: "pending" }] },
   {
     group: "Bookings",
     items: [

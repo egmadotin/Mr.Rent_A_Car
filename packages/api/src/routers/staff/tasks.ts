@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { router, staffProcedure } from "../../trpc";
+import { requirePermission, router, staffProcedure } from "../../trpc";
 import { sendMail } from "../../lib/mailer";
 
 /**
@@ -68,7 +68,9 @@ export const tasksRouter = router({
       }));
     }),
 
+  /** Adding a task needs "Add Task" (Settings > User Groups; admins always). */
   save: staffProcedure.input(z.object({ id: z.string().optional(), data: taskInput })).mutation(async ({ ctx, input }) => {
+    if (!input.id) await requirePermission(ctx, "TasksAdd");
     const { assigneeIds, ...data } = input.data;
     const task = await ctx.prisma.$transaction(async (tx) => {
       const t = input.id

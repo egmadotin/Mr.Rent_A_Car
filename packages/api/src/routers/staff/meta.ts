@@ -68,7 +68,7 @@ export const metaRouter = router({
   }),
 
   /**
-   * Dashboard (RentCentric Home3.aspx): Rentals Leaving Today, Returning Today, Vehicles Requiring Service and the
+   * Dashboard (RentCentric Home3.aspx): Rentals Leaving Today, Returning Today and the
    * Rental Graph View (share of the fleet booked each day for the next 7 / 14 / 30 days).
    */
   dashboard: staffProcedure.input(z.object({ days: z.union([z.literal(7), z.literal(14), z.literal(30)]).default(7) })).query(async ({ ctx, input }) => {
@@ -76,7 +76,7 @@ export const metaRouter = router({
     const today = startOfDayIn(now);
     const tomorrow = new Date(+today + 86_400_000);
     const active = ["TENTATIVE", "CONFIRMED"] as const;
-    const [leaving, returning, vehicles, inFleet, rentals, reservations] = await Promise.all([
+    const [leaving, returning, inFleet, rentals, reservations] = await Promise.all([
       ctx.prisma.reservation.findMany({
         where: { status: { in: [...active] }, pickupAt: { gte: today, lt: tomorrow }, deletedAt: null },
         orderBy: { pickupAt: "asc" },
@@ -89,10 +89,6 @@ export const metaRouter = router({
         take: 50,
         select: { id: true, raNumber: true, expectedReturnAt: true, customer: { select: { firstName: true, lastName: true } }, vehicle: { select: { assignedId: true, make: { select: { name: true } }, model: { select: { name: true } } } }, checkInLocation: { select: { name: true } } },
       }),
-      ctx.prisma.vehicle.findMany({
-        where: { isActive: true },
-        select: { id: true, assignedId: true, status: true, currentOdometer: true, maintenanceBeginOdometer: true, maintenanceEveryKm: true, make: { select: { name: true } }, model: { select: { name: true } } },
-      }),
       ctx.prisma.vehicle.count({ where: { isActive: true } }),
       ctx.prisma.rental.findMany({
         where: { deletedAt: null, status: { in: ["OPEN", "CLOSED"] }, checkOutAt: { lt: new Date(+today + input.days * 86_400_000) }, OR: [{ checkedInAt: null }, { checkedInAt: { gt: today } }] },
@@ -103,22 +99,6 @@ export const metaRouter = router({
         select: { pickupAt: true, returnAt: true },
       }),
     ]);
-
-    // service due: a repair / service status, or within 500 km of the next interval (Maintain every … km)
-    const SERVICE_STATUSES = new Set(["IN_SERVICE", "IN_REPAIR", "HAS_PROBLEM", "OUT_OF_SERVICE", "GROUNDED"]);
-    const service = vehicles
-      .map((v) => {
-        let dueAtKm: number | null = null;
-        if (v.maintenanceEveryKm > 0 && v.currentOdometer != null) {
-          const base = v.maintenanceBeginOdometer ?? 0;
-          dueAtKm = base + Math.ceil(Math.max(1, v.currentOdometer - base) / v.maintenanceEveryKm) * v.maintenanceEveryKm;
-        }
-        const kmLeft = dueAtKm != null && v.currentOdometer != null ? dueAtKm - v.currentOdometer : null;
-        const reason = SERVICE_STATUSES.has(v.status) ? "status" : kmLeft != null && kmLeft <= 500 ? "km" : null;
-        return reason ? { id: v.id, assignedId: v.assignedId, vehicle: [v.make.name, v.model.name].join(" "), status: v.status, odometer: v.currentOdometer, dueAtKm, kmLeft, reason } : null;
-      })
-      .filter((x): x is NonNullable<typeof x> => !!x)
-      .sort((a, b) => (a.kmLeft ?? -1e9) - (b.kmLeft ?? -1e9));
 
     const graph = Array.from({ length: input.days }, (_, i) => {
       const from = new Date(+today + i * 86_400_000);
@@ -134,7 +114,6 @@ export const metaRouter = router({
     return {
       leaving: leaving.map((r) => ({ id: r.id, number: r.number, at: r.pickupAt, name: name(r), vehicleType: r.vehicleType.name, location: r.pickupLocation.name })),
       returning: returning.map((r) => ({ id: r.id, raNumber: r.raNumber, at: r.expectedReturnAt, overdue: r.expectedReturnAt < now, name: `${r.customer.firstName} ${r.customer.lastName}`, vehicle: `${r.vehicle.assignedId} · ${r.vehicle.make.name} ${r.vehicle.model.name}`, location: r.checkInLocation.name })),
-      service,
       graph,
     };
   }),
@@ -187,7 +166,7 @@ export const metaRouter = router({
         select: {
           id: true, name: true,
           _count: { select: { vehiclesRental: { where: { isActive: true } } } },
-          rentalsOut: { where: { status: "OPEN", deletedAt: null }, select: { id: true } },
+          vehiclesRental: { where: { isActive: true, status: "ON_RENT" }, select: { id: true } },
           reservationsPickup: { where: { deletedAt: null, status: { in: ["TENTATIVE", "CONFIRMED"] }, pickupAt: { gte: today, lt: new Date(+today + 7 * DAY) } }, select: { id: true } },
         },
       }),
@@ -242,31 +221,11 @@ export const metaRouter = router({
         confirmed: upcoming.filter((r) => r.status === "CONFIRMED").length, tentative: upcoming.filter((r) => r.status === "TENTATIVE").length,
         online: upcoming.filter((r) => !r.createdById).length, quotes30: quotes,
       },
-      locations: locations.map((l) => ({ id: l.id, name: l.name, fleet: l._count.vehiclesRental, onRent: l.rentalsOut.length, pickups7: l.reservationsPickup.length })),
+      locations: locations.map((l) => ({ id: l.id, name: l.name, fleet: l._count.vehiclesRental, onRent: l.vehiclesRental.length, pickups7: l.reservationsPickup.length })),
       recent: [
         ...recentRes.map((r) => ({ kind: "RESERVATION" as const, id: r.id, number: r.number, at: r.createdAt, status: r.status, name: name(r), detail: r.vehicleType.name, online: !r.createdById })),
         ...recentRentals.map((r) => ({ kind: "RENTAL" as const, id: r.id, number: r.raNumber, at: r.createdAt, status: r.status, name: name({ customer: r.customer }), detail: r.vehicle.assignedId, online: false })),
       ].sort((a, b) => +b.at - +a.at).slice(0, 8),
     };
   }),
-
-  /** Dashboard "Vehicle Availability": free vehicles at a location for a period (optionally one type / one Vehicle ID). */
-  availability: staffProcedure
-    .input(z.object({ locationId: z.string().min(1), vehicleTypeId: z.string().optional(), assignedId: z.string().trim().optional(), from: z.coerce.date(), to: z.coerce.date() }))
-    .query(async ({ ctx, input }) => {
-      if (input.to <= input.from) throw new TRPCError({ code: "BAD_REQUEST", message: "“To” must be after “From”." });
-      return ctx.prisma.vehicle.findMany({
-        where: {
-          isActive: true,
-          rentalLocationId: input.locationId,
-          ...(input.vehicleTypeId ? { vehicleTypeId: input.vehicleTypeId } : {}),
-          ...(input.assignedId ? { assignedId: { contains: input.assignedId, mode: "insensitive" } } : {}),
-          status: { in: ["AVAILABLE", "ON_RENT"] },
-          blocks: { none: { startsAt: { lt: input.to }, endsAt: { gt: input.from } } },
-        },
-        orderBy: { assignedId: "asc" },
-        take: 100,
-        select: { id: true, assignedId: true, year: true, licenseNumber: true, currentOdometer: true, make: { select: { name: true } }, model: { select: { name: true } }, vehicleType: { select: { name: true } } },
-      });
-    }),
 });
