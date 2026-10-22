@@ -1,0 +1,20 @@
+-- Runs on mrac_export only: drop test bookings, customers, test vehicles and test history.
+BEGIN;
+DELETE FROM "Payment";
+DELETE FROM "VehicleInspection";
+DELETE FROM "CustomerReportedDamage";
+DELETE FROM "VehicleChecklistRecord";
+DELETE FROM "Rental";
+DELETE FROM "Reservation";
+DELETE FROM "Quote";
+DELETE FROM "BookingDriver";
+DELETE FROM "Customer";
+DELETE FROM "BillSplit";
+DELETE FROM "Company" WHERE "name" ILIKE '%(FAKE)%' OR "name" ILIKE 'ZZ %';
+DELETE FROM "Vehicle" WHERE "assignedId" IN ('E-201','T-101','T-102','T-103','T-104','T-105','T-901');
+DELETE FROM "Memo" WHERE "customerId" IS NULL AND "vehicleId" IS NULL;
+DELETE FROM "EmailLog";
+DELETE FROM "AuditLog";
+DELETE FROM "Task";
+DELETE FROM "session";
+COMMIT;

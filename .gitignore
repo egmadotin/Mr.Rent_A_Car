@@ -21,3 +21,7 @@ packages/db/prisma/legacy/tools/
 
 # uploaded photos / documents (local file storage)
 .uploads/
+
+# data dumps for the live server (sync-data.bat) and server backups
+deploy/data/
+backups/
