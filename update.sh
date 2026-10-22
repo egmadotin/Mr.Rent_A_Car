@@ -3,7 +3,7 @@
 # Usage on server: ./update.sh OR /usr/local/bin/update-mr-rent-a-car
 set -euo pipefail
 
-APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+APP_DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
 cd "$APP_DIR"
 
 echo "=========================================================="
