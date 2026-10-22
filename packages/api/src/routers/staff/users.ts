@@ -5,6 +5,7 @@ import { Prisma } from "@mrac/db";
 import { permitted, router, staffProcedure } from "../../trpc";
 import { audit } from "../../lib/audit";
 import { ALL_PERMISSIONS, PERMISSION_SECTIONS } from "../../lib/permissions";
+import { allowedLocationIds } from "../../lib/location-access";
 
 const optStr = z.string().trim().max(200).optional().transform((v) => v || null);
 
@@ -24,6 +25,8 @@ export const usersRouter = router({
       group: me.userGroup?.name ?? null,
       permissions: isAdmin ? ALL_PERMISSIONS : me.userGroup?.isActive ? me.userGroup.permissions : [],
       maxDiscount: isAdmin || !me.userGroup?.maxDiscountValue ? null : { type: me.userGroup.maxDiscountType ?? "PERCENT", value: Number(me.userGroup.maxDiscountValue) },
+      /** Location Access: the branches this user may work in (null = all) */
+      locationIds: await allowedLocationIds(ctx.prisma, me.id),
     };
   }),
 
@@ -33,7 +36,7 @@ export const usersRouter = router({
     ctx.prisma.user.findMany({
       where: { kind: "STAFF" },
       orderBy: [{ banned: "asc" }, { name: "asc" }],
-      select: { id: true, name: true, email: true, role: true, banned: true, createdAt: true, userGroupId: true, userGroup: { select: { name: true } }, defaultLocationId: true, defaultLocation: { select: { name: true } }, commissionStructureIds: true, commissionType: true, commissionAmount: true },
+      select: { id: true, name: true, email: true, role: true, banned: true, createdAt: true, userGroupId: true, userGroup: { select: { name: true } }, defaultLocationId: true, defaultLocation: { select: { name: true } }, locationIds: true, commissionStructureIds: true, commissionType: true, commissionAmount: true },
     }),
   ),
 
@@ -46,6 +49,8 @@ export const usersRouter = router({
         password: z.string().min(10, "At least 10 characters"),
         userGroupId: optStr,
         defaultLocationId: optStr,
+        /** Location Access ticks (none = the group's location, else all) */
+        locationIds: z.array(z.string()).default([]),
         isAdmin: z.boolean().default(false),
       }),
     )
@@ -61,6 +66,7 @@ export const usersRouter = router({
           role: input.isAdmin ? "admin" : "user",
           userGroupId: input.userGroupId,
           defaultLocationId: input.defaultLocationId,
+          locationIds: input.locationIds,
           accounts: { create: { accountId: input.email, providerId: "credential", password: await hashPassword(input.password) } },
         },
       });
@@ -75,6 +81,7 @@ export const usersRouter = router({
         name: z.string().trim().min(1).max(120),
         userGroupId: optStr,
         defaultLocationId: optStr,
+        locationIds: z.array(z.string()).optional(),
         isAdmin: z.boolean(),
         active: z.boolean(),
         /** Users form "Commission Structure" ticks and "Commission" (None / Percentage % / Dollar Amount $) */
@@ -96,6 +103,7 @@ export const usersRouter = router({
           data: {
             name: input.name, userGroupId: input.userGroupId, defaultLocationId: input.defaultLocationId, role: input.isAdmin ? "admin" : "user", banned: !input.active, banReason: input.active ? null : "Deactivated in Settings > Users",
             ...(input.commissionStructureIds ? { commissionStructureIds: input.commissionStructureIds } : {}),
+            ...(input.locationIds ? { locationIds: input.locationIds } : {}),
             ...(input.commissionType !== undefined ? { commissionType: input.commissionType, commissionAmount: input.commissionType ? input.commissionAmount ?? null : null } : {}),
           },
         });
@@ -103,6 +111,7 @@ export const usersRouter = router({
         if (input.newPassword) await tx.account.updateMany({ where: { userId: input.id, providerId: "credential" }, data: { password: await hashPassword(input.newPassword) } });
         await audit(tx, "User", input.id, me.id, {
           Group: [before.userGroupId, input.userGroupId],
+          "Location Access": [before.locationIds.join(", "), input.locationIds ? input.locationIds.join(", ") : before.locationIds.join(", ")],
           Admin: [before.role === "admin", input.isAdmin],
           Active: [!before.banned, input.active],
           Password: [null, input.newPassword ? "reset" : null],

@@ -2,6 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { Prisma } from "@mrac/db";
 import { router, staffProcedure, permitted, requireDiscountAllowed, requirePermission } from "../../trpc";
+import { allowedLocationIds, requireAnyLocationAccess, requireLocationAccess } from "../../lib/location-access";
 import { audit } from "../../lib/audit";
 import { rentalTotals } from "../../lib/totals";
 import { withBookingGuard } from "../../lib/errors";
@@ -205,6 +206,9 @@ export const rentalRouter = router({
         // "Location Name": the rental's own location (where it was opened)
         ...(t(input.locationId) ? [{ checkOutLocationId: t(input.locationId) }] : []),
       ];
+      // Location Access (Settings › Users): only rentals out of / back to the user's branches
+      const allowed = await allowedLocationIds(ctx.prisma, ctx.user.id);
+      if (allowed) and.push({ OR: [{ checkOutLocationId: { in: allowed } }, { checkInLocationId: { in: allowed } }] });
       const where: Prisma.RentalWhereInput = {
         deletedAt: null,
         status: input.legacyStatus ? STATUS[input.legacyStatus] : input.status,
@@ -273,6 +277,7 @@ export const rentalRouter = router({
       },
     });
     if (!r) throw new TRPCError({ code: "NOT_FOUND", message: "Rental not found" });
+    await requireAnyLocationAccess(ctx.prisma, ctx.user.id, r.checkOutLocationId, r.checkInLocationId);
 
     const [auditLog, customerOpenBalance] = await Promise.all([
       ctx.prisma.auditLog.findMany({
@@ -431,6 +436,7 @@ export const rentalRouter = router({
       withBookingGuard(() =>
         ctx.prisma.$transaction(async (tx) => {
           await requireDiscountAllowed(ctx, input.discountType, input.discountValue);
+          await requireLocationAccess(tx, ctx.user.id, input.checkOutLocationId);
           if (input.companyId && !input.allowUndesired) {
             const co = await tx.company.findUnique({ where: { id: input.companyId } });
             if (co?.isUndesired) throw new TRPCError({ code: "CONFLICT", message: "UNDESIRED_COMPANY" });
@@ -531,6 +537,8 @@ export const rentalRouter = router({
       withBookingGuard(() =>
         ctx.prisma.$transaction(async (tx) => {
           const r = await loadRental(tx, input.rentalId);
+          await requireAnyLocationAccess(tx, ctx.user.id, r.checkOutLocationId, r.checkInLocationId);
+          if (input.checkOutLocationId !== r.checkOutLocationId) await requireLocationAccess(tx, ctx.user.id, input.checkOutLocationId);
           if (input.close) await requirePermission(ctx, "CheckIns");
           if (r.status === "CLOSED") await requirePermission(ctx, "ClosedAgreementsEdit");
           if (input.discountValue !== (r.discountValue == null ? null : Number(r.discountValue))) await requireDiscountAllowed(ctx, input.discountType, input.discountValue);

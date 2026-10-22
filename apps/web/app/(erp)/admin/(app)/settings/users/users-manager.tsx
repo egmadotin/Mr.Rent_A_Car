@@ -27,6 +27,8 @@ export function UsersManager({ meId }: { meId: string }) {
   const locationOptions = [{ value: "", label: "— none —" }, ...locations.map((l) => ({ value: l.id, label: l.name }))];
   const u = users.data?.find((x) => x.id === editing);
   const isAdmin = !!can.me?.isAdmin;
+  const access = (ids: string[]) => (ids.length ? locations.filter((l) => ids.includes(l.id)).map((l) => l.name).join(", ") : null);
+  const ticked = (v: Record<string, unknown>) => locations.filter((l) => v[`loc_${l.id}`]).map((l) => l.id);
 
   return (
     <div className="space-y-3 p-4 md:p-6">
@@ -36,7 +38,7 @@ export function UsersManager({ meId }: { meId: string }) {
       <div className="rounded-lg border bg-card">
         <Table>
           <TableHeader>
-            <TableRow><TableHead>Name</TableHead><TableHead>Email</TableHead><TableHead>User Group</TableHead><TableHead>Default Location</TableHead><TableHead>Status</TableHead><TableHead /></TableRow>
+            <TableRow><TableHead>Name</TableHead><TableHead>Email</TableHead><TableHead>User Group</TableHead><TableHead>Default Location</TableHead><TableHead>Location Access</TableHead><TableHead>Status</TableHead><TableHead /></TableRow>
           </TableHeader>
           <TableBody>
             {(users.data ?? []).map((x) => (
@@ -45,13 +47,16 @@ export function UsersManager({ meId }: { meId: string }) {
                 <TableCell>{x.email}</TableCell>
                 <TableCell>{x.role === "admin" ? <Badge>Full Admin</Badge> : x.userGroup?.name ?? <span className="text-muted-foreground">none</span>}</TableCell>
                 <TableCell>{x.defaultLocation?.name ?? "—"}</TableCell>
+                <TableCell className="max-w-64 truncate" title={access(x.locationIds) ?? undefined}>
+                  {x.role === "admin" ? "All" : access(x.locationIds) ?? <span className="text-muted-foreground">{groups.find((g) => g.id === x.userGroupId)?.locationId ? `Group: ${locations.find((l) => l.id === groups.find((g) => g.id === x.userGroupId)?.locationId)?.name ?? "—"}` : "All"}</span>}
+                </TableCell>
                 <TableCell>{x.banned ? <Badge variant="muted">Inactive</Badge> : <Badge variant="success">Active</Badge>}</TableCell>
                 <TableCell className="text-right">
                   <Button size="sm" variant="outline" onClick={() => setEditing(x.id)} disabled={!can("AdminsEdit")} title={can("AdminsEdit") ? undefined : NO_PERMISSION}>Edit</Button>
                 </TableCell>
               </TableRow>
             ))}
-            {users.isLoading && <TableRow><TableCell colSpan={6} className="text-muted-foreground">Loading…</TableCell></TableRow>}
+            {users.isLoading && <TableRow><TableCell colSpan={7} className="text-muted-foreground">Loading…</TableCell></TableRow>}
           </TableBody>
         </Table>
       </div>
@@ -69,6 +74,7 @@ export function UsersManager({ meId }: { meId: string }) {
             password: v.password as string,
             userGroupId: (v.userGroupId as string) || undefined,
             defaultLocationId: (v.defaultLocationId as string) || undefined,
+            locationIds: ticked(v),
             isAdmin: Boolean(v.isAdmin),
           });
           toast.success("User added");
@@ -80,6 +86,7 @@ export function UsersManager({ meId }: { meId: string }) {
         <Field label="Temporary password" name="password" type="password" required hint="At least 10 characters." autoComplete="new-password" />
         <SelectField label="User Group" name="userGroupId" options={groupOptions} placeholder={false} />
         <SelectField label="Default Location" name="defaultLocationId" options={locationOptions} placeholder={false} />
+        <LocationAccess locations={locations} />
         {isAdmin && <CheckField label="Full Admin (can do everything, incl. settings with keys)" name="isAdmin" />}
       </FormDialog>
 
@@ -95,6 +102,7 @@ export function UsersManager({ meId }: { meId: string }) {
               name: v.name as string,
               userGroupId: (v.userGroupId as string) || undefined,
               defaultLocationId: (v.defaultLocationId as string) || undefined,
+              locationIds: ticked(v),
               isAdmin: isAdmin ? Boolean(v.isAdmin) : u.role === "admin",
               active: Boolean(v.active),
               newPassword: (v.newPassword as string) || undefined,
@@ -110,6 +118,7 @@ export function UsersManager({ meId }: { meId: string }) {
           <Field label="Name" name="name" required defaultValue={u.name} />
           <SelectField label="User Group" name="userGroupId" options={groupOptions} defaultValue={u.userGroupId ?? ""} placeholder={false} />
           <SelectField label="Default Location" name="defaultLocationId" options={locationOptions} defaultValue={u.defaultLocationId ?? ""} placeholder={false} />
+          <LocationAccess locations={locations} ids={u.locationIds} />
           {isAdmin && <CheckField label="Full Admin" name="isAdmin" defaultChecked={u.role === "admin"} />}
           <CheckField label="Active (can sign in)" name="active" defaultChecked={!u.banned} />
           <Field label="New password (optional)" name="newPassword" type="password" hint="Leave blank to keep the current one." autoComplete="new-password" />
@@ -123,5 +132,16 @@ export function UsersManager({ meId }: { meId: string }) {
         </FormDialog>
       )}
     </div>
+  );
+}
+
+/** Users form "Location Access": one tick per branch. */
+function LocationAccess({ locations, ids }: { locations: { id: string; name: string }[]; ids?: string[] }) {
+  return (
+    <fieldset className="space-y-1.5 sm:col-span-2">
+      <legend className="text-sm font-medium">Location Access</legend>
+      <p className="text-xs text-muted-foreground">The branches this user can work in. None ticked = the user group&apos;s location (or all locations). Full Admins always have every location.</p>
+      {locations.map((l) => <CheckField key={l.id} label={l.name} name={`loc_${l.id}`} defaultChecked={ids?.includes(l.id)} />)}
+    </fieldset>
   );
 }

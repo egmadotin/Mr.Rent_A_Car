@@ -21,8 +21,17 @@ export const api = cache(async () => {
   return (await serverApi(await headers())).staff;
 });
 
-/** The location the staff member is working in (sidebar picker cookie, else their default location). */
+/** The active locations this staff member may work in (Settings › Users › Location Access; Full Admins: all). */
+export const myLocations = cache(async () => {
+  const a = await api();
+  const [locations, me] = await Promise.all([a.meta.activeLocations(), a.users.me()]);
+  return me.locationIds ? locations.filter((l) => me.locationIds!.includes(l.id)) : locations;
+});
+
+/** The location the staff member is working in (sidebar picker cookie, else their default location) — one they have access to. */
 export async function workingLocationId() {
   const session = await requireStaff();
-  return (await cookies()).get(LOCATION_COOKIE)?.value ?? session.user.defaultLocationId ?? undefined;
+  const mine = await myLocations();
+  const wanted = (await cookies()).get(LOCATION_COOKIE)?.value ?? session.user.defaultLocationId;
+  return mine.find((l) => l.id === wanted)?.id ?? mine[0]?.id;
 }

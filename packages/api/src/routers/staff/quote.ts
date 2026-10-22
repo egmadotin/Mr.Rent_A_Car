@@ -2,6 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { Prisma } from "@mrac/db";
 import { router, staffProcedure, permitted } from "../../trpc";
+import { allowedLocationIds, requireAnyLocationAccess, requireLocationAccess } from "../../lib/location-access";
 import { sendQuoteEmail } from "../../lib/booking-emails";
 import { audit } from "../../lib/audit";
 import { priceBooking } from "../../lib/pricing";
@@ -114,9 +115,11 @@ export const quoteRouter = router({
       const n = q && /^\d+$/.test(q) ? Number(q) : undefined;
       const name = (field: "firstName" | "lastName", v?: string) =>
         v?.trim() ? [{ OR: [{ [field]: { contains: v.trim(), mode: "insensitive" } }, { customer: { [field]: { contains: v.trim(), mode: "insensitive" } } }] }] : [];
+      // Location Access (Settings › Users): only quotes at the user's branches
+      const allowed = await allowedLocationIds(ctx.prisma, ctx.user.id);
       const where: Prisma.QuoteWhereInput = {
         deletedAt: null,
-        pickupLocationId: input.locationId,
+        pickupLocationId: allowed ? { in: input.locationId ? allowed.filter((l) => l === input.locationId) : allowed } : input.locationId,
         createdAt: { gte: input.from, lte: input.to },
         AND: [
           ...(q
@@ -187,15 +190,19 @@ export const quoteRouter = router({
       },
     });
     if (!q) throw new TRPCError({ code: "NOT_FOUND", message: "Quote not found" });
+    await requireAnyLocationAccess(ctx.prisma, ctx.user.id, q.pickupLocationId, q.returnLocationId);
     return { quote: q, total: q.chargeLines.reduce((a, l) => a.add(l.total), D(0)) };
   }),
 
-  create: permitted("CheckAddQuote").input(quoteInput).mutation(async ({ ctx, input }) => ({
-    id: await ctx.prisma.$transaction((tx) => writeQuote(tx, ctx.user.id, input)),
-  })),
+  create: permitted("CheckAddQuote").input(quoteInput).mutation(async ({ ctx, input }) => {
+    await requireLocationAccess(ctx.prisma, ctx.user.id, input.pickupLocationId);
+    return { id: await ctx.prisma.$transaction((tx) => writeQuote(tx, ctx.user.id, input)) };
+  }),
 
   update: permitted("CheckEditkOuote").input(z.object({ quoteId: z.string(), data: quoteInput })).mutation(async ({ ctx, input }) => {
-    await ctx.prisma.quote.findFirstOrThrow({ where: { id: input.quoteId, deletedAt: null } });
+    const q = await ctx.prisma.quote.findFirstOrThrow({ where: { id: input.quoteId, deletedAt: null } });
+    await requireAnyLocationAccess(ctx.prisma, ctx.user.id, q.pickupLocationId, q.returnLocationId);
+    await requireLocationAccess(ctx.prisma, ctx.user.id, input.data.pickupLocationId);
     return { id: await ctx.prisma.$transaction((tx) => writeQuote(tx, ctx.user.id, input.data, input.quoteId)) };
   }),
 

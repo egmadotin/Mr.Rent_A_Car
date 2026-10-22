@@ -44,6 +44,8 @@ model User {
   kind              UserKind   @default(STAFF)
   userGroupId       String?
   userGroup         UserGroup? @relation(fields: [userGroupId], references: [id])
+  /// Settings > Users "Location Access": the branches this user may work in (empty = the user group's location, else all)
+  locationIds       String[]   @default([])
   defaultLocationId String?
   defaultLocation   Location?  @relation("UserDefaultLocation", fields: [defaultLocationId], references: [id])
   customer          Customer?  @relation("CustomerPortalUser")

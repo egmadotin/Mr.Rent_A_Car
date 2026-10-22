@@ -2,6 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { Prisma } from "@mrac/db";
 import { router, staffProcedure, permitted, requireDiscountAllowed, requirePermission } from "../../trpc";
+import { allowedLocationIds, requireAnyLocationAccess, requireLocationAccess } from "../../lib/location-access";
 import { audit } from "../../lib/audit";
 import { withBookingGuard } from "../../lib/errors";
 import { priceBooking } from "../../lib/pricing";
@@ -277,6 +278,9 @@ export const reservationRouter = router({
         ...(t(input.companyName) ? [{ company: { name: ci(t(input.companyName)!) } }] : []),
         ...(t(input.ssn) ? [{ customer: { ssn: { contains: t(input.ssn)! } } }] : []),
       ];
+      // Location Access (Settings › Users): only reservations at the user's branches
+      const allowed = await allowedLocationIds(ctx.prisma, ctx.user.id);
+      if (allowed) and.push({ OR: [{ locationId: { in: allowed } }, { pickupLocationId: { in: allowed } }, { returnLocationId: { in: allowed } }] });
       const where: Prisma.ReservationWhereInput = {
         deletedAt: null,
         status: input.legacyStatus ? STATUS[input.legacyStatus] : input.status,
@@ -420,6 +424,7 @@ export const reservationRouter = router({
   create: permitted("ReservationsAdd").input(reservationInput).mutation(({ ctx, input }) =>
     withBookingGuard(async () => {
       await requireDiscountAllowed(ctx, input.discountType, input.discountValue);
+      await requireLocationAccess(ctx.prisma, ctx.user.id, input.locationId);
       const id = await ctx.prisma.$transaction((tx) => writeBooking(tx, ctx.user.id, input));
       if (input.sendConfirmationEmail) await sendConfirmation(ctx.prisma, id, input.customer.email, ctx.user.id);
       return { id };
@@ -431,6 +436,8 @@ export const reservationRouter = router({
       await requireDiscountAllowed(ctx, input.data.discountType, input.data.discountValue);
       const r = await ctx.prisma.reservation.findFirst({ where: { id: input.reservationId, deletedAt: null } });
       if (!r) throw new TRPCError({ code: "NOT_FOUND" });
+      await requireAnyLocationAccess(ctx.prisma, ctx.user.id, r.locationId, r.pickupLocationId, r.returnLocationId);
+      await requireLocationAccess(ctx.prisma, ctx.user.id, input.data.locationId);
       if (!(ACTIVE as readonly string[]).includes(r.status))
         throw new TRPCError({ code: "BAD_REQUEST", message: "Only tentative or confirmed reservations can be edited." });
       await ctx.prisma.$transaction((tx) => writeBooking(tx, ctx.user.id, { ...input.data, payment: null }, r.id));
@@ -468,6 +475,7 @@ export const reservationRouter = router({
       },
     });
     if (!r) throw new TRPCError({ code: "NOT_FOUND", message: "Reservation not found" });
+    await requireAnyLocationAccess(ctx.prisma, ctx.user.id, r.locationId, r.pickupLocationId, r.returnLocationId);
     const auditLog = await ctx.prisma.auditLog.findMany({
       where: { entityType: "Reservation", entityId: r.id },
       orderBy: { at: "desc" },
@@ -562,6 +570,7 @@ export const reservationRouter = router({
             include: { chargeLines: true, drivers: true, payments: true },
           });
           if (!r) throw new TRPCError({ code: "NOT_FOUND" });
+          await requireLocationAccess(tx, ctx.user.id, r.pickupLocationId);
           if (!(ACTIVE as readonly string[]).includes(r.status))
             throw new TRPCError({ code: "BAD_REQUEST", message: "Only tentative or confirmed reservations can be started." });
           if (!r.customerId)
