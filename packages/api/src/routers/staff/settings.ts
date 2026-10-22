@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { deleteFile, isStorageKey } from "../../lib/storage";
+import { COPY_ITEMS, copyLocationSetup } from "../../lib/location-copy";
 import { TRPCError } from "@trpc/server";
 import { Prisma } from "@mrac/db";
 import { router, staffProcedure, permitted } from "../../trpc";
@@ -412,6 +413,27 @@ export const settingsRouter = router({
     });
     return { id: before.id };
   }),
+
+  /** Copy Location Setup (LocationsCopy.aspx): copy one location's setup to others (what's missing there only). */
+  locationCopy: permitted("LocationsEdit")
+    .input(
+      z.object({
+        fromId: z.string().min(1, "Choose the source location"),
+        toIds: z.array(z.string()).min(1, "Choose at least one destination location"),
+        items: z.array(z.enum(COPY_ITEMS)).min(1, "Choose what to copy"),
+        from: z.coerce.date().optional().nullable(),
+      }),
+    )
+    .mutation(({ ctx, input }) =>
+      ctx.prisma.$transaction(
+        async (tx) => {
+          const counts = await copyLocationSetup(tx, input);
+          for (const toId of input.toIds) await audit(tx, "Location", toId, ctx.user.id, { "Copy Location Setup": [null, `from ${input.fromId}: ${input.items.join(", ")}`] });
+          return counts;
+        },
+        { timeout: 120_000 },
+      ),
+    ),
 
   /** Add Location (LocationsModify.aspx?DoAction=Add). */
   locationCreate: permitted("LocationsAdd").input(z.object({ data: locationInput })).mutation(async ({ ctx, input }) => {

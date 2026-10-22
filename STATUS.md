@@ -29,7 +29,7 @@ The RentCentric menus, vehicle page and customer page were re-read on Oct 20. No
 | Customers (list, add, edit, view and its actions) | ✅ |
 | Vehicles (list, add, edit, summary) | ✅ (every vehicle page action built) |
 | Users, user groups and permissions | ✅ (group location limit not enforced) |
-| Settings | 🟡 about 55 of RentCentric's ~100 setting pages built (section 7) |
+| Settings | 🟡 about 58 of RentCentric's ~100 setting pages built (section 7) |
 | Reports | 🟡 30 of 64 built (see section 8) |
 | Dashboard | ✅ |
 | Public website and online booking | ✅ (customer login and fleet filters 🟡) |
@@ -178,7 +178,7 @@ RentCentric's Settings menu, item by item.
 |---|---|
 | Companies / Corporates | ✅ |
 | Company Type | ✅ |
-| Partner Login Setup | ⬜ |
+| Partner Login Setup | ⏸ not set up in RentCentric (all "Ask for" boxes unticked): the partner booking portal isn't used |
 
 ### Import Data and Other Tools
 
@@ -191,8 +191,8 @@ RentCentric's Settings menu, item by item.
 | Referral Import | ⬜ |
 | Vehicle Import | ⬜ |
 | Model Import | ⬜ |
-| Copy Location Setup | ⬜ |
-| Renew Rental Agreements | ⬜ |
+| Copy Location Setup | ✅ insurances, misc charges, taxes (apply-to rules re-pointed), rates with prices, payment methods, rental forms, vehicle types, hours — only what the destination lacks; the other RentCentric items are shared by all locations here |
+| Renew Rental Agreements | ⏸ RentCentric's own page is broken (server compile error) |
 
 ### Payment Settings
 
@@ -309,7 +309,7 @@ Not built yet:
 
 ## Next session (Oct 22)
 
-3. Partner Login Setup, Import Data tools, Copy Location Setup, Renew Rental Agreements.
+3. Import Data tools, Financial Settings, Accounting.
 4. Remaining reports, data migration, deployment.
 
 ## 12. Suggested order for what's left
