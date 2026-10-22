@@ -29,7 +29,7 @@ The RentCentric menus, vehicle page and customer page were re-read on Oct 20. No
 | Customers (list, add, edit, view and its actions) | ✅ |
 | Vehicles (list, add, edit, summary) | ✅ (every vehicle page action built) |
 | Users, user groups and permissions | ✅ (group location limit not enforced) |
-| Settings | 🟡 about 58 of RentCentric's ~100 setting pages built (section 7) |
+| Settings | 🟡 about 64 of RentCentric's ~100 setting pages built (section 7) |
 | Reports | 🟡 30 of 64 built (see section 8) |
 | Dashboard | ✅ |
 | Public website and online booking | ✅ (customer login and fleet filters 🟡) |
@@ -184,13 +184,13 @@ RentCentric's Settings menu, item by item.
 
 | Item | Status |
 |---|---|
-| Customer Import | ⬜ |
-| Company Import | ⬜ |
-| Rate Import | ⬜ |
-| Reservation Import | ⬜ |
-| Referral Import | ⬜ |
-| Vehicle Import | ⬜ |
-| Model Import | ⬜ |
+| Customer Import | ✅ RentCentric's CSV template (card columns ignored — never stored) |
+| Company Import | ✅ |
+| Rate Import | ✅ one row per rate code + vehicle type |
+| Reservation Import | ⬜ part of the data migration (bookings with their charges) |
+| Referral Import | ✅ |
+| Vehicle Import | ✅ makes / models created when new |
+| Model Import | ✅ (Make, Model) |
 | Copy Location Setup | ✅ insurances, misc charges, taxes (apply-to rules re-pointed), rates with prices, payment methods, rental forms, vehicle types, hours — only what the destination lacks; the other RentCentric items are shared by all locations here |
 | Renew Rental Agreements | ⏸ RentCentric's own page is broken (server compile error) |
 
@@ -310,7 +310,6 @@ Not built yet:
 
 ## Next session (Oct 22)
 
-3. Import Data tools (CSV imports).
 4. Remaining reports, data migration, deployment.
 
 ## 12. Suggested order for what's left
