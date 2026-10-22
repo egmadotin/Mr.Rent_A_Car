@@ -1011,6 +1011,157 @@ export const reportsRouter = router({
       return { rows, totals: { discountTotal: round(rows.reduce((a, r) => a + r.discountTotal, 0)) } };
     }),
 
+  /**
+   * Rental Details (ReportsRentalDetailsReport): per rental the customer, booking and every charge column (RA#, Customer ID,
+   * names, phone, email, Res#, vehicle, type, locations, dates, status, opened / closed by, Days, Time … Balance), with a Total row.
+   */
+  rentalDetails: staffProcedure
+    .input(z.object({ from: optDate, to: optDate, dateInFrom: optDate, dateInTo: optDate, locationOutId: optId, locationInId: optId, status: z.enum(["ALL", "OPEN", "CLOSED"]).default("ALL") }))
+    .query(async ({ ctx, input }) => {
+      const where: Prisma.RentalWhereInput = {
+        deletedAt: null,
+        ...(input.status !== "ALL" ? { status: input.status } : { status: { in: ["OPEN", "CLOSED"] } }),
+        ...(range(input.from, input.to) ? { checkOutAt: range(input.from, input.to) } : {}),
+        ...(range(input.dateInFrom, input.dateInTo) ? { checkedInAt: range(input.dateInFrom, input.dateInTo) } : {}),
+        ...(input.locationOutId ? { checkOutLocationId: input.locationOutId } : {}),
+        ...(input.locationInId ? { checkInLocationId: input.locationInId } : {}),
+      };
+      const [money, extra] = await Promise.all([
+        ctx.prisma.rental.findMany({ where, orderBy: { raNumber: "asc" }, take: 3000, select: revenueSelect }),
+        ctx.prisma.rental.findMany({
+          where, orderBy: { raNumber: "asc" }, take: 3000,
+          select: {
+            id: true, status: true, checkedInAt: true, invoices: { select: { amount: true } },
+            customer: { select: { legacyId: true, firstName: true, lastName: true, phone: true, email: true } }, reservation: { select: { number: true } }, vehicleType: { select: { name: true } },
+            checkOutLocation: { select: { name: true } }, checkInLocation: { select: { name: true } }, openedBy: { select: { name: true } }, closedBy: { select: { name: true } },
+          },
+        }),
+      ]);
+      const rep = revenueReport(money);
+      const byId = new Map(extra.map((e) => [e.id, e]));
+      const rows = rep.rows.map((r) => {
+        const e = byId.get(r.id)!;
+        return {
+          ...r, customerId: e.customer.legacyId, firstName: e.customer.firstName, lastName: e.customer.lastName, phone: e.customer.phone ?? "", email: e.customer.email ?? "",
+          reservationNumber: e.reservation?.number ?? null, vehicleType: e.vehicleType.name, pickupLocation: e.checkOutLocation.name, returnLocation: e.checkInLocation.name,
+          status: e.status, openedBy: e.openedBy?.name ?? "", closedBy: e.closedBy?.name ?? "", closeDate: e.checkedInAt,
+          invoiceTotal: round(e.invoices.reduce((a, i) => a + num(i.amount), 0)),
+        };
+      });
+      const keys = ["days", "time", "discount", "mileage", "fuel", "upgrade", "oneWay", "damage", "trafficTickets", "adjust", "invoiceTotal", "total", "paid", "balance"] as const;
+      const totals = Object.fromEntries(keys.map((k) => [k, round(rows.reduce((a, r) => a + (r[k] as number), 0))])) as Record<(typeof keys)[number], number>;
+      return { rows, totals: { ...totals, other: [0, 1, 2, 3].map((i) => round(rows.reduce((a, r) => a + r.other[i]!, 0))) } };
+    }),
+
+  /**
+   * Rental Invoices (ReportsRentalInvoice): long-term rental invoices — Date, Invoice #, Invoice Type, Customer, Vehicle,
+   * License#, RA #, Location, Pickup Loc / Date, Return Loc, Drop Off Date, Total, Pay./Credit., Balance. Each rental's
+   * payments are applied to its invoices oldest first.
+   */
+  rentalInvoices: staffProcedure
+    .input(z.object({ locationId: optId, from: optDate, to: optDate, type: z.enum(["ALL", "INVOICE", "CREDIT"]).default("ALL"), balance: z.enum(["ALL", "ZERO", "OWING"]).default("ALL") }))
+    .query(async ({ ctx, input }) => {
+      const invs = await ctx.prisma.rentalInvoice.findMany({
+        where: {
+          rental: { deletedAt: null, ...(input.locationId ? { checkOutLocationId: input.locationId } : {}) },
+          ...(range(input.from, input.to) ? { createdAt: range(input.from, input.to) } : {}),
+          ...(input.type === "INVOICE" ? { isCredit: false } : input.type === "CREDIT" ? { isCredit: true } : {}),
+        },
+        orderBy: [{ rentalId: "asc" }, { createdAt: "asc" }],
+        take: 5000,
+        include: {
+          rental: {
+            select: {
+              id: true, raNumber: true, checkOutAt: true, checkedInAt: true, expectedReturnAt: true, customer: { select: { firstName: true, lastName: true } },
+              vehicle: { select: { assignedId: true, licenseNumber: true, make: { select: { name: true } }, model: { select: { name: true } } } },
+              checkOutLocation: { select: { name: true } }, checkInLocation: { select: { name: true } },
+              payments: { select: { amount: true, transactionType: true } },
+            },
+          },
+        },
+      });
+      const left = new Map<string, number>();
+      const rows = invs
+        .map((i) => {
+          const r = i.rental;
+          if (!left.has(r.id)) left.set(r.id, r.payments.reduce((a, p) => a + (p.transactionType === "PAYMENT" ? num(p.amount) : p.transactionType === "REFUND" ? -num(p.amount) : 0), 0));
+          const total = num(i.amount);
+          const paid = i.isCredit ? total : Math.min(Math.max(left.get(r.id)!, 0), total);
+          if (!i.isCredit) left.set(r.id, left.get(r.id)! - paid);
+          return {
+            id: i.id, rentalId: r.id, date: i.createdAt, invoiceNumber: i.invoiceNumber, type: i.isCredit ? "Credit Memo" : "Invoice", customer: `${r.customer.firstName} ${r.customer.lastName}`,
+            vehicle: `${r.vehicle.assignedId} ${r.vehicle.make.name} ${r.vehicle.model.name}`, license: r.vehicle.licenseNumber, raNumber: r.raNumber, location: r.checkOutLocation.name,
+            pickupLocation: r.checkOutLocation.name, pickup: r.checkOutAt, returnLocation: r.checkInLocation.name, dropOff: r.checkedInAt ?? r.expectedReturnAt,
+            total: round(total), paid: round(paid), balance: round(total - paid),
+          };
+        })
+        .filter((r) => input.balance === "ALL" || (input.balance === "ZERO" ? r.balance === 0 : r.balance !== 0));
+      const sum = (k: "total" | "paid" | "balance") => round(rows.reduce((a, r) => a + r[k], 0));
+      return { rows, totals: { total: sum("total"), paid: sum("paid"), balance: sum("balance") } };
+    }),
+
+  /**
+   * Rental / Reservation Event Tracking (ReportsAgreementsEventLog / ReportsReservationsEventLog): every change logged on a
+   * rental or reservation (User, IP, Entered Date, RA # / Res #, FullName and what changed), by booking dates, name,
+   * vehicle type, IP, keyword, user and location.
+   */
+  eventTracking: staffProcedure
+    .input(
+      z.object({
+        kind: z.enum(["Rental", "Reservation"]),
+        outFrom: optDate, outTo: optDate, inFrom: optDate, inTo: optDate, firstName: z.string().trim().optional(), lastName: z.string().trim().optional(),
+        vehicleTypeId: optId, ip: z.string().trim().optional(), keyword: z.string().trim().optional(), userId: optId, locationId: optId,
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const name = (f?: string, l?: string) => ({ ...(f ? { firstName: { contains: f, mode: "insensitive" as const } } : {}), ...(l ? { lastName: { contains: l, mode: "insensitive" as const } } : {}) });
+      const bookings =
+        input.kind === "Rental"
+          ? (
+              await ctx.prisma.rental.findMany({
+                where: {
+                  ...(range(input.outFrom, input.outTo) ? { checkOutAt: range(input.outFrom, input.outTo) } : {}),
+                  ...(range(input.inFrom, input.inTo) ? { OR: [{ checkedInAt: range(input.inFrom, input.inTo) }, { checkedInAt: null, expectedReturnAt: range(input.inFrom, input.inTo) }] } : {}),
+                  ...(input.firstName || input.lastName ? { customer: name(input.firstName, input.lastName) } : {}),
+                  ...(input.vehicleTypeId ? { vehicleTypeId: input.vehicleTypeId } : {}),
+                  ...(input.locationId ? { checkOutLocationId: input.locationId } : {}),
+                },
+                take: 5000,
+                select: { id: true, raNumber: true, customer: { select: { firstName: true, lastName: true } } },
+              })
+            ).map((r) => ({ id: r.id, number: r.raNumber, fullName: `${r.customer.firstName} ${r.customer.lastName}` }))
+          : (
+              await ctx.prisma.reservation.findMany({
+                where: {
+                  ...(range(input.outFrom, input.outTo) ? { pickupAt: range(input.outFrom, input.outTo) } : {}),
+                  ...(range(input.inFrom, input.inTo) ? { returnAt: range(input.inFrom, input.inTo) } : {}),
+                  ...name(input.firstName, input.lastName),
+                  ...(input.vehicleTypeId ? { vehicleTypeId: input.vehicleTypeId } : {}),
+                  ...(input.locationId ? { pickupLocationId: input.locationId } : {}),
+                },
+                take: 5000,
+                select: { id: true, number: true, firstName: true, lastName: true },
+              })
+            ).map((r) => ({ id: r.id, number: r.number, fullName: `${r.firstName} ${r.lastName}` }));
+      const byId = new Map(bookings.map((b) => [b.id, b]));
+      const logs = await ctx.prisma.auditLog.findMany({
+        where: {
+          entityType: input.kind,
+          entityId: { in: [...byId.keys()] },
+          ...(input.ip ? { ipAddress: { contains: input.ip } } : {}),
+          ...(input.userId ? { userId: input.userId } : {}),
+          ...(input.keyword ? { OR: [{ field: { contains: input.keyword, mode: "insensitive" } }, { oldValue: { contains: input.keyword, mode: "insensitive" } }, { newValue: { contains: input.keyword, mode: "insensitive" } }] } : {}),
+        },
+        orderBy: { at: "desc" },
+        take: 5000,
+        select: { id: true, entityId: true, field: true, oldValue: true, newValue: true, at: true, ipAddress: true, user: { select: { name: true } } },
+      });
+      return logs.map((l) => {
+        const b = byId.get(l.entityId)!;
+        return { id: l.id, bookingId: b.id, user: l.user?.name ?? "", ip: l.ipAddress ?? "", at: l.at, number: b.number, fullName: b.fullName, field: l.field, oldValue: l.oldValue ?? "", newValue: l.newValue ?? "" };
+      });
+    }),
+
   /** Pick-lists for the report filters. */
   filters: staffProcedure.query(async ({ ctx }) => {
     const [locations, makes, types] = await Promise.all([

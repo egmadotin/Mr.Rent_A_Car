@@ -7,6 +7,7 @@ import { CustomerListReport, LicenseExpirationReport, MaintenanceAlertReport, Tr
 import { CustomerByRegionReport, NoShowCancelledReport, PaymentsAndChargesReport, SourceOfReferralReport, VehicleMaintenanceReport, VehicleRepairsReport } from "../_components/more-reports";
 import { RevenueByCompanyReport, RevenueByCustomerReport, RevenueByLocationReport, RevenueByVehicleReport } from "../_components/revenue-by";
 import { AdjustmentDetailsReport, ChecklistOverviewReport, CommissionsReport, PromoCodeReport, CustomerNotesReport, RentalDaysReport, RentalDiscountReport, TasksReport } from "../_components/activity-reports";
+import { RentalDetailsReport, RentalEventTrackingReport, RentalInvoicesReport, ReservationEventTrackingReport } from "../_components/booking-reports";
 import { BUILT_REPORTS } from "../report-list";
 
 const SCREENS: Record<string, () => React.JSX.Element> = {
@@ -39,6 +40,10 @@ const SCREENS: Record<string, () => React.JSX.Element> = {
   "customer-notes": CustomerNotesReport,
   "checklist-overview": ChecklistOverviewReport,
   "promo-code": PromoCodeReport,
+  "rental-details": RentalDetailsReport,
+  invoices: RentalInvoicesReport,
+  "rental-event-tracking": RentalEventTrackingReport,
+  "reservation-event-tracking": ReservationEventTrackingReport,
   "no-show-cancelled": NoShowCancelledReport,
 };
 
