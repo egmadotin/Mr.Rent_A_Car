@@ -37,7 +37,7 @@ The RentCentric menus, vehicle page and customer page were re-read on Oct 20. No
 | Card payments (Stripe) | ✅ built, 🔑 needs Stripe keys |
 | Data migration from RentCentric | 🟡 setup data copied; customers / bookings history not yet |
 | File storage (photos, documents) | ✅ staff-only `/api/files`; local disk (`.uploads/`) in dev, any S3-compatible bucket (AWS S3, Cloudflare R2 …) when `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` are set — to verify against the real bucket at deployment. New route: restart the server (start.bat) once to pick it up |
-| Hosting / deployment | ⬜ |
+| Hosting / deployment | 🟡 production Docker setup + deploy.bat ready (VPS 145.223.18.134, pulls from GitHub); first deploy waiting on server SSH access |
 
 ---
 
