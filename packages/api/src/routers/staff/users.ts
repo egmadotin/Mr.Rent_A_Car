@@ -77,9 +77,10 @@ export const usersRouter = router({
           defaultLocationId: input.defaultLocationId,
           locationIds: input.locationIds,
           ...(input.permissions ? await permissionOverrides(ctx.prisma, input.userGroupId, input.permissions) : {}),
-          accounts: { create: { accountId: input.email, providerId: "credential", password: await hashPassword(input.password) } },
         },
       });
+      // Better Auth finds an email/password login by accountId = the user's id (not the email)
+      await ctx.prisma.account.create({ data: { userId: u.id, accountId: u.id, providerId: "credential", password: await hashPassword(input.password) } });
       await audit(ctx.prisma, "User", u.id, ctx.user.id, { Created: [null, input.email] });
       return { id: u.id };
     }),
