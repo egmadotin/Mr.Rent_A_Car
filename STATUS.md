@@ -29,7 +29,7 @@ The RentCentric menus, vehicle page and customer page were re-read on Oct 20. No
 | Customers (list, add, edit, view and its actions) | ✅ |
 | Vehicles (list, add, edit, summary) | ✅ (every vehicle page action built) |
 | Users, user groups and permissions | ✅ (group location limit not enforced) |
-| Settings | 🟡 about 52 of RentCentric's ~100 setting pages built (section 7) |
+| Settings | 🟡 about 53 of RentCentric's ~100 setting pages built (section 7) |
 | Reports | 🟡 30 of 64 built (see section 8) |
 | Dashboard | ✅ |
 | Public website and online booking | ✅ (customer login and fleet filters 🟡) |
@@ -238,9 +238,10 @@ RentCentric's Settings menu, item by item.
 |---|---|---|
 | Tour Setup | Manage Tours, Customer Tours | ⬜ |
 | Equipment Setup | Equipment Inventory | ✅ |
-| Claims | Claims Management (V1 and V2) | ⬜ |
-| Claims | Status Of Repair | ⬜ |
-| Claims | Claim Types | ⬜ (claims themselves work on rentals) |
+| Claims | Claims Management | ✅ every claim on rentals and vehicles (status / date / claim # filters) |
+| Claims | Claims Management V2 | ⏸ no V2 claims in RentCentric |
+| Claims | Status Of Repair | ⏸ empty in RentCentric |
+| Claims | Claim Types | ⏸ empty in RentCentric (claims use Renter / 3rd Party / Other) |
 | Financial / Commission | Accounting | ⬜ |
 | Financial / Commission | Commissions | ⬜ |
 | Financial / Commission | Referrals | ✅ list, add, edit, deactivate; delete only when never used (fields as imported from RentCentric) |
@@ -306,7 +307,7 @@ Not built yet:
 
 ## Next session (Oct 22)
 
-2. Commission Structures (1 in RentCentric), Claims Management list (all claims).
+2. Commission Structures (1 in RentCentric) — needs RentCentric open.
 3. Partner Login Setup, Import Data tools, Copy Location Setup, Renew Rental Agreements.
 4. Remaining reports, data migration, deployment.
 

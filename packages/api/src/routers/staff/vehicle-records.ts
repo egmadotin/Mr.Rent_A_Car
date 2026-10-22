@@ -288,6 +288,25 @@ export const vehicleRecordsRouter = router({
     }),
   ),
 
+  /** Settings > Claims Management (ClaimsMain.aspx): every claim, newest first, filtered by status / dates / claim #. */
+  allClaims: permitted("Claims")
+    .input(z.object({ status: z.enum(["", "OPEN", "PENDING", "CLOSED"]).default(""), from: optDate.optional(), to: optDate.optional(), search: z.string().trim().optional() }))
+    .query(({ ctx, input }) =>
+      ctx.prisma.claim.findMany({
+        where: {
+          ...(input.status ? { status: input.status } : {}),
+          ...(input.from || input.to ? { claimDate: { ...(input.from ? { gte: input.from } : {}), ...(input.to ? { lt: new Date(+input.to + 86_400_000) } : {}) } } : {}),
+          ...(input.search ? { claimNumber: { contains: input.search, mode: "insensitive" } } : {}),
+        },
+        orderBy: { claimDate: "desc" },
+        take: 1000,
+        include: {
+          rental: { select: { id: true, raNumber: true, customer: { select: { firstName: true, lastName: true } }, vehicle: { select: { id: true, assignedId: true } } } },
+          vehicle: { select: { id: true, assignedId: true } },
+        },
+      }),
+    ),
+
   /** New Claim / edit (ClaimsModify.aspx, the same form as the rental's), the Rental # optional. */
   claimSave: permitted("Claims")
     .input(
