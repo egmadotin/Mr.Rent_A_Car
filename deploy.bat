@@ -6,7 +6,7 @@ set SERVER=root@145.223.18.134
 set APP_DIR=/opt/platform/client/mr-rent-a-car
 
 echo Deploying Mr Rent A Car to %SERVER% ...
-ssh %SERVER% "cd %APP_DIR% && bash deploy/server-deploy.sh"
+ssh -i "%USERPROFILE%.sshid_ed25519_personal" -o IdentitiesOnly=yes %SERVER% "cd %APP_DIR% && bash deploy/server-deploy.sh"
 if %ERRORLEVEL% NEQ 0 (
   echo.
   echo [ERROR] Deploy failed - see the messages above.
