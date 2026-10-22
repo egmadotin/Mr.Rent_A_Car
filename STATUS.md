@@ -280,6 +280,7 @@ Not built yet:
 | My Tasks and Add Task | ✅ (`/admin/tasks`: My Tasks + Tasks List report) |
 | Vehicles Requiring Service | ✅ from status and the "maintain every … km" interval; will use the last service entry once Maintenance is built |
 | Rental Graph View (7 / 14 days / 1 month) | ✅ |
+| Advanced dashboard (beyond RentCentric) | ✅ quick actions; KPIs: revenue month to date vs the same days last month (with a 30-day sparkline), fleet utilization, average daily rate / rental length / collected, balance owing; live status strip; revenue last 30 days chart; fleet status mix; Today's operations (pick-ups / returns / overdue tabs); booking pipeline (next 7 / 30 days, confirmed vs tentative, online, quotes); utilization forecast chart; vehicle types (utilization + revenue MTD); locations; latest bookings; refreshes every 2 minutes |
 | Vehicle Availability check | ✅ |
 
 ## 10. Public website (mrrentacar.com)

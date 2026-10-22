@@ -14,61 +14,45 @@ import { NativeSelect } from "@mrac/ui/components/native-select";
 import { toDateTimeLocal } from "@mrac/ui/lib/format";
 import { cn } from "@mrac/ui/lib/utils";
 import { AddTaskButton, TaskTable } from "../../../_components/tasks";
+import { DashCard, FleetMix, ForecastChart, LocationsCard, Pipeline, RecentActivity, RevenueChart, TypeTable } from "./dashboard-insights";
 
 const time = (d: string | Date) => new Date(d).toLocaleTimeString("en-CA", { hour: "numeric", minute: "2-digit" });
 const day = (d: string | Date) => new Date(d).toLocaleDateString("en-CA", { month: "short", day: "numeric" });
 
-function Panel({ title, count, children }: { title: string; count?: number; children: React.ReactNode }) {
-  return (
-    <Card className="gap-2 py-4">
-      <CardHeader className="px-4"><CardTitle className="flex items-center gap-2 font-serif text-lg">{title}{count != null && count > 0 && <Badge variant="muted">{count}</Badge>}</CardTitle></CardHeader>
-      <CardContent className="px-4">{children}</CardContent>
-    </Card>
-  );
-}
-const Empty = () => <p className="rounded-md bg-muted/60 px-3 py-4 text-sm text-muted-foreground">No Records Found</p>;
+const Empty = ({ text = "No Records Found" }: { text?: string }) => <p className="rounded-md bg-muted/60 px-3 py-4 text-sm text-muted-foreground">{text}</p>;
 
-/** RentCentric dashboard panels: Rentals Leaving Today, Returning Today, Vehicles Requiring Service, Rental Graph View, Vehicle Availability. */
+/** The dashboard below the KPIs: charts, today's operations, pipeline, fleet, locations, activity, tasks, service, availability. */
 export function DashboardPanels() {
   const trpc = useTRPC();
-  const [days, setDays] = React.useState<7 | 14 | 30>(7);
-  const d = useQuery(trpc.staff.meta.dashboard.queryOptions({ days }, { placeholderData: (p) => p })).data;
+  const d = useQuery(trpc.staff.meta.dashboard.queryOptions({ days: 7 }, { refetchInterval: 60_000 })).data;
 
   return (
-    <div className="grid gap-6 xl:grid-cols-2">
-      <div className="space-y-6">
-        <Panel title="Rentals Leaving Today" count={d?.leaving.length}>
-          {!d?.leaving.length ? <Empty /> : (
-            <ul className="divide-y text-sm">
-              {d.leaving.map((r) => (
-                <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
-                  <Link href={`/admin/reservations/${r.id}`} className="font-medium text-primary hover:underline">#{r.number} · {r.name || "—"}</Link>
-                  <span className="text-muted-foreground">{time(r.at)} · {r.vehicleType} · {r.location}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Panel>
-        <Panel title="Returning Today" count={d?.returning.length}>
-          {!d?.returning.length ? <Empty /> : (
-            <ul className="divide-y text-sm">
-              {d.returning.map((r) => (
-                <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
-                  <Link href={`/admin/rentals/${r.id}`} className="font-medium text-primary hover:underline">RA #{r.raNumber} · {r.name}</Link>
-                  <span className={cn("text-muted-foreground", r.overdue && "font-medium text-destructive")}>{r.overdue ? `Overdue since ${day(r.at)} ${time(r.at)}` : time(r.at)} · {r.vehicle}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Panel>
+    <div className="space-y-6">
+      <div className="grid gap-6 xl:grid-cols-3">
+        <div className="xl:col-span-2"><RevenueChart /></div>
+        <FleetMix />
+      </div>
+      <div className="grid gap-6 xl:grid-cols-3">
+        <div className="xl:col-span-2"><TodayOps d={d} /></div>
+        <Pipeline />
+      </div>
+      <div className="grid gap-6 xl:grid-cols-2">
+        <ForecastChart />
+        <TypeTable />
+      </div>
+      <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
+        <LocationsCard />
+        <RecentActivity />
         <MyTasks />
-        <Panel title="Vehicles Requiring Service" count={d?.service.length}>
+      </div>
+      <div className="grid gap-6 xl:grid-cols-2">
+        <DashCard title={<>Vehicles requiring service{!!d?.service.length && <Badge variant="muted">{d.service.length}</Badge>}</>}>
           {!d?.service.length ? <Empty /> : (
             <ul className="divide-y text-sm">
               {d.service.map((v) => (
                 <li key={v.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
                   <Link href={`/admin/vehicles/${v.id}`} className="font-medium text-primary hover:underline">{v.assignedId} · {v.vehicle}</Link>
-                  <span className="text-muted-foreground">
+                  <span className={cn("text-muted-foreground", v.kmLeft != null && v.kmLeft <= 0 && "font-medium text-destructive")}>
                     {v.reason === "status"
                       ? v.status.replaceAll("_", " ").toLowerCase()
                       : v.kmLeft != null && v.kmLeft <= 0 ? `Service due (${v.dueAtKm?.toLocaleString()} km)` : `${v.kmLeft?.toLocaleString()} km to service`}
@@ -77,34 +61,66 @@ export function DashboardPanels() {
               ))}
             </ul>
           )}
-        </Panel>
-      </div>
-
-      <div className="space-y-6">
-        <Card className="gap-2 py-4">
-          <CardHeader className="flex-row flex-wrap items-center justify-between gap-2 px-4">
-            <CardTitle className="font-serif text-lg">Rental Graph View</CardTitle>
-            <div className="flex gap-1" role="group" aria-label="Period">
-              {([[7, "7 Days"], [14, "14 Days"], [30, "1 Month"]] as const).map(([n, label]) => (
-                <Button key={n} size="sm" variant={days === n ? "default" : "outline"} onClick={() => setDays(n)} aria-pressed={days === n}>{label}</Button>
-              ))}
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-2 px-4">
-            {d?.graph.map((g) => (
-              <div key={String(g.date)} className="grid grid-cols-[3.5rem_1fr_2.75rem] items-center gap-2 text-sm">
-                <span className="text-muted-foreground">{day(g.date)}</span>
-                <div className="h-2.5 overflow-hidden rounded-full bg-muted" title={`${g.booked} booked`}>
-                  <div className="h-full rounded-full bg-forest-100" style={{ width: `${Math.max(g.percent, 2)}%` }} />
-                </div>
-                <span className="text-right text-xs tabular-nums text-muted-foreground">{g.percent}%</span>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+        </DashCard>
         <Availability />
       </div>
     </div>
+  );
+}
+
+type DashData = { leaving: { id: string; number: number; at: string | Date; name: string; vehicleType: string; location: string }[]; returning: { id: string; raNumber: number; at: string | Date; overdue: boolean; name: string; vehicle: string; location: string }[] };
+
+/** Today's operations: pick-ups, returns due and overdue rentals, one tab each. */
+function TodayOps({ d }: { d: DashData | undefined }) {
+  const [tab, setTab] = React.useState<"out" | "in" | "late">("out");
+  const returns = d?.returning.filter((r) => !r.overdue) ?? [];
+  const late = d?.returning.filter((r) => r.overdue) ?? [];
+  const tabs = [
+    { key: "out" as const, label: "Pick-ups today", count: d?.leaving.length ?? 0 },
+    { key: "in" as const, label: "Returns today", count: returns.length },
+    { key: "late" as const, label: "Overdue", count: late.length },
+  ];
+  return (
+    <DashCard
+      title="Today's operations"
+      action={
+        <div className="flex gap-1 rounded-lg bg-muted p-1" role="tablist">
+          {tabs.map((t) => (
+            <button key={t.key} type="button" role="tab" aria-selected={tab === t.key} onClick={() => setTab(t.key)}
+              className={cn("flex items-center gap-1.5 rounded-md px-2.5 py-1 text-sm font-medium transition-colors", tab === t.key ? "bg-card shadow-sm" : "text-muted-foreground hover:text-foreground")}>
+              {t.label}
+              <span className={cn("rounded-full px-1.5 text-[11px] tabular-nums", t.key === "late" && t.count ? "bg-destructive text-white" : "bg-background text-muted-foreground")}>{t.count}</span>
+            </button>
+          ))}
+        </div>
+      }
+    >
+      {tab === "out" && (!d?.leaving.length ? <Empty text="No pick-ups scheduled today." /> : (
+        <Rows rows={d.leaving.map((r) => ({ key: r.id, time: time(r.at), href: `/admin/reservations/${r.id}`, title: `Res #${r.number} · ${r.name || "—"}`, meta: `${r.vehicleType} · ${r.location}` }))} />
+      ))}
+      {tab === "in" && (!returns.length ? <Empty text="No returns due today." /> : (
+        <Rows rows={returns.map((r) => ({ key: r.id, time: time(r.at), href: `/admin/rentals/${r.id}`, title: `RA #${r.raNumber} · ${r.name}`, meta: `${r.vehicle} · ${r.location}` }))} />
+      ))}
+      {tab === "late" && (!late.length ? <Empty text="Nothing overdue." /> : (
+        <Rows late rows={late.map((r) => ({ key: r.id, time: `${day(r.at)} ${time(r.at)}`, href: `/admin/rentals/${r.id}`, title: `RA #${r.raNumber} · ${r.name}`, meta: `${r.vehicle} · ${r.location}` }))} />
+      ))}
+    </DashCard>
+  );
+}
+
+function Rows({ rows, late }: { rows: { key: string; time: string; href: string; title: string; meta: string }[]; late?: boolean }) {
+  return (
+    <ul className="divide-y text-sm">
+      {rows.map((r) => (
+        <li key={r.key} className="flex items-center gap-3 py-2.5">
+          <span className={cn("w-24 shrink-0 rounded-md px-2 py-1 text-center text-xs font-semibold tabular-nums", late ? "bg-destructive/10 text-destructive" : "bg-muted")}>{r.time}</span>
+          <div className="min-w-0 flex-1">
+            <Link href={r.href} className="block truncate font-medium text-primary hover:underline">{r.title}</Link>
+            <span className="block truncate text-xs text-muted-foreground">{r.meta}</span>
+          </div>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -139,7 +155,7 @@ function Availability() {
   });
 
   return (
-    <Panel title="Vehicle Availability">
+    <DashCard title="Vehicle availability">
       <form
         className="grid gap-3 sm:grid-cols-2"
         onSubmit={(e) => {
@@ -176,6 +192,6 @@ function Availability() {
           )}
         </div>
       )}
-    </Panel>
+    </DashCard>
   );
 }
