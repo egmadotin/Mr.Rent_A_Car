@@ -67,9 +67,9 @@ export const permitted = (...perms: string[]) =>
   staffProcedure.use(async ({ ctx, next }) => {
     const u = ctx.user as { id: string; role?: string | null };
     if (u.role !== "admin") {
-      const me = await ctx.prisma.user.findUnique({ where: { id: u.id }, select: { role: true, userGroup: { select: { isActive: true, permissions: true } } } });
+      const me = await ctx.prisma.user.findUnique({ where: { id: u.id }, select: { role: true, permissionsAdded: true, permissionsRemoved: true, userGroup: { select: { isActive: true, permissions: true } } } });
       const missing = perms.filter((p) => !(me && can(me, p)));
-      if (missing.length) throw new TRPCError({ code: "FORBIDDEN", message: `You don't have permission for this (${missing.map(permissionLabel).join(", ")}). Ask an admin to change your user group.` });
+      if (missing.length) throw new TRPCError({ code: "FORBIDDEN", message: `You don't have permission for this (${missing.map(permissionLabel).join(", ")}). Ask an admin (Settings › Users).` });
     }
     return next();
   });
@@ -77,7 +77,7 @@ export const permitted = (...perms: string[]) =>
 type PermCtx = { prisma: typeof prisma; user: { id: string } };
 
 async function groupOf(ctx: PermCtx) {
-  return ctx.prisma.user.findUnique({ where: { id: ctx.user.id }, select: { role: true, userGroup: { select: { isActive: true, permissions: true, maxDiscountType: true, maxDiscountValue: true } } } });
+  return ctx.prisma.user.findUnique({ where: { id: ctx.user.id }, select: { role: true, permissionsAdded: true, permissionsRemoved: true, userGroup: { select: { isActive: true, permissions: true, maxDiscountType: true, maxDiscountValue: true } } } });
 }
 
 /** Inside a procedure, when the permission depends on the input (e.g. refund vs payment, closed vs open rental). */

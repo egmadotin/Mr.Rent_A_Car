@@ -41,14 +41,17 @@ model User {
   banReason     String?
   banExpires    DateTime?
 
-  kind              UserKind   @default(STAFF)
-  userGroupId       String?
-  userGroup         UserGroup? @relation(fields: [userGroupId], references: [id])
+  kind               UserKind   @default(STAFF)
+  userGroupId        String?
+  userGroup          UserGroup? @relation(fields: [userGroupId], references: [id])
   /// Settings > Users "Location Access": the branches this user may work in (empty = the user group's location, else all)
-  locationIds       String[]   @default([])
-  defaultLocationId String?
-  defaultLocation   Location?  @relation("UserDefaultLocation", fields: [defaultLocationId], references: [id])
-  customer          Customer?  @relation("CustomerPortalUser")
+  locationIds        String[]   @default([])
+  /// Per-user permission changes on top of the user group (Settings › Users › Permissions): extra ticks, and group ticks taken away
+  permissionsAdded   String[]   @default([])
+  permissionsRemoved String[]   @default([])
+  defaultLocationId  String?
+  defaultLocation    Location?  @relation("UserDefaultLocation", fields: [defaultLocationId], references: [id])
+  customer           Customer?  @relation("CustomerPortalUser")
 
   sessions Session[]
   accounts Account[]

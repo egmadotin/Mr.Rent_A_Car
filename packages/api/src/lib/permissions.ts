@@ -50,12 +50,19 @@ export const PERMISSION_SECTIONS: { title: string; items: [key: string, label: s
 export const ALL_PERMISSIONS = PERMISSION_SECTIONS.flatMap((s) => s.items.map(([k]) => k));
 export type Permission = string;
 
-type PermUser = { role?: string | null; userGroup?: { isActive: boolean; permissions: string[] } | null };
+type PermUser = { role?: string | null; permissionsAdded?: string[]; permissionsRemoved?: string[]; userGroup?: { isActive: boolean; permissions: string[] } | null };
 
 /** Admin role = "Full Admin": everything. Otherwise the user's active group's ticks. */
 export function can(user: PermUser, permission: Permission) {
-  if (user.role === "admin") return true;
-  return !!user.userGroup?.isActive && user.userGroup.permissions.includes(permission);
+  return user.role === "admin" || effectivePermissions(user).includes(permission);
+}
+
+/** A user's permissions: their group's (when the group is active), plus the user's own extra ticks, minus the ones taken away. */
+export function effectivePermissions(user: PermUser): string[] {
+  if (user.role === "admin") return ALL_PERMISSIONS;
+  const group = user.userGroup?.isActive ? user.userGroup.permissions : [];
+  const removed = new Set(user.permissionsRemoved ?? []);
+  return [...new Set([...group, ...(user.permissionsAdded ?? [])])].filter((p) => !removed.has(p) && ALL_PERMISSIONS.includes(p));
 }
 
 /** "Rentals › Edit Closed Rentals" */
