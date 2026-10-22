@@ -27,7 +27,7 @@ export const REPORT_CATEGORIES: ReportCategory[] = [
       { name: "Vehicle Rental Calendar" }, { name: "Corporate A/R By Bills" }, { name: "Customer A/R Report" }, { name: "Reservation A/R by Bills" },
       { name: "Corporate A/R Analysis" }, { name: "Fleet Grid" }, { name: "Custom Reports" }, { name: "Reservation Forecast" }, { name: "Reservation Grid" },
       { name: "Reservations No Showup/Cancelled", slug: "no-show-cancelled" }, { name: "Reservations Calendar" }, { name: "Dynamic Scheduler" }, { name: "Visual Scheduler" },
-      { name: "Promo Code" }, { name: "Rental Days", slug: "rental-days" }, { name: "Rental Discount", slug: "rental-discount" },
+      { name: "Promo Code", slug: "promo-code" }, { name: "Rental Days", slug: "rental-days" }, { name: "Rental Discount", slug: "rental-discount" },
     ],
   },
   {

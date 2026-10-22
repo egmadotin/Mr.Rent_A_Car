@@ -248,3 +248,42 @@ export function ChecklistOverviewReport() {
     </ReportFrame>
   );
 }
+
+/** Promo Code (PromoCodeReport.aspx): reservations booked with a promo code, by usage (booking) date. */
+export function PromoCodeReport() {
+  const trpc = useTRPC();
+  const f = useReportFilters();
+  const [v, setV] = React.useState({ from: "", to: "", locationId: "", category: "", code: "" });
+  const [run, setRun] = React.useState<typeof v | null>(null);
+  const q = useQuery({
+    ...trpc.staff.reports.promoCodes.queryOptions({ from: fromDay(run?.from ?? ""), to: fromDay(run?.to ?? ""), locationIds: run?.locationId ? [run.locationId] : [], category: (run?.category ?? "") as "", code: run?.code || undefined }),
+    enabled: !!run,
+    retry: false,
+  });
+  const set = (k: keyof typeof v) => (x: string) => setV({ ...v, [k]: x });
+  return (
+    <ReportFrame title="Promo Codes" generated={!!run} onGenerate={() => setRun({ ...v })} loading={q.isLoading} error={q.error?.message}
+      filters={<>
+        <DateField id="pc-f" label="Usage Start Date" value={v.from} onChange={set("from")} />
+        <DateField id="pc-t" label="Usage End Date" value={v.to} onChange={set("to")} />
+        <SelectFilter id="pc-lo" label="Location" value={v.locationId} onChange={set("locationId")} options={f.locations} />
+        <SelectFilter id="pc-ca" label="Category" value={v.category} onChange={set("category")} options={[{ value: "RESERVATION", label: "Reservation" }, { value: "REGISTRATION", label: "Registration" }]} all="- Select -" />
+        {text("pc-co", "Promotion Code", v.code, set("code"))}
+      </>}
+      header={[["Location", f.locations.find((l) => l.id === run?.locationId)?.name ?? "All"], ["Start Date", run?.from ?? ""], ["End Date", run?.to ?? ""]]}
+    >
+      {q.data && (
+        <ReportTable head={["First Name", "Last Name", "Promo Code", "Res.#", "Rental #", "Pickup Date", "Return Date", "Res.Total", "Rental Subtotal", "Rental Total", "Date", "Discount", "Discount Total"]}
+          right={[7, 8, 9, 12]}
+          rows={q.data.rows.map((r) => [
+            r.firstName, r.lastName, r.code,
+            <Link key="s" className="text-primary hover:underline" href={`/admin/reservations/${r.id}`}>{r.reservationNumber}</Link>,
+            r.rentalId && r.raNumber != null ? rental(r.rentalId, r.raNumber) : "",
+            ymdhm(r.pickup), ymdhm(r.return), money(r.resTotal), r.rentalSubtotal != null ? money(r.rentalSubtotal) : "", r.rentalTotal != null ? money(r.rentalTotal) : "",
+            ymdhm(r.date), r.discount, money(r.discountTotal),
+          ])}
+          foot={["Total", "", "", "", "", "", "", "", "", "", "", "", money(q.data.totals.discountTotal)]} />
+      )}
+    </ReportFrame>
+  );
+}

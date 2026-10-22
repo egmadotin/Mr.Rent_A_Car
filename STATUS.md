@@ -30,14 +30,14 @@ The RentCentric menus, vehicle page and customer page were re-read on Oct 20. No
 | Vehicles (list, add, edit, summary) | ✅ (every vehicle page action built) |
 | Users, user groups and permissions | ✅ (group location limit not enforced) |
 | Settings | 🟡 about 52 of RentCentric's ~100 setting pages built (section 7) |
-| Reports | 🟡 29 of 64 built (see section 8) |
+| Reports | 🟡 30 of 64 built (see section 8) |
 | Dashboard | ✅ |
 | Public website and online booking | ✅ (customer login and fleet filters 🟡) |
 | Email | ✅ built, 🔑 needs the client's email (SMTP) account |
 | Card payments (Stripe) | ✅ built, 🔑 needs Stripe keys |
 | Data migration from RentCentric | 🟡 setup data copied; customers / bookings history not yet |
 | File storage (photos, documents) | ✅ staff-only `/api/files`; local disk (`.uploads/`) in dev, any S3-compatible bucket (AWS S3, Cloudflare R2 …) when `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` are set — to verify against the real bucket at deployment. New route: restart the server (start.bat) once to pick it up |
-| Hosting / deployment | 🟡 production Docker setup + deploy.bat ready (VPS 145.223.18.134, pulls from GitHub); first deploy waiting on server SSH access |
+| Hosting / deployment | 🟡 production Docker setup + deploy.bat ready (VPS 145.223.18.134, port 3100, pulls from GitHub via a read-only deploy key — key to add on GitHub); the client deploys. kawa stopped and archived in /opt/platform/archive |
 
 ---
 
@@ -248,7 +248,7 @@ RentCentric's Settings menu, item by item.
 | Website & Email | Mail Server Configuration | ✅ |
 | Website & Email | Reservation Email, Quote Email | 🟡 sent with the templates |
 | Website & Email | Inspection Email | ✅ Subject + body; each inspection has an email button (details + photos attached) 🔑 SMTP |
-| Website & Email | Promotions/Specials | ✅ RentCentric's 9 codes copied (locations + vehicle types); a valid code on an online booking becomes its discount (dates, minimum days, location, vehicle type, one-time use checked). Promo Code report still to do |
+| Website & Email | Promotions/Specials | ✅ RentCentric's 9 codes copied (locations + vehicle types); a valid code on an online booking becomes its discount (dates, minimum days, location, vehicle type, one-time use checked). Promo Code report built |
 | Website & Email | Rental Policies | ⬜ |
 | Website & Email | Configuration, Style & Format, Add/Edit Webpages | ⬜ (our public site replaces these) |
 | Website & Email | Online Reservation (incl. V3, mobile), I-Frame Widget, I-Frame Rotator | ⬜ (our public site replaces these) |
@@ -259,14 +259,14 @@ RentCentric's Settings menu, item by item.
 
 ## 8. Reports
 
-Built (29 of 64; same filters, columns and totals as RentCentric, 31-day limit on the daily ones): **Daily Business Report, Daily Cash Summary Report, Month to Date Report, Adjustment Details, Tasks List, Commissions, Revenue By Customer, Revenue By Vehicle, Revenue By Location, Revenue By Company, Rental Status, Reservation Manifest, Reservations No Showup/Cancelled, Rental Days, Rental Discount, Vehicle Due In, Vehicles Summary, Vehicle License Expiration, Vehicle Repairs, Vehicle Maintenance, Maintenance Alert, Checklist Overview, Customer List, Customer By Region, Traffic Tickets, Source Of Referral, Payments & Charges, Customer Notes, Undesired Customers** (`/admin/reports`).
+Built (30 of 64; same filters, columns and totals as RentCentric, 31-day limit on the daily ones): **Daily Business Report, Daily Cash Summary Report, Month to Date Report, Adjustment Details, Tasks List, Commissions, Revenue By Customer, Revenue By Vehicle, Revenue By Location, Revenue By Company, Rental Status, Reservation Manifest, Reservations No Showup/Cancelled, Promo Code, Rental Days, Rental Discount, Vehicle Due In, Vehicles Summary, Vehicle License Expiration, Vehicle Repairs, Vehicle Maintenance, Maintenance Alert, Checklist Overview, Customer List, Customer By Region, Traffic Tickets, Source Of Referral, Payments & Charges, Customer Notes, Undesired Customers** (`/admin/reports`).
 
-Notes: rental discount changes are written to the rental's change log, which Rental Discount reads. Promo Code waits for Promotions/Specials (no promo codes in the system yet). Revenue By Rate opens a blank window in RentCentric (probably a file download) — to check.
+Notes: rental discount changes are written to the rental's change log, which Rental Discount reads. Promo Code lists reservations booked with a code (Settings › Promotions/Specials). Revenue By Rate opens a blank window in RentCentric (probably a file download) — to check.
 
 Not built yet:
 
 - **Management Reports:** Rental Details, Invoices, Rental Event Tracking, Reservation Event Tracking, Broker Commission, Sales Projection, Work In Process, Revenue By Rate, Revenue By Admin, Revenue By Options, Non-Revenue.
-- **Rentals & Reservations:** Vehicle Rental Calendar, Corporate A/R By Bills, Customer A/R Report, Reservation A/R by Bills, Corporate A/R Analysis, Fleet Grid, Custom Reports, Reservation Forecast, Reservation Grid, Reservations Calendar, Dynamic Scheduler, Visual Scheduler, Promo Code.
+- **Rentals & Reservations:** Vehicle Rental Calendar, Corporate A/R By Bills, Customer A/R Report, Reservation A/R by Bills, Corporate A/R Analysis, Fleet Grid, Custom Reports, Reservation Forecast, Reservation Grid, Reservations Calendar, Dynamic Scheduler, Visual Scheduler.
 - **Vehicles:** Vehicles Summary with QR Code, Vehicle Utilization (Today), Fleet Utilization History, Fleet Utilization For Cast, Vehicle Profit/Loss, Repair Orders, Vehicle Lease/Loan, Snap Shot For Rentals / Vehicle Type, Vehicle Insurance, KM Difference/Missing, Fleet Utilization Snapshot.
 
 ## 9. Dashboard
@@ -306,7 +306,6 @@ Not built yet:
 
 ## Next session (Oct 22)
 
-1. Promo Code report (columns copied: First Name, Last Name, Promo Code, Res.#, Rental #, Pickup / Return Date, Res.Total, Rental Subtotal, Rental Total, Date, Discount, Discount Total).
 2. Commission Structures (1 in RentCentric), Claims Management list (all claims).
 3. Partner Login Setup, Import Data tools, Copy Location Setup, Renew Rental Agreements.
 4. Remaining reports, data migration, deployment.
