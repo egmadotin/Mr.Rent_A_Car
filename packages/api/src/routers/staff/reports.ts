@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
+import QRCode from "qrcode";
 import { Prisma } from "@mrac/db";
 import { router, staffProcedure } from "../../trpc";
 import { methodData, methodLabel } from "../../lib/payment-methods";
@@ -1927,6 +1928,148 @@ export const reportsRouter = router({
         };
       });
       return { rows, total: rows.length };
+    }),
+
+  /** Vehicles Summary with QR Code (ReportsVehicleListWithQRCode): vehicles by type, each with a QR code of its Assigned ID (for the mobile scanner). */
+  vehiclesQr: staffProcedure
+    .input(
+      z.object({
+        makeId: optId, year: z.coerce.number().int().optional(), status: z.string().optional(), locationId: optId, owningLocationId: optId, currentLocationId: optId, vehicleTypeId: optId,
+        orderBy: z.enum(["NONE", "MAKE", "MODEL", "VEHICLE_ID", "YEAR", "STATUS", "TYPE", "OUT_OF_SERVICE"]).default("NONE"), active: z.enum(["ALL", "ACTIVE", "INACTIVE"]).default("ALL"),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const order: Record<typeof input.orderBy, Prisma.VehicleOrderByWithRelationInput> = {
+        NONE: { assignedId: "asc" }, MAKE: { make: { name: "asc" } }, MODEL: { model: { name: "asc" } }, VEHICLE_ID: { assignedId: "asc" }, YEAR: { year: "asc" },
+        STATUS: { status: "asc" }, TYPE: { vehicleType: { name: "asc" } }, OUT_OF_SERVICE: { maintenanceBeginDate: "asc" },
+      };
+      const vs = await ctx.prisma.vehicle.findMany({
+        where: {
+          ...vehicleFilter(input), ...(input.active !== "ALL" ? { isActive: input.active === "ACTIVE" } : {}), ...(input.status ? { status: input.status as never } : {}),
+          ...(input.owningLocationId ? { owningLocationId: input.owningLocationId } : {}), ...(input.currentLocationId ? { currentLocationId: input.currentLocationId } : {}),
+        },
+        orderBy: order[input.orderBy],
+        take: 1000,
+        select: { id: true, assignedId: true, year: true, licenseNumber: true, vin: true, status: true, make: { select: { name: true } }, model: { select: { name: true } }, vehicleType: { select: { name: true } } },
+      });
+      const groups = new Map<string, { type: string; rows: { id: string; assignedId: string; vehicle: string; plate: string; vin: string; status: string; qr: string }[] }>();
+      for (const v of vs) {
+        const g = groups.get(v.vehicleType.name) ?? { type: v.vehicleType.name, rows: [] };
+        g.rows.push({
+          id: v.id, assignedId: v.assignedId, vehicle: `${v.year ?? ""} ${v.make.name} ${v.model.name}`.trim(), plate: v.licenseNumber, vin: v.vin ?? "", status: v.status,
+          qr: await QRCode.toString(v.assignedId, { type: "svg", margin: 1, width: 96 }),
+        });
+        groups.set(v.vehicleType.name, g);
+      }
+      return { groups: [...groups.values()].sort((a, b) => a.type.localeCompare(b.type)), total: vs.length };
+    }),
+
+  /**
+   * Fleet Grid (ReportsFleetGrid) and Reservation Grid (ReportsReservationGrid): vehicle type × day. Fleet Grid shows the
+   * vehicles still available each day — fleet − on rent − reserved, the reservations reduced by the expected No Show % —
+   * and Reservation Grid the reservations out each day.
+   */
+  bookingGrid: staffProcedure
+    .input(
+      z.object({
+        kind: z.enum(["FLEET", "RESERVATION"]), from: z.coerce.date(), to: z.coerce.date(), locationId: optId, vehicleTypeId: optId,
+        active: z.enum(["ALL", "ACTIVE", "INACTIVE"]).default("ACTIVE"), noShowPercent: z.coerce.number().min(0).max(100).default(0),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      within31(input.from, input.to);
+      const end = new Date(+input.to + DAY);
+      const [types, fleet, rentals, reservations] = await Promise.all([
+        ctx.prisma.vehicleType.findMany({ where: { isActive: true, ...(input.vehicleTypeId ? { id: input.vehicleTypeId } : {}) }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
+        ctx.prisma.vehicle.groupBy({
+          by: ["vehicleTypeId"], _count: true,
+          where: { ...(input.active !== "ALL" ? { isActive: input.active === "ACTIVE" } : {}), ...(input.locationId ? { rentalLocationId: input.locationId } : {}), ...(input.vehicleTypeId ? { vehicleTypeId: input.vehicleTypeId } : {}) },
+        }),
+        input.kind === "FLEET"
+          ? ctx.prisma.rental.findMany({
+              where: { deletedAt: null, status: "OPEN", checkOutAt: { lt: end }, expectedReturnAt: { gte: input.from }, ...(input.locationId ? { checkOutLocationId: input.locationId } : {}), ...(input.vehicleTypeId ? { vehicleTypeId: input.vehicleTypeId } : {}) },
+              select: { vehicleTypeId: true, checkOutAt: true, expectedReturnAt: true },
+            })
+          : Promise.resolve([]),
+        ctx.prisma.reservation.findMany({
+          where: { deletedAt: null, status: { in: ["TENTATIVE", "CONFIRMED"] }, pickupAt: { lt: end }, returnAt: { gte: input.from }, ...(input.locationId ? { pickupLocationId: input.locationId } : {}), ...(input.vehicleTypeId ? { vehicleTypeId: input.vehicleTypeId } : {}) },
+          select: { vehicleTypeId: true, pickupAt: true, returnAt: true },
+        }),
+      ]);
+      const days: Date[] = [];
+      for (let d = +input.from; d < +end; d += DAY) days.push(new Date(d));
+      const on = (a: Date, b: Date, d: Date) => +a < +d + DAY && +b > +d;
+      const count = new Map(fleet.map((f) => [f.vehicleTypeId, f._count]));
+      const keep = 1 - input.noShowPercent / 100;
+      const rows = types
+        .map((t) => {
+          const f = count.get(t.id) ?? 0;
+          const cells = days.map((d) => {
+            const res = reservations.filter((r) => r.vehicleTypeId === t.id && on(r.pickupAt, r.returnAt, d)).length;
+            if (input.kind === "RESERVATION") return res;
+            const out = rentals.filter((r) => r.vehicleTypeId === t.id && on(r.checkOutAt, r.expectedReturnAt, d)).length;
+            return Math.floor(f - out - res * keep);
+          });
+          return { type: t.name, fleet: f, cells };
+        })
+        .filter((r) => r.fleet || r.cells.some((c) => c !== 0));
+      return { days, rows, totals: days.map((_, i) => rows.reduce((a, r) => a + r.cells[i]!, 0)) };
+    }),
+
+  /**
+   * Reservation Forecast (ReportsReservationForcast): per day, by vehicle type, the reservations picking up and the
+   * rentals / reservations due back; "By Reservation" lists the reservations themselves.
+   */
+  reservationForecast: staffProcedure
+    .input(
+      z.object({
+        from: z.coerce.date(), to: z.coerce.date(), locationId: optId, vehicleTypeId: optId, active: z.enum(["ALL", "ACTIVE", "INACTIVE"]).default("ACTIVE"),
+        summary: z.enum(["ALL", "BY_RESERVATION"]).default("ALL"),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      within31(input.from, input.to);
+      const end = new Date(+input.to + DAY);
+      const types = await ctx.prisma.vehicleType.findMany({
+        where: { ...(input.active !== "ALL" ? { isActive: input.active === "ACTIVE" } : {}), ...(input.vehicleTypeId ? { id: input.vehicleTypeId } : {}) },
+        orderBy: { name: "asc" },
+        select: { id: true, name: true },
+      });
+      const typeIds = types.map((t) => t.id);
+      const [pickups, resReturns, rentalReturns] = await Promise.all([
+        ctx.prisma.reservation.findMany({
+          where: { deletedAt: null, status: { in: ["TENTATIVE", "CONFIRMED"] }, pickupAt: { gte: input.from, lt: end }, vehicleTypeId: { in: typeIds }, ...(input.locationId ? { pickupLocationId: input.locationId } : {}) },
+          orderBy: { pickupAt: "asc" },
+          select: { id: true, number: true, pickupAt: true, returnAt: true, firstName: true, lastName: true, vehicleTypeId: true, pickupLocation: { select: { name: true } }, returnLocation: { select: { name: true } } },
+        }),
+        ctx.prisma.reservation.findMany({
+          where: { deletedAt: null, status: { in: ["TENTATIVE", "CONFIRMED"] }, returnAt: { gte: input.from, lt: end }, vehicleTypeId: { in: typeIds }, ...(input.locationId ? { returnLocationId: input.locationId } : {}) },
+          select: { vehicleTypeId: true, returnAt: true },
+        }),
+        ctx.prisma.rental.findMany({
+          where: { deletedAt: null, status: "OPEN", expectedReturnAt: { gte: input.from, lt: end }, vehicleTypeId: { in: typeIds }, ...(input.locationId ? { checkInLocationId: input.locationId } : {}) },
+          select: { vehicleTypeId: true, expectedReturnAt: true },
+        }),
+      ]);
+      const name = new Map(types.map((t) => [t.id, t.name]));
+      const days: Date[] = [];
+      for (let d = +input.from; d < +end; d += DAY) days.push(new Date(d));
+      const sameDay = (x: Date, d: Date) => +x >= +d && +x < +d + DAY;
+      return days.map((d) => {
+        const out = pickups.filter((r) => sameDay(r.pickupAt, d));
+        const rows = types
+          .map((t) => ({
+            type: t.name, pickups: out.filter((r) => r.vehicleTypeId === t.id).length,
+            returns: resReturns.filter((r) => r.vehicleTypeId === t.id && sameDay(r.returnAt, d)).length + rentalReturns.filter((r) => r.vehicleTypeId === t.id && sameDay(r.expectedReturnAt, d)).length,
+          }))
+          .filter((r) => r.pickups || r.returns)
+          .map((r) => ({ ...r, net: r.returns - r.pickups }));
+        const reservations =
+          input.summary === "BY_RESERVATION"
+            ? out.map((r) => ({ id: r.id, number: r.number, customer: `${r.firstName} ${r.lastName}`, type: name.get(r.vehicleTypeId) ?? "", pickup: r.pickupAt, pickupLocation: r.pickupLocation.name, return: r.returnAt, returnLocation: r.returnLocation.name }))
+            : [];
+        return { date: d, rows, reservations, pickups: rows.reduce((a, r) => a + r.pickups, 0), returns: rows.reduce((a, r) => a + r.returns, 0) };
+      });
     }),
 
   /** Pick-lists for the report filters. */

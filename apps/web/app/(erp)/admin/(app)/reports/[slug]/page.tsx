@@ -12,6 +12,7 @@ import { KmDifferenceReport, VehicleInsuranceReport, VehicleLeaseLoanReport, Veh
 import { CorporateArAnalysisReport, CorporateArReport, CustomerArReport, ReservationArReport } from "../_components/ar-reports";
 import { BrokerCommissionReport, RevenueByRateReport, SalesProjectionReport, WorkInProcessReport } from "../_components/sales-reports";
 import { FleetSnapshotReport, FleetUtilizationForecastReport, FleetUtilizationHistoryReport, SnapShotReport } from "../_components/utilization-reports";
+import { FleetGridReport, ReservationForecastReport, ReservationGridReport, VehiclesQrReport } from "../_components/grid-reports";
 import { BUILT_REPORTS } from "../report-list";
 
 const SCREENS: Record<string, () => React.JSX.Element> = {
@@ -63,6 +64,10 @@ const SCREENS: Record<string, () => React.JSX.Element> = {
   "fleet-utilization-forecast": FleetUtilizationForecastReport,
   "snap-shot": SnapShotReport,
   "fleet-utilization-snapshot": FleetSnapshotReport,
+  "vehicles-summary-qr": VehiclesQrReport,
+  "fleet-grid": FleetGridReport,
+  "reservation-grid": ReservationGridReport,
+  "reservation-forecast": ReservationForecastReport,
   "vehicle-insurance": VehicleInsuranceReport,
   "vehicle-lease-loan": VehicleLeaseLoanReport,
   "km-difference": KmDifferenceReport,

@@ -30,7 +30,7 @@ The RentCentric menus, vehicle page and customer page were re-read on Oct 20. No
 | Vehicles (list, add, edit, summary) | ✅ (every vehicle page action built) |
 | Users, user groups and permissions | ✅ (group location limit not enforced) |
 | Settings | 🟡 about 64 of RentCentric's ~100 setting pages built (section 7) |
-| Reports | 🟡 54 of 64 built (see section 8) |
+| Reports | 🟡 58 of 64 built (see section 8) |
 | Dashboard | ✅ |
 | Public website and online booking | ✅ (customer login and fleet filters 🟡) |
 | Email | ✅ built, 🔑 needs the client's email (SMTP) account |
@@ -261,14 +261,14 @@ RentCentric's Settings menu, item by item.
 
 ## 8. Reports
 
-Built (54 of 64; same filters, columns and totals as RentCentric, 31-day limit on the daily ones): **Daily Business Report, Daily Cash Summary Report, Month to Date Report, Rental Details, Adjustment Details, Invoices, Rental Event Tracking, Reservation Event Tracking, Tasks List, Commissions, Broker Commission, Sales Projection, Work In Process, Revenue By Customer, Revenue By Vehicle, Revenue By Location, Revenue By Rate, Revenue By Admin, Revenue By Company, Revenue By Options, Non-Revenue, Rental Status, Reservation Manifest, Corporate A/R By Bills, Customer A/R Report, Reservation A/R by Bills, Corporate A/R Analysis, Reservations No Showup/Cancelled, Promo Code, Rental Days, Rental Discount, Vehicle Due In, Vehicles Summary, Vehicle Utilization (Today), Fleet Utilization History, Fleet Utilization For Cast, Vehicle License Expiration, Vehicle Profit/Loss, Vehicle Repairs, Vehicle Lease/Loan, Vehicle Maintenance, Maintenance Alert, Snap Shot For Rentals / Vehicle Type, Vehicle Insurance, KM Difference/Missing, Fleet Utilization Snapshot, Checklist Overview, Customer List, Customer By Region, Traffic Tickets, Source Of Referral, Payments & Charges, Customer Notes, Undesired Customers** (`/admin/reports`).
+Built (58 of 64; same filters, columns and totals as RentCentric, 31-day limit on the daily ones): **Daily Business Report, Daily Cash Summary Report, Month to Date Report, Rental Details, Adjustment Details, Invoices, Rental Event Tracking, Reservation Event Tracking, Tasks List, Commissions, Broker Commission, Sales Projection, Work In Process, Revenue By Customer, Revenue By Vehicle, Revenue By Location, Revenue By Rate, Revenue By Admin, Revenue By Company, Revenue By Options, Non-Revenue, Rental Status, Reservation Manifest, Corporate A/R By Bills, Customer A/R Report, Reservation A/R by Bills, Corporate A/R Analysis, Fleet Grid, Reservation Forecast, Reservation Grid, Reservations No Showup/Cancelled, Promo Code, Rental Days, Rental Discount, Vehicle Due In, Vehicles Summary, Vehicles Summary with QR Code, Vehicle Utilization (Today), Fleet Utilization History, Fleet Utilization For Cast, Vehicle License Expiration, Vehicle Profit/Loss, Vehicle Repairs, Vehicle Lease/Loan, Vehicle Maintenance, Maintenance Alert, Snap Shot For Rentals / Vehicle Type, Vehicle Insurance, KM Difference/Missing, Fleet Utilization Snapshot, Checklist Overview, Customer List, Customer By Region, Traffic Tickets, Source Of Referral, Payments & Charges, Customer Notes, Undesired Customers** (`/admin/reports`).
 
-Notes: rental discount changes are written to the rental's change log, which Rental Discount reads. Promo Code lists reservations booked with a code (Settings › Promotions/Specials). Revenue By Rate groups by rate code with Hourly / Daily / Extra Daily / Weekly / Monthly time charges. A/R reports: a company's amount due is its Bill Split; payments marked as from that company count against it. Fleet Utilization For Cast shows nothing in RentCentric even for upcoming days, so ours is a per-day / vehicle-type projection (fleet, on rent, reserved, available) — to check with the client. Snap Shot's Contract Type filter (Regular / Cash Customer / Direct Bill / Insurance Replacement / Loaner / Warranty) is not built: rentals have no contract type field yet.
+Notes: rental discount changes are written to the rental's change log, which Rental Discount reads. Promo Code lists reservations booked with a code (Settings › Promotions/Specials). Revenue By Rate opens a blank window in RentCentric (probably a file download) — to check.
 
 Not built yet:
 
-- **Rentals & Reservations:** Vehicle Rental Calendar, Fleet Grid, Custom Reports, Reservation Forecast, Reservation Grid, Reservations Calendar, Dynamic Scheduler, Visual Scheduler.
-- **Vehicles:** Vehicles Summary with QR Code, Repair Orders.
+- **Rentals & Reservations:** Vehicle Rental Calendar, Custom Reports, Reservations Calendar, Dynamic Scheduler, Visual Scheduler.
+- **Vehicles:** Repair Orders.
 
 ## 9. Dashboard
 

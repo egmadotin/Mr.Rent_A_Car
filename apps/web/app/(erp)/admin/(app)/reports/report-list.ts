@@ -25,7 +25,7 @@ export const REPORT_CATEGORIES: ReportCategory[] = [
       { name: "Rental Status", slug: "rental-status" },
       { name: "Reservation Manifest", slug: "reservation-manifest" },
       { name: "Vehicle Rental Calendar" }, { name: "Corporate A/R By Bills", slug: "corporate-ar" }, { name: "Customer A/R Report", slug: "customer-ar" }, { name: "Reservation A/R by Bills", slug: "reservation-ar" },
-      { name: "Corporate A/R Analysis", slug: "corporate-ar-analysis" }, { name: "Fleet Grid" }, { name: "Custom Reports" }, { name: "Reservation Forecast" }, { name: "Reservation Grid" },
+      { name: "Corporate A/R Analysis", slug: "corporate-ar-analysis" }, { name: "Fleet Grid", slug: "fleet-grid" }, { name: "Custom Reports" }, { name: "Reservation Forecast", slug: "reservation-forecast" }, { name: "Reservation Grid", slug: "reservation-grid" },
       { name: "Reservations No Showup/Cancelled", slug: "no-show-cancelled" }, { name: "Reservations Calendar" }, { name: "Dynamic Scheduler" }, { name: "Visual Scheduler" },
       { name: "Promo Code", slug: "promo-code" }, { name: "Rental Days", slug: "rental-days" }, { name: "Rental Discount", slug: "rental-discount" },
     ],
@@ -36,7 +36,7 @@ export const REPORT_CATEGORIES: ReportCategory[] = [
     icon: "truck",
     reports: [
       { name: "Vehicle Due In", slug: "vehicle-due-in" },
-      { name: "Vehicles Summary", slug: "vehicles-summary" }, { name: "Vehicles Summary with QR Code" }, { name: "Vehicle Utilization (Today)", slug: "vehicle-utilization" }, { name: "Fleet Utilization History", slug: "fleet-utilization-history" },
+      { name: "Vehicles Summary", slug: "vehicles-summary" }, { name: "Vehicles Summary with QR Code", slug: "vehicles-summary-qr" }, { name: "Vehicle Utilization (Today)", slug: "vehicle-utilization" }, { name: "Fleet Utilization History", slug: "fleet-utilization-history" },
       { name: "Fleet Utilization For Cast", slug: "fleet-utilization-forecast" }, { name: "Vehicle License Expiration", slug: "license-expiration" }, { name: "Vehicle Profit/Loss", slug: "vehicle-profit" }, { name: "Repair Orders" },
       { name: "Vehicle Repairs", slug: "vehicle-repairs" }, { name: "Vehicle Lease/Loan", slug: "vehicle-lease-loan" }, { name: "Vehicle Maintenance", slug: "vehicle-maintenance" }, { name: "Maintenance Alert", slug: "maintenance-alert" },
       { name: "Snap Shot For Rentals / Vehicle Type", slug: "snap-shot" }, { name: "Vehicle Insurance", slug: "vehicle-insurance" }, { name: "KM Difference/Missing", slug: "km-difference" }, { name: "Fleet Utilization Snapshot", slug: "fleet-utilization-snapshot" }, { name: "Checklist Overview", slug: "checklist-overview" },
