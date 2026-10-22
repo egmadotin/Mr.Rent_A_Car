@@ -790,6 +790,18 @@ export const rentalRouter = router({
       await loadRental(ctx.prisma, c.rentalId);
       await ctx.prisma.commission.update({ where: { id: c.id }, data: { amount: D(input.amount), referralId: input.referralId, userId: input.userId } });
     }),
+  /** Settings > Commissions (CommissionsMain.aspx): every commission entered (Rental#, Amount, Date Entered, Referral, User, Entered By). */
+  allCommissions: permitted("Commissions")
+    .input(z.object({ from: z.coerce.date().optional(), to: z.coerce.date().optional() }).default({}))
+    .query(({ ctx, input }) =>
+      ctx.prisma.commission.findMany({
+        where: { rental: { deletedAt: null }, ...(input.from || input.to ? { enteredAt: { ...(input.from ? { gte: input.from } : {}), ...(input.to ? { lt: new Date(+input.to + 86_400_000) } : {}) } } : {}) },
+        orderBy: { enteredAt: "desc" },
+        take: 2000,
+        include: { rental: { select: { id: true, raNumber: true } }, referral: { select: { name: true } }, user: { select: { name: true } }, enteredBy: { select: { name: true } } },
+      }),
+    ),
+
   deleteCommission: permitted("CommissionsDelete").input(z.object({ commissionId: z.string() })).mutation(async ({ ctx, input }) => {
     const c = await ctx.prisma.commission.findUnique({ where: { id: input.commissionId } });
     if (!c) throw new TRPCError({ code: "NOT_FOUND", message: "Commission not found" });

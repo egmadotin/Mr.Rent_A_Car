@@ -29,7 +29,7 @@ The RentCentric menus, vehicle page and customer page were re-read on Oct 20. No
 | Customers (list, add, edit, view and its actions) | ✅ |
 | Vehicles (list, add, edit, summary) | ✅ (every vehicle page action built) |
 | Users, user groups and permissions | ✅ (group location limit not enforced) |
-| Settings | 🟡 about 54 of RentCentric's ~100 setting pages built (section 7) |
+| Settings | 🟡 about 55 of RentCentric's ~100 setting pages built (section 7) |
 | Reports | 🟡 30 of 64 built (see section 8) |
 | Dashboard | ✅ |
 | Public website and online booking | ✅ (customer login and fleet filters 🟡) |
@@ -243,7 +243,7 @@ RentCentric's Settings menu, item by item.
 | Claims | Status Of Repair | ⏸ empty in RentCentric |
 | Claims | Claim Types | ⏸ empty in RentCentric (claims use Renter / 3rd Party / Other) |
 | Financial / Commission | Accounting | ⬜ |
-| Financial / Commission | Commissions | ⬜ |
+| Financial / Commission | Commissions | ✅ every commission entered on rentals (Rental#, Amount, Date Entered, Referral, User, Entered By, Delete) |
 | Financial / Commission | Referrals | ✅ list, add, edit, deactivate; delete only when never used (fields as imported from RentCentric) |
 | Financial / Commission | Commission Structures | ✅ RentCentric's structure copied (coquitlam: 25% open + 25% close on Net Rate, Mileage, Prepaid Fuel, Additional Driver); agents get structures + a Commission type/amount on Settings › Users; the Commissions report adds what they earn |
 | Website & Email | Mail Server Configuration | ✅ |
