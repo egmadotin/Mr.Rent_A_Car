@@ -2,6 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { checkPromo, promoDiscount } from "../lib/promo";
 import { checkUnsubscribe } from "../lib/unsubscribe";
+import { sendReservationEmail } from "../lib/booking-emails";
 import { Prisma } from "@mrac/db";
 import { router, publicProcedure } from "../trpc";
 import { onlineOptions, periodTotal, pickOnlineRate, priceBooking } from "../lib/pricing";
@@ -327,7 +328,7 @@ export const customerRouter = router({
         card = { ...(await cardOf(g.stripe, pm)), paymentMethodId: pm, heldCents: isPayment ? (intent as { amount: number }).amount : null, intentId: intent.id };
       }
 
-      return withBookingGuard(() =>
+      const booked = await withBookingGuard(() =>
         ctx.prisma.$transaction(async (tx) => {
           const s = input.search;
           const { rate, priced, promo } = await priceOnline(tx, input);
@@ -412,6 +413,14 @@ export const customerRouter = router({
           return { reservationNumber: r.number, total: priced.total.toFixed(2) };
         }),
       );
+      // Settings > Reservation Email to the customer (a copy to staff); a failure is noted on the reservation, never undoes it
+      const res = await ctx.prisma.reservation.findUniqueOrThrow({ where: { number: booked.reservationNumber }, select: { id: true } });
+      try {
+        await sendReservationEmail(ctx.prisma, res.id, input.email, null);
+      } catch (e) {
+        await ctx.prisma.memo.create({ data: { reservationId: res.id, kind: "NOTE", body: `Reservation email to ${input.email} not sent: ${(e as Error).message}` } });
+      }
+      return booked;
     }),
 });
 

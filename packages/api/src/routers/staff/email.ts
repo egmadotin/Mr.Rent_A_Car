@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { adminProcedure, router, staffProcedure } from "../../trpc";
+import { adminProcedure, permitted, router, staffProcedure } from "../../trpc";
 import { audit } from "../../lib/audit";
 import { sendMail } from "../../lib/mailer";
 import { encryptSecret } from "../../lib/secrets";
@@ -72,6 +72,44 @@ export const emailRouter = router({
     .mutation(async ({ ctx, input }) => emailDocument(ctx.prisma, { ...input, sentById: ctx.user.id })),
 
   /** Sent emails for a rental / reservation / quote. */
+  /** Settings > Reservation Email (WebCustomerEmailSetup.aspx) for one location. */
+  reservationEmailGet: staffProcedure.input(z.object({ locationId: z.string() })).query(async ({ ctx, input }) => {
+    const s = await ctx.prisma.reservationEmailSetup.findUnique({ where: { locationId: input.locationId } });
+    return {
+      fromName: s?.fromName ?? "", fromEmail: s?.fromEmail ?? "", format: (s?.format ?? "HTML") as "HTML" | "TEXT", copyTo: s?.copyTo ?? "",
+      subject: s?.subject ?? "Reservation Confirmation", body: s?.body ?? "", identityVerificationUrl: s?.identityVerificationUrl ?? "",
+    };
+  }),
+
+  /** "Use For All Locations" saves the same setup on every location. The body is HTML sent as-is, so the templates permission. */
+  reservationEmailSave: permitted("AgreementFormsEdit")
+    .input(
+      z.object({
+        locationId: z.string(), allLocations: z.boolean().default(false),
+        data: z.object({
+          fromName: z.string().trim().max(100).nullable(), fromEmail: optEmail, format: z.enum(["HTML", "TEXT"]), copyTo: optEmail,
+          subject: z.string().trim().min(1, "Subject is required").max(200), body: z.string().max(200_000), identityVerificationUrl: z.string().trim().max(500).nullable(),
+        }),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const ids = input.allLocations ? (await ctx.prisma.location.findMany({ select: { id: true } })).map((l) => l.id) : [input.locationId];
+      for (const locationId of ids) await ctx.prisma.reservationEmailSetup.upsert({ where: { locationId }, create: { locationId, ...input.data }, update: input.data });
+      return { saved: ids.length };
+    }),
+
+  /** Settings > Quote Email (QuoteCustomerEmail.aspx). */
+  quoteEmailGet: staffProcedure.query(async ({ ctx }) => {
+    const s = await ctx.prisma.emailSettings.findUnique({ where: { id: "default" }, select: { quoteSubject: true, quoteBody: true } });
+    return { subject: s?.quoteSubject ?? "Quote", body: s?.quoteBody ?? "" };
+  }),
+
+  quoteEmailSave: permitted("AgreementFormsEdit")
+    .input(z.object({ subject: z.string().trim().min(1, "Subject is required").max(200), body: z.string().max(200_000) }))
+    .mutation(async ({ ctx, input }) => {
+      await ctx.prisma.emailSettings.upsert({ where: { id: "default" }, create: { id: "default", quoteSubject: input.subject, quoteBody: input.body }, update: { quoteSubject: input.subject, quoteBody: input.body } });
+    }),
+
   log: staffProcedure.input(z.object({ entityType: z.string(), entityId: z.string() })).query(({ ctx, input }) =>
     ctx.prisma.emailLog.findMany({ where: input, orderBy: { createdAt: "desc" }, take: 50 }),
   ),

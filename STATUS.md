@@ -248,7 +248,8 @@ RentCentric's Settings menu, item by item.
 | Financial / Commission | Referrals | ✅ list, add, edit, deactivate; delete only when never used (fields as imported from RentCentric) |
 | Financial / Commission | Commission Structures | ✅ RentCentric's structure copied (coquitlam: 25% open + 25% close on Net Rate, Mileage, Prepaid Fuel, Additional Driver); agents get structures + a Commission type/amount on Settings › Users; the Commissions report adds what they earn |
 | Website & Email | Mail Server Configuration | ✅ |
-| Website & Email | Reservation Email, Quote Email | 🟡 sent with the templates |
+| Website & Email | Reservation Email | ✅ per location (+ Use For All Locations): From Name / Email, To Email (a copy to staff), HTML/Text, Subject, optional body (empty = the Reservation Confirmation template), Identity Verification URL; RentCentric's settings copied (as at Surrey). Sent on every online booking (a failure is noted on the reservation) and by Send Confirmation Email 🔑 SMTP. Reservation / rental renewal reminders: ⏸ off in RentCentric |
+| Website & Email | Quote Email | ✅ RentCentric's Subject and body copied (its web-email codes: ##QuoteNumber##, ##PickupDate##, ##ChargesSummary##, ##LocationLogo## …); Email Quote sends it (empty body = the Quote template) 🔑 SMTP |
 | Website & Email | Inspection Email | ✅ Subject + body; each inspection has an email button (details + photos attached) 🔑 SMTP |
 | Website & Email | Promotions/Specials | ✅ RentCentric's 9 codes copied (locations + vehicle types); a valid code on an online booking becomes its discount (dates, minimum days, location, vehicle type, one-time use checked). Promo Code report built |
 | Website & Email | Rental Policies | ✅ RentCentric's Master Policies copied (same text for every location); shown on the online booking's last step above "I accept the rental policy"; editable with a preview (`/admin/settings/rental-policies`). New route: restart the server once |

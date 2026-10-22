@@ -2,7 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { Prisma } from "@mrac/db";
 import { router, staffProcedure, permitted } from "../../trpc";
-import { emailDocument } from "../../lib/email-document";
+import { sendQuoteEmail } from "../../lib/booking-emails";
 import { audit } from "../../lib/audit";
 import { priceBooking } from "../../lib/pricing";
 import { bookingOptionsInput, staffPricingOptions } from "../../lib/booking-options";
@@ -265,11 +265,10 @@ ${input.notes}` : ""}`,
           },
         });
       });
-      // Email Quote: the quote's template (Settings > Rentals & Invoices, "Quote"), Cc as a second recipient, Notes as the message
+      // Email Quote: Settings > Quote Email (else the quote's template), Cc as a second recipient, Notes as the message
       if (input.channel === "EMAIL") {
-        const q = await ctx.prisma.quote.findUniqueOrThrow({ where: { id: input.quoteId }, select: { number: true } });
         const to = [input.email!, input.cc].filter(Boolean).join(", ");
-        await emailDocument(ctx.prisma, { kind: "QUOTE", id: input.quoteId, to, subject: `Your quote #${q.number} — Mr Rent A Car`, message: input.notes, sentById: ctx.user.id });
+        await sendQuoteEmail(ctx.prisma, input.quoteId, to, input.notes, ctx.user.id);
         await ctx.prisma.memo.create({ data: { quoteId: input.quoteId, authorId: ctx.user.id, body: `Quote emailed to ${to}${input.notes ? `
 ${input.notes}` : ""}` } });
       }

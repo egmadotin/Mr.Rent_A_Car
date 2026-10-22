@@ -10,7 +10,7 @@ import { methodData, paymentMethodInput } from "../../lib/payment-methods";
 import { storedRateOverride } from "../../lib/rate-override";
 import { customerInput, upsertBookingCustomer } from "../../lib/customer-input";
 import { billSplitData, billSplitInput, transportInput } from "../../lib/bill-split";
-import { emailDocument } from "../../lib/email-document";
+import { sendReservationEmail } from "../../lib/booking-emails";
 import { syncDrivers } from "../../lib/booking-drivers";
 
 const D = (n: number) => new Prisma.Decimal(n);
@@ -215,9 +215,8 @@ async function writeBooking(
 async function sendConfirmation(db: Prisma.TransactionClient, reservationId: string, email: string | null | undefined, userId: string) {
   const note = (body: string) => db.memo.create({ data: { reservationId, kind: "NOTE", body, authorId: userId } });
   if (!email) return note("Confirmation email not sent: the reservation has no email address.");
-  const r = await db.reservation.findUniqueOrThrow({ where: { id: reservationId }, select: { number: true } });
   try {
-    await emailDocument(db, { kind: "RESERVATION", id: reservationId, to: email, subject: `Reservation Confirmation #${r.number} — Mr Rent A Car`, sentById: userId });
+    await sendReservationEmail(db, reservationId, email, userId);
   } catch (e) {
     await note(`Confirmation email to ${email} not sent: ${(e as Error).message}`);
   }

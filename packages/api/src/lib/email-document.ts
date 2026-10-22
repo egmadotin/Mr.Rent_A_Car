@@ -11,7 +11,7 @@ type Db = Prisma.TransactionClient;
  */
 export async function emailDocument(
   db: Db,
-  input: { kind: "AGREEMENT" | "RESERVATION" | "QUOTE"; id: string; to: string; subject: string; templateName?: string; message?: string; sentById?: string | null },
+  input: { kind: "AGREEMENT" | "RESERVATION" | "QUOTE"; id: string; to: string; subject: string; templateName?: string; message?: string; sentById?: string | null; from?: string; bcc?: string },
 ) {
   const where =
     input.kind === "AGREEMENT"
@@ -41,6 +41,8 @@ export async function emailDocument(
     entityId: input.id,
     templateName: t.name,
     sentById: input.sentById ?? null,
+    from: input.from,
+    bcc: input.bcc,
   });
   const memo = `Emailed "${t.name}" to ${input.to}`;
   if (input.kind === "AGREEMENT") await db.memo.create({ data: { rentalId: input.id, kind: "NOTE", body: memo, authorId: input.sentById ?? null } });

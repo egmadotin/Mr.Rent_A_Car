@@ -210,6 +210,7 @@ model Location {
   documentTemplates    DocumentTemplate[]
   paymentMethods       LocationPaymentMethod[]
   commissionStructures CommissionStructure[]
+  reservationEmail     ReservationEmailSetup?
 }
 
 /// Settings > Location Information > Hours Of Operation
@@ -1733,6 +1734,26 @@ model EmailSettings {
   inspectionBody    String   @default("")
   /// Settings > Rental Policies (WebCustomerRentalPolicies.aspx, "Master Policies"): shown to online customers before "I accept the rental policy" (HTML)
   rentalPolicies    String   @default("")
+  /// Settings > Quote Email (QuoteCustomerEmail.aspx): Subject and body (HTML with RentCentric's web-email codes); an empty body emails the Quote template instead
+  quoteSubject      String   @default("Quote")
+  quoteBody         String   @default("")
+}
+
+/// Settings > Reservation Email (WebCustomerEmailSetup.aspx), per location: the email a customer gets for an online booking
+/// (and "Send Confirmation Email"), From, a copy to staff ("To Email"), Subject and an optional body (empty = the
+/// location's Reservation Confirmation template). RentCentric's reminders are off there and not built.
+model ReservationEmailSetup {
+  locationId              String   @id
+  location                Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  fromName                String?
+  fromEmail               String?
+  /// HTML or TEXT
+  format                  String   @default("HTML")
+  copyTo                  String?
+  subject                 String   @default("Reservation Confirmation")
+  body                    String   @default("")
+  identityVerificationUrl String?
+  updatedAt               DateTime @updatedAt
 }
 
 /// Every email the system sends (agreements, invoices, confirmations, quotes), for the record.

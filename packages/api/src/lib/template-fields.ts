@@ -5,6 +5,7 @@ import { RESERVATION_TEMPLATE_CODES, TEMPLATE_CODES } from "./template-codes";
 import { rentalTotals } from "./totals";
 import { isSignatureField, signatureFields } from "./signature-fields";
 import { getFile } from "./storage";
+import { BUSINESS_TZ } from "./tz";
 
 /** ##LogoImage## (an <img src>): the location's uploaded logo inline, so it shows in emails too; else the site logo. */
 async function logoField(logoKey: string | null | undefined) {
@@ -586,4 +587,49 @@ export async function quoteTemplateFields(db: Db, quoteId: string) {
   }));
   f.QuoteNumber = String(q.number);
   return f;
+}
+
+/**
+ * Settings > Quote Email's body (QuoteCustomerEmail.aspx) uses RentCentric's web-email codes (##Address##, ##PickupDate##,
+ * ##ChargesSummary## …), not the print template ones: the quote's fields under those names.
+ */
+export async function quoteEmailFields(db: Db, quoteId: string) {
+  const f = await quoteTemplateFields(db, quoteId);
+  const q = await db.quote.findUniqueOrThrow({
+    where: { id: quoteId },
+    select: {
+      createdAt: true, firstName: true, lastName: true, contactName: true, email: true, contactPhone: true, rateId: true, vehicleTypeId: true,
+      customer: { select: { firstName: true, lastName: true, email: true, phone: true, cellPhone: true } },
+      rate: { select: { graceMinutes: true, fuelChargePerUnit: true } },
+      pickupLocation: { select: { country: true, tollFree: true, email: true, logoKey: true } },
+      chargeLines: { where: { kind: "MILEAGE" }, select: { units: true, total: true } },
+    },
+  });
+  const rv = q.rateId ? await db.rateValue.findFirst({ where: { rateId: q.rateId, vehicleTypeId: q.vehicleTypeId }, select: { kmAllowed: true, kmWeekly: true, kmMonthly: true } }) : null;
+  const [first, ...rest] = (q.contactName ?? "").split(" ");
+  const logo = f.LogoImage?.startsWith("/") ? new URL(f.LogoImage, process.env.BETTER_AUTH_URL ?? "http://localhost:3001").href : f.LogoImage;
+  const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+  const km = q.chargeLines.find((l) => !Number(l.total));
+  return {
+    ...f,
+    LocationLogo: logo ? `<img src="${esc(logo)}" alt="Mr Rent A Car" style="max-width:180px" />` : "",
+    Address: f.LocationAddress ?? "", City: f.LocationCity ?? "", State: f.LocationState ?? "", Zip: f.LocationZIP ?? "",
+    Country: q.pickupLocation.country === "CA" ? "Canada" : (q.pickupLocation.country ?? ""), TollFree: q.pickupLocation.tollFree ?? "",
+    Phone: f.LocationPhone ?? "", fax: f.LocationFax ?? "", Email: q.pickupLocation.email ?? "", website: f.LocationWebSite ?? "",
+    QuoteDate: q.createdAt.toLocaleDateString("en-US", { timeZone: BUSINESS_TZ }),
+    FirstName: q.customer?.firstName ?? q.firstName ?? first ?? "", LastName: q.customer?.lastName ?? q.lastName ?? rest.join(" "),
+    CustomerEmail: q.customer?.email ?? q.email ?? "", CustomerPhone: q.customer?.cellPhone ?? q.customer?.phone ?? q.contactPhone ?? "",
+    PickupLocation: f.PickupLocationName ?? "", ReturnLocation: f.ReturnLocationName ?? "", PickupDate: f.DateOut ?? "", ReturnDate: f.DateIn ?? "",
+    TotalMileageIncluded: f.TotalMilesAllowed ?? "", Daily: String(rv?.kmAllowed ?? (km ? Number(km.units) : "")), Weekly: String(rv?.kmWeekly ?? ""), Monthly: String(rv?.kmMonthly ?? ""),
+    FuelCharge: q.rate ? `$${Number(q.rate.fuelChargePerUnit).toFixed(2)}` : (f.FuelRate ?? ""), GraceMinutes: String(q.rate?.graceMinutes ?? ""),
+    ChargesSummary: f.ChargesSummaryTable ?? "",
+  };
+}
+
+/** Quote email codes whose values are HTML. */
+export const QUOTE_EMAIL_HTML = new Set([...HTML_FIELDS, "LocationLogo", "ChargesSummary"]);
+
+/** Fill ##Code## straight from the fields by name (the email bodies' codes are the field names); HTML-valued ones unescaped. */
+export function renderCodes(html: string, fields: Fields, raw: Set<string>) {
+  return html.replace(/##([0-9A-Za-z\\]+)##/g, (_, code: string) => (raw.has(code) ? (fields[code] ?? "") : esc(fields[code] ?? "")));
 }
