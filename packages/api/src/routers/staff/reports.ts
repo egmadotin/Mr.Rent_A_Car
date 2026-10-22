@@ -1592,6 +1592,189 @@ export const reportsRouter = router({
       return { rows, totals: { lt30: sum("lt30"), d30_60: sum("d30_60"), gt60: sum("gt60"), total: sum("total") } };
     }),
 
+  /**
+   * Revenue By Rate (ReportsRateUsage): rentals grouped by their rate — Rental#, Pickup / Return Date, Days and the time
+   * charges split into Hourly, Daily, Extra Daily, Weekly and Monthly, with their Total.
+   */
+  revenueByRate: staffProcedure
+    .input(z.object({ outFrom: optDate, outTo: optDate, inFrom: optDate, inTo: optDate, locationId: optId, locationOutId: optId, locationInId: optId }))
+    .query(async ({ ctx, input }) => {
+      const rs = await ctx.prisma.rental.findMany({
+        where: {
+          deletedAt: null, status: { in: ["OPEN", "CLOSED"] },
+          ...(range(input.outFrom, input.outTo) ? { checkOutAt: range(input.outFrom, input.outTo) } : {}),
+          ...(range(input.inFrom, input.inTo) ? { checkedInAt: range(input.inFrom, input.inTo) } : {}),
+          ...(input.locationId || input.locationOutId ? { checkOutLocationId: input.locationOutId ?? input.locationId } : {}),
+          ...(input.locationInId ? { checkInLocationId: input.locationInId } : {}),
+        },
+        orderBy: { raNumber: "asc" },
+        take: 5000,
+        select: { id: true, raNumber: true, checkOutAt: true, checkedInAt: true, expectedReturnAt: true, rate: { select: { code: true } }, chargeLines: { where: { kind: "TIME" }, select: { kind: true, name: true, units: true, total: true } } },
+      });
+      const col = (name: string) => (/hour/i.test(name) ? "hourly" : /extra/i.test(name) ? "extraDaily" : /week/i.test(name) ? "weekly" : /month/i.test(name) ? "monthly" : "daily");
+      const groups = new Map<string, { rate: string; rows: Record<string, unknown>[]; total: number }>();
+      for (const r of rs) {
+        const t = { hourly: 0, daily: 0, extraDaily: 0, weekly: 0, monthly: 0 };
+        for (const l of r.chargeLines) t[col(l.name)] = round(t[col(l.name)] + num(l.total));
+        const total = round(t.hourly + t.daily + t.extraDaily + t.weekly + t.monthly);
+        const name = r.rate?.code ?? "No Rate";
+        const g = groups.get(name) ?? { rate: name, rows: [], total: 0 };
+        g.rows.push({ id: r.id, raNumber: r.raNumber, pickup: r.checkOutAt, return: r.checkedInAt ?? r.expectedReturnAt, days: rentalDays(r.chargeLines), ...t, total });
+        g.total = round(g.total + total);
+        groups.set(name, g);
+      }
+      const gs = [...groups.values()].sort((a, b) => a.rate.localeCompare(b.rate));
+      return { groups: gs, total: round(gs.reduce((a, g) => a + g.total, 0)) };
+    }),
+
+  /**
+   * Broker Commission (ReportsBrokerCommissionsLog): rentals booked through a company (broker) — RA#, Reservation#, First
+   * Name, Customer ID, Last Name, Pickup / Return Date, Days, Vehicle, Company, User, Total, Disc., Total Amount.
+   */
+  brokerCommission: staffProcedure
+    .input(z.object({ from: optDate, to: optDate, locationId: optId, companyId: optId, userId: optId }))
+    .query(async ({ ctx, input }) => {
+      const rs = await ctx.prisma.rental.findMany({
+        where: {
+          deletedAt: null, status: { in: ["OPEN", "CLOSED"] }, companyId: input.companyId ?? { not: null },
+          ...(range(input.from, input.to) ? { checkOutAt: range(input.from, input.to) } : {}),
+          ...(input.locationId ? { checkOutLocationId: input.locationId } : {}),
+          ...(input.userId ? { openedById: input.userId } : {}),
+        },
+        orderBy: { raNumber: "asc" },
+        take: 5000,
+        select: {
+          id: true, raNumber: true, checkOutAt: true, checkedInAt: true, expectedReturnAt: true, reservation: { select: { number: true } }, customer: { select: { firstName: true, lastName: true, legacyId: true } },
+          vehicle: { select: { assignedId: true } }, company: { select: { name: true } }, openedBy: { select: { name: true } }, chargeLines: { select: { kind: true, name: true, units: true, total: true } },
+        },
+      });
+      const rows = rs.map((r) => {
+        const by = (pred: (k: string) => boolean) => round(r.chargeLines.filter((l) => pred(l.kind)).reduce((a, l) => a + num(l.total), 0));
+        return {
+          id: r.id, raNumber: r.raNumber, reservationNumber: r.reservation?.number ?? null, firstName: r.customer.firstName, customerId: r.customer.legacyId ?? "", lastName: r.customer.lastName,
+          pickup: r.checkOutAt, return: r.checkedInAt ?? r.expectedReturnAt, days: rentalDays(r.chargeLines), vehicle: r.vehicle.assignedId, company: r.company?.name ?? "", user: r.openedBy?.name ?? "",
+          total: by((k) => k !== "TAX" && k !== "DISCOUNT"), discount: by((k) => k === "DISCOUNT"), totalAmount: by(() => true),
+        };
+      });
+      const sum = (k: "total" | "discount" | "totalAmount") => round(rows.reduce((a, r) => a + r[k], 0));
+      return { rows, totals: { total: sum("total"), discount: sum("discount"), totalAmount: sum("totalAmount") } };
+    }),
+
+  /**
+   * Sales Projection (ReportSalesProjection): what the rentals and the upcoming reservations in the period will bring in —
+   * per booking T&M, Others, Ins., Misc., Taxes and Total Amt.; Agreements + Reservations = Sales Projections Amount.
+   */
+  salesProjection: staffProcedure
+    .input(
+      z.object({
+        outFrom: optDate, outTo: optDate, inFrom: optDate, inTo: optDate, makeId: optId, vehicleTypeId: optId, vehicleStatus: z.string().optional(), locationId: optId, enteredBy: z.string().trim().optional(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const out = range(input.outFrom, input.outTo);
+      const back = range(input.inFrom, input.inTo);
+      const user = input.enteredBy ? { name: { contains: input.enteredBy, mode: "insensitive" as const } } : undefined;
+      const vehicle = { ...(input.makeId ? { makeId: input.makeId } : {}), ...(input.vehicleStatus ? { status: input.vehicleStatus as never } : {}) };
+      const lineSel = { select: { kind: true, name: true, units: true, total: true } };
+      const [rs, res] = await Promise.all([
+        ctx.prisma.rental.findMany({
+          where: {
+            deletedAt: null, status: { in: ["OPEN", "CLOSED"] }, ...(out ? { checkOutAt: out } : {}), ...(back ? { expectedReturnAt: back } : {}),
+            ...(input.locationId ? { checkOutLocationId: input.locationId } : {}), ...(input.vehicleTypeId ? { vehicleTypeId: input.vehicleTypeId } : {}),
+            ...(Object.keys(vehicle).length ? { vehicle } : {}), ...(user ? { openedBy: user } : {}),
+          },
+          orderBy: { raNumber: "asc" },
+          take: 5000,
+          select: {
+            id: true, raNumber: true, checkOutAt: true, checkedInAt: true, expectedReturnAt: true, customer: { select: { firstName: true, lastName: true } }, vehicle: { select: { assignedId: true } },
+            checkOutLocation: { select: { name: true } }, checkInLocation: { select: { name: true } }, chargeLines: lineSel,
+          },
+        }),
+        ctx.prisma.reservation.findMany({
+          where: {
+            deletedAt: null, status: { in: ["TENTATIVE", "CONFIRMED"] }, ...(out ? { pickupAt: out } : {}), ...(back ? { returnAt: back } : {}),
+            ...(input.locationId ? { pickupLocationId: input.locationId } : {}), ...(input.vehicleTypeId ? { vehicleTypeId: input.vehicleTypeId } : {}),
+            ...(Object.keys(vehicle).length ? { vehicle } : {}), ...(user ? { createdBy: user } : {}),
+          },
+          orderBy: { number: "asc" },
+          take: 5000,
+          select: {
+            id: true, number: true, pickupAt: true, returnAt: true, firstName: true, lastName: true, vehicle: { select: { assignedId: true } },
+            pickupLocation: { select: { name: true } }, returnLocation: { select: { name: true } }, chargeLines: lineSel,
+          },
+        }),
+      ]);
+      const split = (lines: { kind: string; name: string; units: Prisma.Decimal; total: Prisma.Decimal }[]) => {
+        const by = (...k: string[]) => round(lines.filter((l) => k.includes(l.kind)).reduce((a, l) => a + num(l.total), 0));
+        const total = round(lines.reduce((a, l) => a + num(l.total), 0));
+        const tm = by("TIME", "MILEAGE"), ins = by("PROTECTION"), misc = by("MISC"), taxes = by("TAX");
+        return { days: rentalDays(lines), tm, others: round(total - tm - ins - misc - taxes), ins, misc, taxes, total };
+      };
+      const rentals = rs.map((r) => ({
+        id: r.id, number: r.raNumber, customer: `${r.customer.firstName} ${r.customer.lastName}`, vehicle: r.vehicle.assignedId, pickup: r.checkOutAt, pickupLocation: r.checkOutLocation.name,
+        return: r.checkedInAt ?? r.expectedReturnAt, returnLocation: r.checkInLocation.name, ...split(r.chargeLines),
+      }));
+      const reservations = res.map((r) => ({
+        id: r.id, number: r.number, customer: `${r.firstName} ${r.lastName}`, vehicle: r.vehicle?.assignedId ?? "", pickup: r.pickupAt, pickupLocation: r.pickupLocation.name,
+        return: r.returnAt, returnLocation: r.returnLocation.name, ...split(r.chargeLines),
+      }));
+      const tot = (xs: { tm: number; others: number; ins: number; misc: number; taxes: number; total: number }[]) => ({
+        tm: round(xs.reduce((a, x) => a + x.tm, 0)), others: round(xs.reduce((a, x) => a + x.others, 0)), ins: round(xs.reduce((a, x) => a + x.ins, 0)),
+        misc: round(xs.reduce((a, x) => a + x.misc, 0)), taxes: round(xs.reduce((a, x) => a + x.taxes, 0)), total: round(xs.reduce((a, x) => a + x.total, 0)),
+      });
+      const rt = tot(rentals), vt = tot(reservations);
+      return { rentals, reservations, rentalTotals: rt, reservationTotals: vt, projection: round(rt.total + vt.total) };
+    }),
+
+  /**
+   * Work In Process (ReportsWorkInProgress): rentals by referral — Rental#, Customer, Vehicle ID, Pickup Date / Location,
+   * Return Date / Location, Daily Rate, Days, T&M, Ins., Misc., Taxes, Total.
+   */
+  workInProcess: staffProcedure
+    .input(
+      z.object({
+        from: optDate, to: optDate, makeId: optId, user: z.string().trim().optional(), locationId: optId, pickupLocationId: optId, vehicleTypeId: optId, companyId: optId,
+        status: z.enum(["ALL", "OPEN", "CLOSED"]).default("ALL"),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const rs = await ctx.prisma.rental.findMany({
+        where: {
+          deletedAt: null, ...(input.status !== "ALL" ? { status: input.status } : { status: { in: ["OPEN", "CLOSED"] } }),
+          ...(range(input.from, input.to) ? { checkOutAt: range(input.from, input.to) } : {}),
+          ...(input.locationId ? { vehicle: { rentalLocationId: input.locationId } } : {}),
+          ...(input.pickupLocationId ? { checkOutLocationId: input.pickupLocationId } : {}),
+          ...(input.makeId ? { vehicle: { makeId: input.makeId, ...(input.locationId ? { rentalLocationId: input.locationId } : {}) } } : {}),
+          ...(input.vehicleTypeId ? { vehicleTypeId: input.vehicleTypeId } : {}),
+          ...(input.companyId ? { companyId: input.companyId } : {}),
+          ...(input.user ? { openedBy: { name: { contains: input.user, mode: "insensitive" } } } : {}),
+        },
+        orderBy: { raNumber: "asc" },
+        take: 5000,
+        select: {
+          id: true, raNumber: true, checkOutAt: true, checkedInAt: true, expectedReturnAt: true, customer: { select: { firstName: true, lastName: true } }, vehicle: { select: { assignedId: true } },
+          checkOutLocation: { select: { name: true } }, checkInLocation: { select: { name: true } }, referral: { select: { name: true } }, chargeLines: { select: { kind: true, name: true, units: true, rate: true, total: true } },
+        },
+      });
+      const groups = new Map<string, { referral: string; rows: Record<string, unknown>[]; total: number }>();
+      for (const r of rs) {
+        const by = (...k: string[]) => round(r.chargeLines.filter((l) => k.includes(l.kind)).reduce((a, l) => a + num(l.total), 0));
+        const daily = r.chargeLines.find((l) => l.kind === "TIME" && /dai|day/i.test(l.name) && !/extra/i.test(l.name));
+        const total = round(r.chargeLines.reduce((a, l) => a + num(l.total), 0));
+        const name = r.referral?.name ?? "";
+        const g = groups.get(name) ?? { referral: name, rows: [], total: 0 };
+        g.rows.push({
+          id: r.id, raNumber: r.raNumber, customer: `${r.customer.firstName} ${r.customer.lastName}`, vehicle: r.vehicle.assignedId, pickup: r.checkOutAt, pickupLocation: r.checkOutLocation.name,
+          return: r.checkedInAt ?? r.expectedReturnAt, returnLocation: r.checkInLocation.name, dailyRate: daily ? num(daily.rate) : 0, days: rentalDays(r.chargeLines),
+          tm: by("TIME", "MILEAGE"), ins: by("PROTECTION"), misc: by("MISC"), taxes: by("TAX"), total,
+        });
+        g.total = round(g.total + total);
+        groups.set(name, g);
+      }
+      const gs = [...groups.values()].sort((a, b) => a.referral.localeCompare(b.referral));
+      return { groups: gs, total: round(gs.reduce((a, g) => a + g.total, 0)) };
+    }),
+
   /** Pick-lists for the report filters. */
   filters: staffProcedure.query(async ({ ctx }) => {
     const [locations, makes, types] = await Promise.all([
