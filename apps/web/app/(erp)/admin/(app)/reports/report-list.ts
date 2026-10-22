@@ -24,9 +24,9 @@ export const REPORT_CATEGORIES: ReportCategory[] = [
     reports: [
       { name: "Rental Status", slug: "rental-status" },
       { name: "Reservation Manifest", slug: "reservation-manifest" },
-      { name: "Vehicle Rental Calendar" }, { name: "Corporate A/R By Bills", slug: "corporate-ar" }, { name: "Customer A/R Report", slug: "customer-ar" }, { name: "Reservation A/R by Bills", slug: "reservation-ar" },
-      { name: "Corporate A/R Analysis", slug: "corporate-ar-analysis" }, { name: "Fleet Grid", slug: "fleet-grid" }, { name: "Custom Reports" }, { name: "Reservation Forecast", slug: "reservation-forecast" }, { name: "Reservation Grid", slug: "reservation-grid" },
-      { name: "Reservations No Showup/Cancelled", slug: "no-show-cancelled" }, { name: "Reservations Calendar" }, { name: "Dynamic Scheduler" }, { name: "Visual Scheduler" },
+      { name: "Vehicle Rental Calendar", slug: "vehicle-rental-calendar" }, { name: "Corporate A/R By Bills", slug: "corporate-ar" }, { name: "Customer A/R Report", slug: "customer-ar" }, { name: "Reservation A/R by Bills", slug: "reservation-ar" },
+      { name: "Corporate A/R Analysis", slug: "corporate-ar-analysis" }, { name: "Fleet Grid", slug: "fleet-grid" }, { name: "Custom Reports", slug: "custom-reports" }, { name: "Reservation Forecast", slug: "reservation-forecast" }, { name: "Reservation Grid", slug: "reservation-grid" },
+      { name: "Reservations No Showup/Cancelled", slug: "no-show-cancelled" }, { name: "Reservations Calendar", slug: "reservations-calendar" }, { name: "Dynamic Scheduler", slug: "dynamic-scheduler" }, { name: "Visual Scheduler", slug: "visual-scheduler" },
       { name: "Promo Code", slug: "promo-code" }, { name: "Rental Days", slug: "rental-days" }, { name: "Rental Discount", slug: "rental-discount" },
     ],
   },

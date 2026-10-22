@@ -165,3 +165,91 @@ export function ReservationForecastReport() {
     </ReportFrame>
   );
 }
+
+/** Vehicle Rental Calendar (VehiclesCalendar.aspx — a chart there): vehicle × day with the rental out on each day. */
+export function VehicleRentalCalendarReport() {
+  const trpc = useTRPC();
+  const f = useReportFilters();
+  const [v, setV] = React.useState({ from: "", to: "", locationId: "", locationOutId: "", locationInId: "", vehicleTypeId: "" });
+  const [run, setRun] = React.useState<typeof v | null>(null);
+  const q = useQuery({
+    ...trpc.staff.reports.vehicleRentalCalendar.queryOptions({
+      from: fromDay(run?.from ?? "") ?? new Date(), to: fromDay(run?.to ?? "") ?? new Date(), locationId: run?.locationId, locationOutId: run?.locationOutId,
+      locationInId: run?.locationInId, vehicleTypeId: run?.vehicleTypeId,
+    }),
+    enabled: !!run,
+    retry: false,
+  });
+  const set = (k: keyof typeof v) => (x: string) => setV({ ...v, [k]: x });
+  const d = q.data;
+  return (
+    <ReportFrame title="Vehicle Rental Calendar" generated={!!run} onGenerate={() => needDates(v, () => setRun({ ...v }))} loading={q.isLoading} error={q.error?.message}
+      filters={<>
+        <DateField id="vrc-f" label="Begin Date" value={v.from} onChange={set("from")} />
+        <DateField id="vrc-t" label="End Date" value={v.to} onChange={set("to")} />
+        <SelectFilter id="vrc-l" label="Location" value={v.locationId} onChange={set("locationId")} options={f.locations} />
+        <SelectFilter id="vrc-lo" label="Location Out" value={v.locationOutId} onChange={set("locationOutId")} options={f.locations} />
+        <SelectFilter id="vrc-li" label="Location In" value={v.locationInId} onChange={set("locationInId")} options={f.locations} />
+        <SelectFilter id="vrc-vt" label="Vehicle Type" value={v.vehicleTypeId} onChange={set("vehicleTypeId")} options={f.types} />
+      </>}
+      header={[["Begin Date", run?.from ?? ""], ["End Date", run?.to ?? ""]]}
+    >
+      {d && (
+        <ReportTable head={["Vehicle ID", "Vehicle Type", ...d.days.map(dayHead), "Days"]} right={[d.days.length + 2]}
+          rows={d.rows.map((r) => [
+            <Link key="v" className="text-primary hover:underline" href={`/admin/vehicles/${r.id}`}>{r.assignedId}</Link>, r.type,
+            ...r.cells.map((c, i) => c ? <Link key={i} href={`/admin/rentals/${c.id}`} className={`block rounded px-1 text-center text-white ${c.open ? "bg-status-rental" : "bg-muted-foreground"}`}>{c.raNumber}</Link> : ""),
+            r.days,
+          ])} />
+      )}
+    </ReportFrame>
+  );
+}
+
+/** Reservations Calendar (ReservationsCalendar.aspx): reservations by pickup day, a week per row. */
+export function ReservationsCalendarReport() {
+  const trpc = useTRPC();
+  const f = useReportFilters();
+  const [v, setV] = React.useState({ from: "", to: "", vehicleTypeId: "", locationId: "" });
+  const [run, setRun] = React.useState<typeof v | null>(null);
+  const q = useQuery({
+    ...trpc.staff.reports.reservationsCalendar.queryOptions({ from: fromDay(run?.from ?? "") ?? new Date(), to: fromDay(run?.to ?? "") ?? new Date(), vehicleTypeId: run?.vehicleTypeId, locationId: run?.locationId }),
+    enabled: !!run,
+    retry: false,
+  });
+  const set = (k: keyof typeof v) => (x: string) => setV({ ...v, [k]: x });
+  const d = q.data;
+  const lead = d?.days[0] ? new Date(d.days[0].date).getDay() : 0;
+  return (
+    <ReportFrame title="Reservations Calendar" generated={!!run} onGenerate={() => needDates(v, () => setRun({ ...v }))} loading={q.isLoading} error={q.error?.message}
+      filters={<>
+        <DateField id="rc-f" label="Begin Date" value={v.from} onChange={set("from")} />
+        <DateField id="rc-t" label="End Date" value={v.to} onChange={set("to")} />
+        <SelectFilter id="rc-vt" label="Vehicle Type" value={v.vehicleTypeId} onChange={set("vehicleTypeId")} options={f.types} />
+        <SelectFilter id="rc-l" label="Location" value={v.locationId} onChange={set("locationId")} options={f.locations} />
+      </>}
+      header={[["Begin Date", run?.from ?? ""], ["End Date", run?.to ?? ""]]}
+    >
+      {d && (
+        <div className="space-y-2">
+          <div className="grid grid-cols-7 gap-px overflow-x-auto rounded border bg-border text-xs">
+            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((w) => <div key={w} className="bg-muted px-1 py-0.5 font-semibold">{w}</div>)}
+            {Array.from({ length: lead }, (_, i) => <div key={`e${i}`} className="bg-background" />)}
+            {d.days.map((day) => (
+              <div key={String(day.date)} className="min-h-20 min-w-24 space-y-0.5 bg-background p-1">
+                <div className="font-semibold">{new Date(day.date).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}</div>
+                {day.items.map((r) => (
+                  <Link key={r.id} href={`/admin/reservations/${r.id}`} title={`${r.name} · ${r.type}`}
+                    className={`block truncate rounded px-1 text-white ${r.confirmed ? "bg-status-reservation" : "bg-status-unassigned text-black/80"}`}>
+                    {new Date(r.at).toLocaleTimeString("en-CA", { hour: "2-digit", minute: "2-digit", hour12: false })} #{r.number} {r.name}
+                  </Link>
+                ))}
+              </div>
+            ))}
+          </div>
+          <p className="font-bold">Total {d.total}</p>
+        </div>
+      )}
+    </ReportFrame>
+  );
+}

@@ -2072,6 +2072,64 @@ export const reportsRouter = router({
       });
     }),
 
+  /** Vehicle Rental Calendar (VehiclesCalendar → a chart): vehicle × day, each day showing the rental the vehicle is out on. */
+  vehicleRentalCalendar: staffProcedure
+    .input(z.object({ from: z.coerce.date(), to: z.coerce.date(), locationId: optId, locationOutId: optId, locationInId: optId, vehicleTypeId: optId }))
+    .query(async ({ ctx, input }) => {
+      if (+input.to < +input.from || +input.to - +input.from > 62 * DAY) throw new TRPCError({ code: "BAD_REQUEST", message: "Date range can't exceed 62 days." });
+      const end = new Date(+input.to + DAY);
+      const [vs, rs] = await Promise.all([
+        ctx.prisma.vehicle.findMany({
+          where: { isActive: true, ...(input.locationId ? { rentalLocationId: input.locationId } : {}), ...(input.vehicleTypeId ? { vehicleTypeId: input.vehicleTypeId } : {}) },
+          orderBy: [{ vehicleType: { name: "asc" } }, { assignedId: "asc" }],
+          select: { id: true, assignedId: true, vehicleType: { select: { name: true } } },
+        }),
+        ctx.prisma.rental.findMany({
+          where: {
+            deletedAt: null, status: { in: ["OPEN", "CLOSED"] }, checkOutAt: { lt: end },
+            OR: [{ checkedInAt: { gte: input.from } }, { checkedInAt: null, expectedReturnAt: { gte: input.from } }],
+            ...(input.locationOutId ? { checkOutLocationId: input.locationOutId } : {}), ...(input.locationInId ? { checkInLocationId: input.locationInId } : {}),
+          },
+          select: { id: true, raNumber: true, vehicleId: true, status: true, checkOutAt: true, checkedInAt: true, expectedReturnAt: true },
+        }),
+      ]);
+      const days: Date[] = [];
+      for (let d = +input.from; d < +end; d += DAY) days.push(new Date(d));
+      const rows = vs.map((v) => {
+        const mine = rs.filter((r) => r.vehicleId === v.id);
+        const cells = days.map((d) => {
+          const r = mine.find((x) => +x.checkOutAt < +d + DAY && +(x.checkedInAt ?? x.expectedReturnAt) > +d);
+          return r ? { id: r.id, raNumber: r.raNumber, open: r.status === "OPEN" } : null;
+        });
+        return { id: v.id, assignedId: v.assignedId, type: v.vehicleType.name, cells, days: cells.filter(Boolean).length };
+      });
+      return { days, rows };
+    }),
+
+  /** Reservations Calendar (ReservationsCalendar): a calendar of the reservations by pickup day — Res #, customer, vehicle type and time. */
+  reservationsCalendar: staffProcedure
+    .input(z.object({ from: z.coerce.date(), to: z.coerce.date(), vehicleTypeId: optId, locationId: optId }))
+    .query(async ({ ctx, input }) => {
+      if (+input.to < +input.from || +input.to - +input.from > 62 * DAY) throw new TRPCError({ code: "BAD_REQUEST", message: "Date range can't exceed 62 days." });
+      const end = new Date(+input.to + DAY);
+      const rs = await ctx.prisma.reservation.findMany({
+        where: {
+          deletedAt: null, status: { in: ["TENTATIVE", "CONFIRMED"] }, pickupAt: { gte: input.from, lt: end },
+          ...(input.vehicleTypeId ? { vehicleTypeId: input.vehicleTypeId } : {}), ...(input.locationId ? { pickupLocationId: input.locationId } : {}),
+        },
+        orderBy: { pickupAt: "asc" },
+        select: { id: true, number: true, status: true, pickupAt: true, firstName: true, lastName: true, vehicleType: { select: { name: true } } },
+      });
+      const days: { date: Date; items: { id: string; number: number; name: string; type: string; at: Date; confirmed: boolean }[] }[] = [];
+      for (let d = +input.from; d < +end; d += DAY) {
+        days.push({
+          date: new Date(d),
+          items: rs.filter((r) => +r.pickupAt >= d && +r.pickupAt < d + DAY).map((r) => ({ id: r.id, number: r.number, name: `${r.firstName} ${r.lastName}`, type: r.vehicleType.name, at: r.pickupAt, confirmed: r.status === "CONFIRMED" })),
+        });
+      }
+      return { days, total: rs.length };
+    }),
+
   /** Pick-lists for the report filters. */
   filters: staffProcedure.query(async ({ ctx }) => {
     const [locations, makes, types] = await Promise.all([

@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { PageHeader } from "../../../../_components/page-header";
 import { requireStaff } from "../../../../_lib/session";
 import { DailyCashReport, RentalStatusReport, ReservationManifestReport, VehicleDueInReport } from "../_components/list-reports";
@@ -12,7 +12,7 @@ import { KmDifferenceReport, VehicleInsuranceReport, VehicleLeaseLoanReport, Veh
 import { CorporateArAnalysisReport, CorporateArReport, CustomerArReport, ReservationArReport } from "../_components/ar-reports";
 import { BrokerCommissionReport, RevenueByRateReport, SalesProjectionReport, WorkInProcessReport } from "../_components/sales-reports";
 import { FleetSnapshotReport, FleetUtilizationForecastReport, FleetUtilizationHistoryReport, SnapShotReport } from "../_components/utilization-reports";
-import { FleetGridReport, ReservationForecastReport, ReservationGridReport, VehiclesQrReport } from "../_components/grid-reports";
+import { FleetGridReport, ReservationForecastReport, ReservationGridReport, ReservationsCalendarReport, VehicleRentalCalendarReport, VehiclesQrReport } from "../_components/grid-reports";
 import { BUILT_REPORTS } from "../report-list";
 
 const SCREENS: Record<string, () => React.JSX.Element> = {
@@ -68,6 +68,8 @@ const SCREENS: Record<string, () => React.JSX.Element> = {
   "fleet-grid": FleetGridReport,
   "reservation-grid": ReservationGridReport,
   "reservation-forecast": ReservationForecastReport,
+  "vehicle-rental-calendar": VehicleRentalCalendarReport,
+  "reservations-calendar": ReservationsCalendarReport,
   "vehicle-insurance": VehicleInsuranceReport,
   "vehicle-lease-loan": VehicleLeaseLoanReport,
   "km-difference": KmDifferenceReport,
@@ -80,9 +82,13 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   return { title: BUILT_REPORTS[(await params).slug]?.name ?? "Report" };
 }
 
+/** Menu entries that are screens elsewhere: both schedulers are the fleet calendar; Custom Reports holds only the custom Daily Business Report. */
+const REDIRECTS: Record<string, string> = { "visual-scheduler": "/admin/calendar", "dynamic-scheduler": "/admin/calendar", "custom-reports": "/admin/reports/daily-business" };
+
 export default async function ReportPage({ params }: { params: Promise<{ slug: string }> }) {
   await requireStaff();
   const { slug } = await params;
+  if (REDIRECTS[slug]) redirect(REDIRECTS[slug]);
   const Screen = SCREENS[slug];
   const meta = BUILT_REPORTS[slug];
   if (!Screen || !meta) notFound();
