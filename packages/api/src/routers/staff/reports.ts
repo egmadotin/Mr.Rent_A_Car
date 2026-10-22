@@ -1421,6 +1421,177 @@ export const reportsRouter = router({
       });
     }),
 
+  /**
+   * Corporate A/R By Bills (ReportsAccountsReceivables): per company, the rentals billed to it (Bill Split) — First / Last
+   * Name, Rental#, Close Date, Amount Due (the split), Payments (pre-paid + payments received from the company), Balance,
+   * PO#, RO#, Claim — by company / company type, close date, locations, balance, age and status.
+   */
+  corporateAr: staffProcedure
+    .input(
+      z.object({
+        companyId: optId, companyTypeId: optId, from: optDate, to: optDate, locationId: optId, locationOutId: optId, locationInId: optId,
+        balance: z.enum(["ALL", "OWING", "ZERO"]).default("ALL"), aged: z.enum(["ALL", "LT30", "30_60", "60_90", "GT90"]).default("ALL"), status: z.enum(["ALL", "OPEN", "CLOSED"]).default("ALL"),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const splits = await ctx.prisma.billSplit.findMany({
+        where: {
+          rentalId: { not: null },
+          ...(input.companyId ? { companyId: input.companyId } : {}),
+          ...(input.companyTypeId ? { company: { typeId: input.companyTypeId } } : {}),
+          rental: {
+            deletedAt: null,
+            ...(input.status !== "ALL" ? { status: input.status } : { status: { in: ["OPEN", "CLOSED"] } }),
+            ...(range(input.from, input.to) ? { checkedInAt: range(input.from, input.to) } : {}),
+            ...(input.locationId || input.locationOutId ? { checkOutLocationId: input.locationOutId ?? input.locationId } : {}),
+            ...(input.locationInId ? { checkInLocationId: input.locationInId } : {}),
+          },
+        },
+        orderBy: [{ company: { name: "asc" } }],
+        take: 5000,
+        select: {
+          companyId: true, amountPerDay: true, numberOfDays: true, lumpSum: true, prePaid: true, poNumber: true, roNumber: true, claimNumber: true, company: { select: { name: true } },
+          rental: { select: { id: true, raNumber: true, checkedInAt: true, customer: { select: { firstName: true, lastName: true } }, payments: { select: { companyId: true, amount: true, transactionType: true } } } },
+        },
+      });
+      const now = Date.now();
+      const groups = new Map<string, { company: string; rows: Record<string, unknown>[]; due: number; paid: number; balance: number }>();
+      for (const s of splits) {
+        const r = s.rental!;
+        const due = round(num(s.amountPerDay) * s.numberOfDays + num(s.lumpSum));
+        const paid = round(num(s.prePaid) + r.payments.filter((p) => p.companyId === s.companyId).reduce((a, p) => a + (p.transactionType === "PAYMENT" ? num(p.amount) : p.transactionType === "REFUND" ? -num(p.amount) : 0), 0));
+        const balance = round(due - paid);
+        if (input.balance === "OWING" && balance <= 0) continue;
+        if (input.balance === "ZERO" && balance !== 0) continue;
+        const age = r.checkedInAt ? (now - +r.checkedInAt) / DAY : 0;
+        const inAge = { ALL: true, LT30: age < 30, "30_60": age >= 30 && age < 60, "60_90": age >= 60 && age < 90, GT90: age >= 90 }[input.aged];
+        if (!inAge) continue;
+        const g = groups.get(s.companyId) ?? { company: s.company.name, rows: [], due: 0, paid: 0, balance: 0 };
+        g.rows.push({ rentalId: r.id, raNumber: r.raNumber, firstName: r.customer.firstName, lastName: r.customer.lastName, closeDate: r.checkedInAt, due, paid, balance, po: s.poNumber ?? "", ro: s.roNumber ?? "", claim: s.claimNumber ?? "" });
+        g.due = round(g.due + due);
+        g.paid = round(g.paid + paid);
+        g.balance = round(g.balance + balance);
+        groups.set(s.companyId, g);
+      }
+      const gs = [...groups.values()];
+      return { groups: gs, totals: { due: round(gs.reduce((a, g) => a + g.due, 0)), paid: round(gs.reduce((a, g) => a + g.paid, 0)), balance: round(gs.reduce((a, g) => a + g.balance, 0)) } };
+    }),
+
+  /**
+   * Customer A/R Report (ReportsAccountsReceivable): rentals closed in the period with what is owed — Rental#, Reservation#,
+   * Pickup / Return Date, Customer, Company, Total, Paid, Customer Balance (the renter's part), Company Balance (Bill Split
+   * part still owed), Total Balance.
+   */
+  customerAr: staffProcedure
+    .input(
+      z.object({
+        from: optDate, to: optDate, locationId: optId, locationOutId: optId, locationInId: optId, companyId: optId,
+        balance: z.enum(["ALL", "OWING", "ZERO", "OVERPAID"]).default("ALL"), status: z.enum(["ALL", "OPEN", "CLOSED"]).default("ALL"),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const rs = await ctx.prisma.rental.findMany({
+        where: {
+          deletedAt: null,
+          ...(input.status !== "ALL" ? { status: input.status } : { status: { in: ["OPEN", "CLOSED"] } }),
+          ...(range(input.from, input.to) ? { checkedInAt: range(input.from, input.to) } : {}),
+          ...(input.locationId || input.locationOutId ? { checkOutLocationId: input.locationOutId ?? input.locationId } : {}),
+          ...(input.locationInId ? { checkInLocationId: input.locationInId } : {}),
+          ...(input.companyId ? { OR: [{ companyId: input.companyId }, { billSplits: { some: { companyId: input.companyId } } }] } : {}),
+        },
+        orderBy: { raNumber: "asc" },
+        take: 5000,
+        select: {
+          id: true, raNumber: true, checkOutAt: true, checkedInAt: true, expectedReturnAt: true, reservation: { select: { number: true } }, customer: { select: { firstName: true, lastName: true } },
+          company: { select: { name: true } }, chargeLines: { select: { total: true } }, payments: { select: { companyId: true, amount: true, transactionType: true } },
+          billSplits: { select: { amountPerDay: true, numberOfDays: true, lumpSum: true, prePaid: true, companyId: true, company: { select: { name: true } } } },
+        },
+      });
+      const signed = (p: { amount: Prisma.Decimal; transactionType: string }) => (p.transactionType === "PAYMENT" ? num(p.amount) : p.transactionType === "REFUND" ? -num(p.amount) : 0);
+      const rows = rs
+        .map((r) => {
+          const total = round(r.chargeLines.reduce((a, l) => a + num(l.total), 0));
+          const split = round(r.billSplits.reduce((a, b) => a + num(b.amountPerDay) * b.numberOfDays + num(b.lumpSum), 0));
+          const companyPaid = round(r.billSplits.reduce((a, b) => a + num(b.prePaid), 0) + r.payments.filter((p) => p.companyId).reduce((a, p) => a + signed(p), 0));
+          const customerPaid = round(r.payments.filter((p) => !p.companyId).reduce((a, p) => a + signed(p), 0));
+          const customerBalance = round(total - split - customerPaid);
+          const companyBalance = round(split - companyPaid);
+          return {
+            id: r.id, raNumber: r.raNumber, reservationNumber: r.reservation?.number ?? null, pickup: r.checkOutAt, return: r.checkedInAt ?? r.expectedReturnAt,
+            customer: `${r.customer.firstName} ${r.customer.lastName}`, company: r.company?.name ?? [...new Set(r.billSplits.map((b) => b.company.name))].join(", "), total, paid: round(customerPaid + companyPaid), customerBalance, companyBalance, totalBalance: round(customerBalance + companyBalance),
+          };
+        })
+        .filter((r) => (input.balance === "OWING" ? r.totalBalance > 0 : input.balance === "ZERO" ? r.totalBalance === 0 : input.balance === "OVERPAID" ? r.totalBalance < 0 : true));
+      const sum = (k: "total" | "paid" | "customerBalance" | "companyBalance" | "totalBalance") => round(rows.reduce((a, r) => a + r[k], 0));
+      return { rows, totals: { total: sum("total"), paid: sum("paid"), customerBalance: sum("customerBalance"), companyBalance: sum("companyBalance"), totalBalance: sum("totalBalance") } };
+    }),
+
+  /**
+   * Reservation A/R By Bills (ReportsCompanyInvoiceSummary): a company's reservations billed to it (Bill Split) —
+   * Reservation#, Customer, Company, Reservation Date, Pickup Date, Location Code, Amount Due, Payments, Balance, PO#.
+   */
+  reservationAr: staffProcedure
+    .input(z.object({ companyId: optId, from: optDate, to: optDate, locationId: optId, balance: z.enum(["ALL", "OWING", "ZERO"]).default("ALL") }))
+    .query(async ({ ctx, input }) => {
+      const splits = await ctx.prisma.billSplit.findMany({
+        where: {
+          reservationId: { not: null },
+          ...(input.companyId ? { companyId: input.companyId } : {}),
+          reservation: { deletedAt: null, ...(range(input.from, input.to) ? { pickupAt: range(input.from, input.to) } : {}), ...(input.locationId ? { pickupLocationId: input.locationId } : {}) },
+        },
+        take: 5000,
+        select: {
+          companyId: true, amountPerDay: true, numberOfDays: true, lumpSum: true, prePaid: true, poNumber: true, company: { select: { name: true } },
+          reservation: { select: { id: true, number: true, createdAt: true, pickupAt: true, firstName: true, lastName: true, pickupLocation: { select: { code: true, name: true } }, payments: { select: { companyId: true, amount: true, transactionType: true } } } },
+        },
+      });
+      const rows = splits
+        .map((s) => {
+          const r = s.reservation!;
+          const due = round(num(s.amountPerDay) * s.numberOfDays + num(s.lumpSum));
+          const paid = round(num(s.prePaid) + r.payments.filter((p) => p.companyId === s.companyId).reduce((a, p) => a + (p.transactionType === "PAYMENT" ? num(p.amount) : p.transactionType === "REFUND" ? -num(p.amount) : 0), 0));
+          return {
+            id: r.id, number: r.number, customer: `${r.firstName} ${r.lastName}`, company: s.company.name, reservationDate: r.createdAt, pickup: r.pickupAt,
+            locationCode: r.pickupLocation.code ?? r.pickupLocation.name, due, paid, balance: round(due - paid), po: s.poNumber ?? "",
+          };
+        })
+        .filter((r) => (input.balance === "OWING" ? r.balance > 0 : input.balance === "ZERO" ? r.balance === 0 : true))
+        .sort((a, b) => a.number - b.number);
+      const sum = (k: "due" | "paid" | "balance") => round(rows.reduce((a, r) => a + r[k], 0));
+      return { rows, totals: { due: sum("due"), paid: sum("paid"), balance: sum("balance") } };
+    }),
+
+  /** Corporate A/R Analysis (ReportsCorporateARAnalysis): what each company still owes, by age since the rental closed (< 30, 30–60, > 60 days). */
+  corporateArAnalysis: staffProcedure
+    .input(z.object({ from: optDate, to: optDate, locationId: optId }))
+    .query(async ({ ctx, input }) => {
+      const splits = await ctx.prisma.billSplit.findMany({
+        where: {
+          rentalId: { not: null },
+          rental: { deletedAt: null, status: "CLOSED", ...(range(input.from, input.to) ? { checkedInAt: range(input.from, input.to) } : {}), ...(input.locationId ? { checkOutLocationId: input.locationId } : {}) },
+        },
+        take: 10000,
+        select: { companyId: true, amountPerDay: true, numberOfDays: true, lumpSum: true, prePaid: true, company: { select: { name: true } }, rental: { select: { checkedInAt: true, payments: { select: { companyId: true, amount: true, transactionType: true } } } } },
+      });
+      const now = Date.now();
+      const m = new Map<string, { company: string; lt30: number; d30_60: number; gt60: number; total: number }>();
+      for (const s of splits) {
+        const r = s.rental!;
+        const bal = num(s.amountPerDay) * s.numberOfDays + num(s.lumpSum) - num(s.prePaid) - r.payments.filter((p) => p.companyId === s.companyId).reduce((a, p) => a + (p.transactionType === "PAYMENT" ? num(p.amount) : p.transactionType === "REFUND" ? -num(p.amount) : 0), 0);
+        if (Math.abs(bal) < 0.005) continue;
+        const age = r.checkedInAt ? (now - +r.checkedInAt) / DAY : 0;
+        const g = m.get(s.companyId) ?? { company: s.company.name, lt30: 0, d30_60: 0, gt60: 0, total: 0 };
+        if (age < 30) g.lt30 = round(g.lt30 + bal);
+        else if (age < 60) g.d30_60 = round(g.d30_60 + bal);
+        else g.gt60 = round(g.gt60 + bal);
+        g.total = round(g.total + bal);
+        m.set(s.companyId, g);
+      }
+      const rows = [...m.values()].sort((a, b) => a.company.localeCompare(b.company));
+      const sum = (k: "lt30" | "d30_60" | "gt60" | "total") => round(rows.reduce((a, r) => a + r[k], 0));
+      return { rows, totals: { lt30: sum("lt30"), d30_60: sum("d30_60"), gt60: sum("gt60"), total: sum("total") } };
+    }),
+
   /** Pick-lists for the report filters. */
   filters: staffProcedure.query(async ({ ctx }) => {
     const [locations, makes, types] = await Promise.all([
@@ -1434,6 +1605,7 @@ export const reportsRouter = router({
       ctx.prisma.lookup.findMany({ where: { kind: "CUSTOMER_REGION" }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
     ]);
     const agents = await ctx.prisma.user.findMany({ where: { OR: [{ banned: null }, { banned: false }] }, orderBy: { name: "asc" }, select: { id: true, name: true } });
-    return { locations, makes, types, referrals, regions, agents, companies: companies.map((c) => ({ id: c.id, name: c.code ? `${c.name} (${c.code})` : c.name })) };
+    const companyTypes = await ctx.prisma.lookup.findMany({ where: { kind: "COMPANY_TYPE" }, orderBy: { name: "asc" }, select: { id: true, name: true } });
+    return { locations, makes, types, referrals, regions, agents, companyTypes, companies: companies.map((c) => ({ id: c.id, name: c.code ? `${c.name} (${c.code})` : c.name })) };
   }),
 });

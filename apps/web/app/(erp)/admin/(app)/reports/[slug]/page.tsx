@@ -9,6 +9,7 @@ import { RevenueByCompanyReport, RevenueByCustomerReport, RevenueByLocationRepor
 import { AdjustmentDetailsReport, ChecklistOverviewReport, CommissionsReport, PromoCodeReport, CustomerNotesReport, RentalDaysReport, RentalDiscountReport, TasksReport } from "../_components/activity-reports";
 import { NonRevenueReport, RentalDetailsReport, RentalEventTrackingReport, RentalInvoicesReport, ReservationEventTrackingReport, RevenueByAdminReport, RevenueByOptionsReport } from "../_components/booking-reports";
 import { KmDifferenceReport, VehicleInsuranceReport, VehicleLeaseLoanReport, VehicleProfitReport, VehicleUtilizationReport } from "../_components/fleet-reports-2";
+import { CorporateArAnalysisReport, CorporateArReport, CustomerArReport, ReservationArReport } from "../_components/ar-reports";
 import { BUILT_REPORTS } from "../report-list";
 
 const SCREENS: Record<string, () => React.JSX.Element> = {
@@ -48,6 +49,10 @@ const SCREENS: Record<string, () => React.JSX.Element> = {
   "revenue-by-admin": RevenueByAdminReport,
   "revenue-by-options": RevenueByOptionsReport,
   "non-revenue": NonRevenueReport,
+  "corporate-ar": CorporateArReport,
+  "customer-ar": CustomerArReport,
+  "reservation-ar": ReservationArReport,
+  "corporate-ar-analysis": CorporateArAnalysisReport,
   "vehicle-insurance": VehicleInsuranceReport,
   "vehicle-lease-loan": VehicleLeaseLoanReport,
   "km-difference": KmDifferenceReport,

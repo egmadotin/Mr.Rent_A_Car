@@ -19,7 +19,7 @@ export const fromDay = (s: string) => (s ? new Date(`${s}T00:00`) : undefined);
 
 export function useReportFilters() {
   const trpc = useTRPC();
-  return useQuery(trpc.staff.reports.filters.queryOptions()).data ?? { locations: [], makes: [], types: [], companies: [], referrals: [], regions: [], agents: [] };
+  return useQuery(trpc.staff.reports.filters.queryOptions()).data ?? { locations: [], makes: [], types: [], companies: [], referrals: [], regions: [], agents: [], companyTypes: [] };
 }
 
 export function DateField({ label, value, onChange, id }: { label: string; value: string; onChange: (v: string) => void; id: string }) {
