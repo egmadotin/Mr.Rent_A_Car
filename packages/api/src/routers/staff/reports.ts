@@ -1277,6 +1277,150 @@ export const reportsRouter = router({
         .then((rs) => rs.map((r) => ({ id: r.id, raNumber: r.raNumber, fullName: `${r.customer.firstName} ${r.customer.lastName}`, vehicleId: r.vehicle.id, assignedId: r.vehicle.assignedId, model: `${r.vehicle.make.name} ${r.vehicle.model.name}`, pickup: r.checkOutAt, return: r.checkedInAt ?? r.expectedReturnAt }))),
     ),
 
+  /**
+   * Vehicle Insurance (ReportsLocationInsurance): per vehicle its insurance records in the period — Insurance Expiry, how many
+   * No Insurance / Full Coverage / Liability Only / Comprehensive Only records and their amounts, and the latest Action Type.
+   */
+  vehicleInsurance: staffProcedure
+    .input(z.object({ makeId: optId, from: optDate, to: optDate, locationId: optId, currentLocationId: optId, vehicleTypeId: optId, actionType: z.enum(["", "NO_INSURANCE", "FULL_COVERAGE", "LIABILITY_ONLY", "COMPREHENSIVE_ONLY"]).default("") }))
+    .query(async ({ ctx, input }) => {
+      const recs = await ctx.prisma.vehicleInsuranceRecord.findMany({
+        where: {
+          ...(range(input.from, input.to) ? { date: range(input.from, input.to) } : {}),
+          ...(input.actionType ? { actionType: input.actionType } : {}),
+          vehicle: { ...vehicleFilter(input), ...(input.currentLocationId ? { currentLocationId: input.currentLocationId } : {}) },
+        },
+        orderBy: [{ vehicle: { assignedId: "asc" } }, { date: "asc" }],
+        take: 5000,
+        select: { date: true, expiryDate: true, actionType: true, insuranceAmount: true, vehicle: { select: { id: true, assignedId: true } } },
+      });
+      const m = new Map<string, { vehicleId: string; assignedId: string; expiry: Date | null; count: Record<string, number>; amount: Record<string, number>; action: string }>();
+      for (const r of recs) {
+        const g = m.get(r.vehicle.id) ?? { vehicleId: r.vehicle.id, assignedId: r.vehicle.assignedId, expiry: null, count: {}, amount: {}, action: "" };
+        g.count[r.actionType] = (g.count[r.actionType] ?? 0) + 1;
+        g.amount[r.actionType] = round((g.amount[r.actionType] ?? 0) + num(r.insuranceAmount));
+        g.expiry = r.expiryDate ?? g.expiry;
+        g.action = r.actionType;
+        m.set(r.vehicle.id, g);
+      }
+      return [...m.values()];
+    }),
+
+  /** Vehicle Lease/Loan (ReportsVehicleLeaseLoan): vehicles with Ownership Information — selling company, bank, loan and payments. */
+  vehicleLeaseLoan: staffProcedure
+    .input(z.object({ companyId: optId, makeId: optId, year: z.coerce.number().int().optional(), locationId: optId, currentLocationId: optId, vehicleTypeId: optId }))
+    .query(async ({ ctx, input }) => {
+      const rows = await ctx.prisma.vehicleOwnership.findMany({
+        where: {
+          ...(input.companyId ? { sellingCompanyId: input.companyId } : {}),
+          vehicle: { isActive: true, ...vehicleFilter(input), ...(input.currentLocationId ? { currentLocationId: input.currentLocationId } : {}) },
+        },
+        orderBy: { vehicle: { assignedId: "asc" } },
+        take: 3000,
+        include: { sellingCompany: { select: { name: true } }, vehicle: { select: { id: true, assignedId: true, year: true, make: { select: { name: true } }, model: { select: { name: true } } } } },
+      });
+      return rows.map((o) => ({
+        vehicleId: o.vehicle.id, assignedId: o.vehicle.assignedId, vehicle: `${o.vehicle.year ?? ""} ${o.vehicle.make.name} ${o.vehicle.model.name}`.trim(), company: o.sellingCompany?.name ?? "",
+        bank: o.bank ?? "", loanNumber: o.loanNumber ?? "", acquisitionDate: o.acquisitionDate, financeAmount: num(o.financeAmount), monthlyPayment: num(o.monthlyPayment),
+        interestRate: num(o.interestRate), leaseTerm: o.leaseTerm ?? "", remainingPayments: o.remainingPayments, payoffAmount: num(o.payoffAmount), balanceOwed: num(o.balanceOwed),
+      }));
+    }),
+
+  /**
+   * KM Difference/Missing (ReportVehicleMilesDiff): each vehicle's rentals in order — Rental #, Pickup / Return Date, Days,
+   * Days Diff (idle days since the previous rental), Odometer Out / In, Kilometers Diff (km driven between rentals, i.e.
+   * missing from any rental), Exchanged.
+   */
+  kmDifference: staffProcedure
+    .input(z.object({ makeId: optId, from: optDate, to: optDate, assignedId: z.string().trim().optional(), locationId: optId, vehicleTypeId: optId }))
+    .query(async ({ ctx, input }) => {
+      const rs = await ctx.prisma.rental.findMany({
+        where: { deletedAt: null, status: { in: ["OPEN", "CLOSED"] }, ...(range(input.from, input.to) ? { checkOutAt: range(input.from, input.to) } : {}), vehicle: vehicleFilter(input) },
+        orderBy: [{ vehicleId: "asc" }, { checkOutAt: "asc" }],
+        take: 5000,
+        select: {
+          id: true, raNumber: true, checkOutAt: true, checkedInAt: true, expectedReturnAt: true, odometerOut: true, odometerIn: true,
+          vehicle: { select: { id: true, assignedId: true } }, _count: { select: { vehicleSegments: true } },
+        },
+      });
+      const groups = new Map<string, { vehicleId: string; assignedId: string; rows: Record<string, unknown>[] }>();
+      let prev: (typeof rs)[number] | null = null;
+      for (const r of rs) {
+        const g = groups.get(r.vehicle.id) ?? { vehicleId: r.vehicle.id, assignedId: r.vehicle.assignedId, rows: [] };
+        const back = r.checkedInAt ?? r.expectedReturnAt;
+        const same = prev && prev.vehicle.id === r.vehicle.id ? prev : null;
+        g.rows.push({
+          id: r.id, raNumber: r.raNumber, pickup: r.checkOutAt, return: back, days: Math.max(1, Math.ceil((+back - +r.checkOutAt) / DAY)),
+          daysDiff: same ? Math.round((+r.checkOutAt - +(same.checkedInAt ?? same.expectedReturnAt)) / DAY) : null,
+          odometerOut: r.odometerOut, odometerIn: r.odometerIn, kmDiff: same && same.odometerIn != null ? r.odometerOut - same.odometerIn : null, exchanged: r._count.vehicleSegments > 1,
+        });
+        groups.set(r.vehicle.id, g);
+        prev = r;
+      }
+      return [...groups.values()];
+    }),
+
+  /** Vehicle Utilization (Today) (ReportsVehicleStatus): every active vehicle's status now and its open rental. */
+  vehicleUtilization: staffProcedure
+    .input(z.object({ makeId: optId, year: z.coerce.number().int().optional(), locationId: optId, currentLocationId: optId, vehicleTypeId: optId }))
+    .query(async ({ ctx, input }) => {
+      const vs = await ctx.prisma.vehicle.findMany({
+        where: { isActive: true, ...vehicleFilter(input), ...(input.currentLocationId ? { currentLocationId: input.currentLocationId } : {}) },
+        orderBy: { assignedId: "asc" },
+        select: {
+          id: true, assignedId: true, licenseNumber: true, status: true, year: true, currentOdometer: true, vin: true, make: { select: { name: true } }, model: { select: { name: true } },
+          vehicleType: { select: { name: true } }, owningLocation: { select: { name: true } }, currentLocation: { select: { name: true } }, rentalLocation: { select: { name: true } },
+          rentals: { where: { status: "OPEN", deletedAt: null }, take: 1, select: { id: true, raNumber: true } },
+        },
+      });
+      const rows = vs.map((v) => ({
+        id: v.id, assignedId: v.assignedId, plate: v.licenseNumber, owning: v.owningLocation.name, current: (v.currentLocation ?? v.rentalLocation).name, status: v.status,
+        rentalId: v.rentals[0]?.id ?? null, raNumber: v.rentals[0]?.raNumber ?? null, type: v.vehicleType.name, year: v.year, odometer: v.currentOdometer, make: v.make.name, model: v.model.name, vin: v.vin ?? "",
+      }));
+      const byStatus = new Map<string, number>();
+      for (const r of rows) byStatus.set(r.status, (byStatus.get(r.status) ?? 0) + 1);
+      return { rows, summary: [...byStatus.entries()].map(([status, count]) => ({ status, count })), onRentPercent: rows.length ? round((rows.filter((r) => r.status === "ON_RENT").length / rows.length) * 100) : 0 };
+    }),
+
+  /**
+   * Vehicle Profit/Loss (ReportVehicleProfit): per vehicle in the period — Rent Length (days rented), Driven Miles, Income
+   * (rental charges before tax), Depreciation (Ownership "Mo. Dep. Amt." × months in the period), Expenses (maintenance
+   * payments + repair parts and labour + damage totals), Price (Ownership price), Profit = Income − Depreciation − Expenses.
+   */
+  vehicleProfit: staffProcedure
+    .input(z.object({ makeId: optId, from: optDate, to: optDate, assignedId: z.string().trim().optional(), locationId: optId, owningLocationId: optId, currentLocationId: optId, vehicleTypeId: optId }))
+    .query(async ({ ctx, input }) => {
+      const when = range(input.from, input.to);
+      const vs = await ctx.prisma.vehicle.findMany({
+        where: {
+          isActive: true, ...vehicleFilter(input),
+          ...(input.owningLocationId ? { owningLocationId: input.owningLocationId } : {}), ...(input.currentLocationId ? { currentLocationId: input.currentLocationId } : {}),
+        },
+        orderBy: { assignedId: "asc" },
+        take: 2000,
+        select: {
+          id: true, assignedId: true, year: true, vin: true, ownership: { select: { price: true, acquisitionPrice: true, moDepAmt: true } },
+          rentals: { where: { deletedAt: null, status: { in: ["OPEN", "CLOSED"] }, ...(when ? { checkOutAt: when } : {}) }, select: { checkOutAt: true, checkedInAt: true, expectedReturnAt: true, odometerOut: true, odometerIn: true, chargeLines: { select: { kind: true, total: true } } } },
+          maintenances: { where: when ? { date: when } : {}, select: { paymentAmount: true, labourCost: true, partsCost: true } },
+          repairs: { where: when ? { date: when } : {}, select: { totalParts: true, totalLabour: true } },
+          damages: { where: when ? { date: when } : {}, select: { total: true } },
+        },
+      });
+      const months = input.from && input.to ? Math.max(1, Math.round((+input.to - +input.from) / (30 * DAY))) : 0;
+      return vs.map((v) => {
+        const days = v.rentals.reduce((a, r) => a + Math.max(1, Math.ceil((+(r.checkedInAt ?? r.expectedReturnAt) - +r.checkOutAt) / DAY)), 0);
+        const km = v.rentals.reduce((a, r) => a + (r.odometerIn != null ? Math.max(0, r.odometerIn - r.odometerOut) : 0), 0);
+        const income = round(v.rentals.reduce((a, r) => a + r.chargeLines.filter((l) => l.kind !== "TAX").reduce((b, l) => b + num(l.total), 0), 0));
+        const depreciation = round(num(v.ownership?.moDepAmt) * months);
+        const expenses = round(
+          v.maintenances.reduce((a, m) => a + (m.paymentAmount != null ? num(m.paymentAmount) : num(m.labourCost) + num(m.partsCost)), 0) +
+            v.repairs.reduce((a, r) => a + num(r.totalParts) + num(r.totalLabour), 0) +
+            v.damages.reduce((a, d) => a + num(d.total), 0),
+        );
+        return { id: v.id, assignedId: v.assignedId, year: v.year, vin: v.vin ?? "", days, km, income, depreciation, expenses, price: num(v.ownership?.price ?? v.ownership?.acquisitionPrice), profit: round(income - depreciation - expenses) };
+      });
+    }),
+
   /** Pick-lists for the report filters. */
   filters: staffProcedure.query(async ({ ctx }) => {
     const [locations, makes, types] = await Promise.all([

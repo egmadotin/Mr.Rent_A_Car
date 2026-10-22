@@ -36,10 +36,10 @@ export const REPORT_CATEGORIES: ReportCategory[] = [
     icon: "truck",
     reports: [
       { name: "Vehicle Due In", slug: "vehicle-due-in" },
-      { name: "Vehicles Summary", slug: "vehicles-summary" }, { name: "Vehicles Summary with QR Code" }, { name: "Vehicle Utilization (Today)" }, { name: "Fleet Utilization History" },
-      { name: "Fleet Utilization For Cast" }, { name: "Vehicle License Expiration", slug: "license-expiration" }, { name: "Vehicle Profit/Loss" }, { name: "Repair Orders" },
-      { name: "Vehicle Repairs", slug: "vehicle-repairs" }, { name: "Vehicle Lease/Loan" }, { name: "Vehicle Maintenance", slug: "vehicle-maintenance" }, { name: "Maintenance Alert", slug: "maintenance-alert" },
-      { name: "Snap Shot For Rentals / Vehicle Type" }, { name: "Vehicle Insurance" }, { name: "KM Difference/Missing" }, { name: "Fleet Utilization Snapshot" }, { name: "Checklist Overview", slug: "checklist-overview" },
+      { name: "Vehicles Summary", slug: "vehicles-summary" }, { name: "Vehicles Summary with QR Code" }, { name: "Vehicle Utilization (Today)", slug: "vehicle-utilization" }, { name: "Fleet Utilization History" },
+      { name: "Fleet Utilization For Cast" }, { name: "Vehicle License Expiration", slug: "license-expiration" }, { name: "Vehicle Profit/Loss", slug: "vehicle-profit" }, { name: "Repair Orders" },
+      { name: "Vehicle Repairs", slug: "vehicle-repairs" }, { name: "Vehicle Lease/Loan", slug: "vehicle-lease-loan" }, { name: "Vehicle Maintenance", slug: "vehicle-maintenance" }, { name: "Maintenance Alert", slug: "maintenance-alert" },
+      { name: "Snap Shot For Rentals / Vehicle Type" }, { name: "Vehicle Insurance", slug: "vehicle-insurance" }, { name: "KM Difference/Missing", slug: "km-difference" }, { name: "Fleet Utilization Snapshot" }, { name: "Checklist Overview", slug: "checklist-overview" },
     ],
   },
   {

@@ -8,6 +8,7 @@ import { CustomerByRegionReport, NoShowCancelledReport, PaymentsAndChargesReport
 import { RevenueByCompanyReport, RevenueByCustomerReport, RevenueByLocationReport, RevenueByVehicleReport } from "../_components/revenue-by";
 import { AdjustmentDetailsReport, ChecklistOverviewReport, CommissionsReport, PromoCodeReport, CustomerNotesReport, RentalDaysReport, RentalDiscountReport, TasksReport } from "../_components/activity-reports";
 import { NonRevenueReport, RentalDetailsReport, RentalEventTrackingReport, RentalInvoicesReport, ReservationEventTrackingReport, RevenueByAdminReport, RevenueByOptionsReport } from "../_components/booking-reports";
+import { KmDifferenceReport, VehicleInsuranceReport, VehicleLeaseLoanReport, VehicleProfitReport, VehicleUtilizationReport } from "../_components/fleet-reports-2";
 import { BUILT_REPORTS } from "../report-list";
 
 const SCREENS: Record<string, () => React.JSX.Element> = {
@@ -47,6 +48,11 @@ const SCREENS: Record<string, () => React.JSX.Element> = {
   "revenue-by-admin": RevenueByAdminReport,
   "revenue-by-options": RevenueByOptionsReport,
   "non-revenue": NonRevenueReport,
+  "vehicle-insurance": VehicleInsuranceReport,
+  "vehicle-lease-loan": VehicleLeaseLoanReport,
+  "km-difference": KmDifferenceReport,
+  "vehicle-utilization": VehicleUtilizationReport,
+  "vehicle-profit": VehicleProfitReport,
   "no-show-cancelled": NoShowCancelledReport,
 };
 
