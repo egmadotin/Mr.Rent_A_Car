@@ -33,7 +33,7 @@ export const usersRouter = router({
     ctx.prisma.user.findMany({
       where: { kind: "STAFF" },
       orderBy: [{ banned: "asc" }, { name: "asc" }],
-      select: { id: true, name: true, email: true, role: true, banned: true, createdAt: true, userGroupId: true, userGroup: { select: { name: true } }, defaultLocationId: true, defaultLocation: { select: { name: true } } },
+      select: { id: true, name: true, email: true, role: true, banned: true, createdAt: true, userGroupId: true, userGroup: { select: { name: true } }, defaultLocationId: true, defaultLocation: { select: { name: true } }, commissionStructureIds: true, commissionType: true, commissionAmount: true },
     }),
   ),
 
@@ -77,6 +77,10 @@ export const usersRouter = router({
         defaultLocationId: optStr,
         isAdmin: z.boolean(),
         active: z.boolean(),
+        /** Users form "Commission Structure" ticks and "Commission" (None / Percentage % / Dollar Amount $) */
+        commissionStructureIds: z.array(z.string()).optional(),
+        commissionType: z.preprocess((v) => (v === "" ? null : v), z.enum(["PERCENT", "AMOUNT"]).nullable().optional()),
+        commissionAmount: z.preprocess((v) => (v === "" || v == null ? null : Number(v)), z.number().min(0).nullable().optional()),
         /** blank = keep */
         newPassword: z.string().optional().transform((v) => v || null).refine((v) => !v || v.length >= 10, "At least 10 characters"),
       }),
@@ -89,7 +93,11 @@ export const usersRouter = router({
       await ctx.prisma.$transaction(async (tx) => {
         await tx.user.update({
           where: { id: input.id },
-          data: { name: input.name, userGroupId: input.userGroupId, defaultLocationId: input.defaultLocationId, role: input.isAdmin ? "admin" : "user", banned: !input.active, banReason: input.active ? null : "Deactivated in Settings > Users" },
+          data: {
+            name: input.name, userGroupId: input.userGroupId, defaultLocationId: input.defaultLocationId, role: input.isAdmin ? "admin" : "user", banned: !input.active, banReason: input.active ? null : "Deactivated in Settings > Users",
+            ...(input.commissionStructureIds ? { commissionStructureIds: input.commissionStructureIds } : {}),
+            ...(input.commissionType !== undefined ? { commissionType: input.commissionType, commissionAmount: input.commissionType ? input.commissionAmount ?? null : null } : {}),
+          },
         });
         if (!input.active) await tx.session.deleteMany({ where: { userId: input.id } });
         if (input.newPassword) await tx.account.updateMany({ where: { userId: input.id, providerId: "credential" }, data: { password: await hashPassword(input.newPassword) } });

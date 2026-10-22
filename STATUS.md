@@ -29,7 +29,7 @@ The RentCentric menus, vehicle page and customer page were re-read on Oct 20. No
 | Customers (list, add, edit, view and its actions) | ✅ |
 | Vehicles (list, add, edit, summary) | ✅ (every vehicle page action built) |
 | Users, user groups and permissions | ✅ (group location limit not enforced) |
-| Settings | 🟡 about 53 of RentCentric's ~100 setting pages built (section 7) |
+| Settings | 🟡 about 54 of RentCentric's ~100 setting pages built (section 7) |
 | Reports | 🟡 30 of 64 built (see section 8) |
 | Dashboard | ✅ |
 | Public website and online booking | ✅ (customer login and fleet filters 🟡) |
@@ -245,7 +245,7 @@ RentCentric's Settings menu, item by item.
 | Financial / Commission | Accounting | ⬜ |
 | Financial / Commission | Commissions | ⬜ |
 | Financial / Commission | Referrals | ✅ list, add, edit, deactivate; delete only when never used (fields as imported from RentCentric) |
-| Financial / Commission | Commission Structures | ⬜ |
+| Financial / Commission | Commission Structures | ✅ RentCentric's structure copied (coquitlam: 25% open + 25% close on Net Rate, Mileage, Prepaid Fuel, Additional Driver); agents get structures + a Commission type/amount on Settings › Users; the Commissions report adds what they earn |
 | Website & Email | Mail Server Configuration | ✅ |
 | Website & Email | Reservation Email, Quote Email | 🟡 sent with the templates |
 | Website & Email | Inspection Email | ✅ Subject + body; each inspection has an email button (details + photos attached) 🔑 SMTP |
@@ -293,6 +293,8 @@ Not built yet:
 
 ## 11. Waiting on the client
 
+- Which staff earn by the "coquitlam" commission structure (RentCentric's user list couldn't be read; tick it on each user in Settings › Users).
+
 - Not in use in RentCentric (left out unless wanted): Tours, Claims Management V2, Status Of Repair, Claim Types, Merchandise Items / Orders, Email Templates, Repair Order program.
 
 - Yield pricing (Rate Values Update, Rate Blocking, Rate Utilization, Rates Calendar, Overbooking Control): not used in RentCentric today — needed?
@@ -307,7 +309,6 @@ Not built yet:
 
 ## Next session (Oct 22)
 
-2. Commission Structures (1 in RentCentric) — needs RentCentric open.
 3. Partner Login Setup, Import Data tools, Copy Location Setup, Renew Rental Agreements.
 4. Remaining reports, data migration, deployment.
 

@@ -51,16 +51,21 @@ model User {
   sessions Session[]
   accounts Account[]
 
-  rentalsOpened       Rental[]      @relation("RentalOpenedBy")
-  rentalsClosed       Rental[]      @relation("RentalClosedBy")
-  paymentsTaken       Payment[]     @relation("PaymentTakenBy")
-  memosAuthored       Memo[]        @relation("MemoAuthor")
-  quotesCreated       Quote[]       @relation("QuoteCreatedBy")
-  reservationsCreated Reservation[] @relation("ReservationCreatedBy")
-  adjustmentsEntered  Adjustment[]  @relation("AdjustmentEnteredBy")
-  commissionsEntered  Commission[]  @relation("CommissionEnteredBy")
-  commissionsEarned   Commission[]  @relation("CommissionUser")
-  auditLogs           AuditLog[]
+  rentalsOpened          Rental[]      @relation("RentalOpenedBy")
+  rentalsClosed          Rental[]      @relation("RentalClosedBy")
+  paymentsTaken          Payment[]     @relation("PaymentTakenBy")
+  memosAuthored          Memo[]        @relation("MemoAuthor")
+  quotesCreated          Quote[]       @relation("QuoteCreatedBy")
+  reservationsCreated    Reservation[] @relation("ReservationCreatedBy")
+  adjustmentsEntered     Adjustment[]  @relation("AdjustmentEnteredBy")
+  commissionsEntered     Commission[]  @relation("CommissionEnteredBy")
+  commissionsEarned      Commission[]  @relation("CommissionUser")
+  auditLogs              AuditLog[]
+  /// Users form "Commission Structure" ticks (Settings > Commission Structures)
+  commissionStructureIds String[]      @default([])
+  /// Users form "Commission": None / Percentage % / Dollar Amount $
+  commissionType         DiscountType?
+  commissionAmount       Decimal?      @db.Decimal(10, 2)
 
   @@map("user")
 }
@@ -186,24 +191,25 @@ model Location {
   insurances  Insurance[]
   taxes       LocationTax[]
 
-  usersDefaulted     User[]                  @relation("UserDefaultLocation")
-  vehiclesRental     Vehicle[]               @relation("VehicleRentalLocation")
-  vehiclesOwning     Vehicle[]               @relation("VehicleOwningLocation")
-  vehiclesCurrent    Vehicle[]               @relation("VehicleCurrentLocation")
-  rates              Rate[]
-  quotesPickup       Quote[]                 @relation("QuotePickup")
-  quotesReturn       Quote[]                 @relation("QuoteReturn")
-  reservationsBooked Reservation[]           @relation("ReservationLocation")
-  reservationsPickup Reservation[]           @relation("ReservationPickup")
-  reservationsReturn Reservation[]           @relation("ReservationReturn")
-  rentalsOut         Rental[]                @relation("RentalCheckOutLocation")
-  rentalsIn          Rental[]                @relation("RentalCheckInLocation")
-  customersDefault   Customer[]              @relation("CustomerDefaultLocation")
-  customersEntered   Customer[]              @relation("CustomerEnteredLocation")
-  transportsPickup   Transport[]             @relation("TransportPickup")
-  transportsDropoff  Transport[]             @relation("TransportDropoff")
-  documentTemplates  DocumentTemplate[]
-  paymentMethods     LocationPaymentMethod[]
+  usersDefaulted       User[]                  @relation("UserDefaultLocation")
+  vehiclesRental       Vehicle[]               @relation("VehicleRentalLocation")
+  vehiclesOwning       Vehicle[]               @relation("VehicleOwningLocation")
+  vehiclesCurrent      Vehicle[]               @relation("VehicleCurrentLocation")
+  rates                Rate[]
+  quotesPickup         Quote[]                 @relation("QuotePickup")
+  quotesReturn         Quote[]                 @relation("QuoteReturn")
+  reservationsBooked   Reservation[]           @relation("ReservationLocation")
+  reservationsPickup   Reservation[]           @relation("ReservationPickup")
+  reservationsReturn   Reservation[]           @relation("ReservationReturn")
+  rentalsOut           Rental[]                @relation("RentalCheckOutLocation")
+  rentalsIn            Rental[]                @relation("RentalCheckInLocation")
+  customersDefault     Customer[]              @relation("CustomerDefaultLocation")
+  customersEntered     Customer[]              @relation("CustomerEnteredLocation")
+  transportsPickup     Transport[]             @relation("TransportPickup")
+  transportsDropoff    Transport[]             @relation("TransportDropoff")
+  documentTemplates    DocumentTemplate[]
+  paymentMethods       LocationPaymentMethod[]
+  commissionStructures CommissionStructure[]
 }
 
 /// Settings > Location Information > Hours Of Operation
@@ -2284,4 +2290,17 @@ model PromoCode {
   vehicleTypeIds  String[]      @default([])
   reservations    Reservation[]
   createdAt       DateTime      @default(now())
+}
+
+/// Settings > Financial / Commission > Commission Structures (CommissionStructureModify2.aspx): name, location, and per
+/// charge (Net Rate, Mileage, Prepaid Fuel, each insurance / misc charge / tax) the commission for the Reservation, Open,
+/// Close and Walk-in agent, as Daily, % or $. Rules: { "<item>": { res?, open?, close?, walkin?: { amount, type } } } with
+/// item NET_RATE | MILEAGE | PREPAID_FUEL | INS:<name> | MISC:<name> | TAX:<name>, type DAILY | PERCENT | AMOUNT.
+model CommissionStructure {
+  id         String    @id @default(cuid())
+  name       String
+  locationId String?
+  location   Location? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  rules      Json      @default("{}")
+  createdAt  DateTime  @default(now())
 }

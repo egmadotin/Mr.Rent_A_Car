@@ -49,7 +49,7 @@ const CATEGORIES: SettingsCategory[] = [
   { title: "Equipment Setup", items: [{ label: "Equipment", href: "/admin/settings/equipment" }] },
   { title: "Self Service & Car Share SetUp", items: [{ label: "Self Service" }, { label: "Car Share" }] },
   { title: "Claims Management", items: [{ label: "Claims Management", href: "/admin/settings/claims", desc: "Every claim on rentals and vehicles" }, { label: "Claims Management V2" }] },
-  { title: "Financial / Commission Settings", items: [{ label: "Commissions" }, { label: "Financial Settings" }, { label: "Referrals", href: "/admin/settings/referrals", desc: "Source of referral list" }] },
+  { title: "Financial / Commission Settings", items: [{ label: "Commissions" }, { label: "Commission Structures", href: "/admin/settings/commission-structures", desc: "What agents earn per rental, by charge" }, { label: "Financial Settings" }, { label: "Referrals", href: "/admin/settings/referrals", desc: "Source of referral list" }] },
   { title: "Website & Email Setup", items: [{ label: "Website Design V3" }, { label: "Add/Edit Webpages" }, { label: "Widget/Rotator Setup" }, { label: "Email Setup", href: "/admin/settings/email", desc: "SMTP account for agreements, invoices, confirmations and quotes (admins only)" }, { label: "Inspection Email", href: "/admin/settings/inspection-email", desc: "The email that sends a customer their inspection photos" }, { label: "Promotions/Specials", href: "/admin/settings/promotions", desc: "Promo codes for online bookings" }] },
   { title: "SMS Notification", items: [{ label: "SMS Notification" }] },
   { title: "Point Of Sale", items: [{ label: "Point Of Sale" }] },

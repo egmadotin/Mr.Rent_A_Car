@@ -19,6 +19,7 @@ export function UsersManager({ meId }: { meId: string }) {
   const users = useQuery(trpc.staff.users.list.queryOptions());
   const groups = useQuery(trpc.staff.users.groups.queryOptions()).data ?? [];
   const locations = useQuery(trpc.staff.settings.lookups.queryOptions()).data?.locations ?? [];
+  const structures = useQuery(trpc.staff.setup.commissionStructures.queryOptions()).data ?? [];
   const [editing, setEditing] = React.useState<string | null>(null);
   const [adding, setAdding] = React.useState(false);
   if (users.error) return <p className="p-6 text-sm text-destructive">{users.error.message}</p>;
@@ -97,6 +98,9 @@ export function UsersManager({ meId }: { meId: string }) {
               isAdmin: isAdmin ? Boolean(v.isAdmin) : u.role === "admin",
               active: Boolean(v.active),
               newPassword: (v.newPassword as string) || undefined,
+              commissionStructureIds: structures.filter((st) => v[`cs_${st.id}`]).map((st) => st.id),
+              commissionType: (v.commissionType as "PERCENT") || null,
+              commissionAmount: v.commissionAmount as never,
             });
             toast.success("User saved");
             setEditing(null);
@@ -109,6 +113,13 @@ export function UsersManager({ meId }: { meId: string }) {
           {isAdmin && <CheckField label="Full Admin" name="isAdmin" defaultChecked={u.role === "admin"} />}
           <CheckField label="Active (can sign in)" name="active" defaultChecked={!u.banned} />
           <Field label="New password (optional)" name="newPassword" type="password" hint="Leave blank to keep the current one." autoComplete="new-password" />
+          <fieldset className="space-y-1.5 sm:col-span-2">
+            <legend className="text-sm font-medium">Commission Structure</legend>
+            {structures.length === 0 && <p className="text-xs text-muted-foreground">None set up (Settings › Commission Structures).</p>}
+            {structures.map((st) => <CheckField key={st.id} label={`${st.name}${st.location ? ` — ${st.location.name}` : ""}`} name={`cs_${st.id}`} defaultChecked={u.commissionStructureIds.includes(st.id)} />)}
+          </fieldset>
+          <SelectField label="Commission" name="commissionType" options={[{ value: "PERCENT", label: "Percentage %" }, { value: "AMOUNT", label: "Dollar Amount $" }]} placeholder="None" defaultValue={u.commissionType ?? ""} />
+          <Field label="Commission Amount" name="commissionAmount" type="number" min={0} step="0.01" defaultValue={u.commissionAmount != null ? String(u.commissionAmount) : ""} />
         </FormDialog>
       )}
     </div>

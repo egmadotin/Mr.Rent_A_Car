@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { Prisma } from "@mrac/db";
 import { router, staffProcedure } from "../../trpc";
 import { methodData, methodLabel } from "../../lib/payment-methods";
+import { roleCommission, type Role, type Rules } from "../../lib/commissions";
 
 /**
  * Core reports, as RentCentric's (same filters, columns and totals):
@@ -765,41 +766,67 @@ export const reportsRouter = router({
     }),
 
   /**
-   * Consolidated Commission Report (ReportsCommissionsLog): rentals with commissions entered in the range. A commission
-   * counts as Res. / Open / Close when its agent made the reservation / opened / closed the rental, otherwise Walk In.
+   * Consolidated Commission Report (ReportsCommissionsLog): per rental, what the Reservation / Open / Close / Walk-in agents
+   * earn from their Commission Structures (rentals opened in the range), plus commissions entered on the rental (entered in
+   * the range; counted under the role their earner had on the rental, otherwise Walk In).
    */
   commissions: staffProcedure
     .input(z.object({ from: optDate, to: optDate, locationId: optId, agentId: optId }))
     .query(async ({ ctx, input }) => {
+      // agents with Commission Structures (Users form) earn on rentals opened in the period; commissions entered by hand count too
+      const [agents, structures] = await Promise.all([
+        ctx.prisma.user.findMany({ where: { commissionStructureIds: { isEmpty: false }, ...(input.agentId ? { id: input.agentId } : {}) }, select: { id: true, commissionStructureIds: true } }),
+        ctx.prisma.commissionStructure.findMany({ select: { id: true, locationId: true, rules: true } }),
+      ]);
+      const agentIds = agents.map((a) => a.id);
+      const when = range(input.from, input.to);
       const rentals = await ctx.prisma.rental.findMany({
         where: {
           deletedAt: null,
           ...(input.locationId ? { checkOutLocationId: input.locationId } : {}),
-          commissions: { some: { ...(range(input.from, input.to) ? { enteredAt: range(input.from, input.to) } : {}), ...(input.agentId ? { userId: input.agentId } : {}) } },
+          OR: [
+            { commissions: { some: { ...(when ? { enteredAt: when } : {}), ...(input.agentId ? { userId: input.agentId } : {}) } } },
+            ...(agentIds.length ? [{ ...(when ? { checkOutAt: when } : {}), OR: [{ openedById: { in: agentIds } }, { closedById: { in: agentIds } }, { reservation: { createdById: { in: agentIds } } }] }] : []),
+          ],
         },
         orderBy: { raNumber: "asc" },
         take: 3000,
         select: {
-          id: true, raNumber: true, checkOutAt: true, checkedInAt: true, expectedReturnAt: true, openedById: true, closedById: true,
+          id: true, raNumber: true, checkOutAt: true, checkedInAt: true, expectedReturnAt: true, openedById: true, closedById: true, checkOutLocationId: true,
           reservation: { select: { number: true, createdById: true } },
           vehicle: { select: { assignedId: true } },
           chargeLines: { select: { kind: true, name: true, units: true, total: true } },
-          commissions: { where: { ...(range(input.from, input.to) ? { enteredAt: range(input.from, input.to) } : {}), ...(input.agentId ? { userId: input.agentId } : {}) }, select: { amount: true, userId: true } },
+          commissions: { where: { ...(when ? { enteredAt: when } : {}), ...(input.agentId ? { userId: input.agentId } : {}) }, select: { amount: true, userId: true } },
         },
       });
+      const rulesFor = (userId: string | null | undefined, locationId: string) => {
+        const a = userId ? agents.find((x) => x.id === userId) : undefined;
+        if (!a) return [];
+        return structures.filter((st) => a.commissionStructureIds.includes(st.id) && (!st.locationId || st.locationId === locationId)).map((st) => st.rules as Rules);
+      };
       const rows = rentals.map((r) => {
         const by = (...k: string[]) => round(r.chargeLines.filter((l) => k.includes(l.kind)).reduce((a, l) => a + num(l.total), 0));
-        const comm = { res: 0, open: 0, close: 0, walkIn: 0 };
+        const days = rentalDays(r.chargeLines);
+        const lines = r.chargeLines.map((l) => ({ kind: l.kind, name: l.name, total: num(l.total) }));
+        const role = (userId: string | null | undefined, rl: Role) => roleCommission(rulesFor(userId, r.checkOutLocationId), rl, lines, days);
+        const walkIn = !r.reservation;
+        const comm = {
+          res: walkIn ? 0 : role(r.reservation?.createdById, "res"),
+          open: role(r.openedById, "open"),
+          close: r.checkedInAt ? role(r.closedById, "close") : 0,
+          walkIn: walkIn ? role(r.openedById, "walkin") : 0,
+        };
+        // commissions entered on the rental (Commissions tab), by who earned them
         for (const c of r.commissions) {
           const k = c.userId && c.userId === r.reservation?.createdById ? "res" : c.userId && c.userId === r.openedById ? "open" : c.userId && c.userId === r.closedById ? "close" : "walkIn";
           comm[k] = round(comm[k] + num(c.amount));
         }
         return {
           id: r.id, raNumber: r.raNumber, reservationNumber: r.reservation?.number ?? null, pickup: r.checkOutAt, return: r.checkedInAt ?? r.expectedReturnAt,
-          days: rentalDays(r.chargeLines), vehicle: r.vehicle.assignedId, tm: by("TIME", "MILEAGE"), total: round(r.chargeLines.reduce((a, l) => a + num(l.total), 0)), discount: by("DISCOUNT"),
+          days, vehicle: r.vehicle.assignedId, tm: by("TIME", "MILEAGE"), total: round(r.chargeLines.reduce((a, l) => a + num(l.total), 0)), discount: by("DISCOUNT"),
           ...comm, totalComm: round(comm.res + comm.open + comm.close + comm.walkIn),
         };
-      });
+      }).filter((r) => r.totalComm !== 0);
       const sum = (k: "tm" | "total" | "discount" | "res" | "open" | "close" | "walkIn" | "totalComm") => round(rows.reduce((a, r) => a + r[k], 0));
       return { rows, totals: { tm: sum("tm"), total: sum("total"), discount: sum("discount"), res: sum("res"), open: sum("open"), close: sum("close"), walkIn: sum("walkIn"), totalComm: sum("totalComm") } };
     }),

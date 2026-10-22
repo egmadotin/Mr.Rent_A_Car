@@ -50,6 +50,43 @@ const companyInput = z.object({
 });
 
 export const setupRouter = router({
+  // ── Settings > Financial / Commission > Commission Structures (CommissionStructureMain / Modify2) ──
+
+  commissionStructures: staffProcedure.query(({ ctx }) => ctx.prisma.commissionStructure.findMany({ orderBy: { name: "asc" }, include: { location: { select: { name: true } } } })),
+  /** The rows of the structure grid: Net Rate, Mileage, Prepaid Fuel, then every insurance, misc charge and tax (by name). */
+  commissionItems: staffProcedure.query(async ({ ctx }) => {
+    const [ins, misc, taxes] = await Promise.all([
+      ctx.prisma.insurance.findMany({ where: { isActive: true }, distinct: ["name"], orderBy: { name: "asc" }, select: { name: true } }),
+      ctx.prisma.miscCharge.findMany({ where: { isActive: true }, distinct: ["name"], orderBy: { name: "asc" }, select: { name: true } }),
+      ctx.prisma.tax.findMany({ where: { isActive: true }, distinct: ["name"], orderBy: { name: "asc" }, select: { name: true } }),
+    ]);
+    return [
+      { group: "", items: [["NET_RATE", "Net Rate"], ["MILEAGE", "Mileage"], ["PREPAID_FUEL", "Prepaid Fuel"]] },
+      { group: "Insurances", items: ins.map((x) => [`INS:${x.name}`, x.name]) },
+      { group: "Misc. Charges", items: misc.map((x) => [`MISC:${x.name}`, x.name]) },
+      { group: "Taxes", items: taxes.map((x) => [`TAX:${x.name}`, x.name]) },
+    ] as { group: string; items: [string, string][] }[];
+  }),
+  commissionStructureSave: permitted("Settings")
+    .input(
+      z.object({
+        id: z.string().optional(),
+        name: req("Commission Structure Name"),
+        locationId: optStr,
+        rules: z.record(z.string(), z.record(z.enum(["res", "open", "close", "walkin"]), z.object({ amount: z.number().min(0), type: z.enum(["DAILY", "PERCENT", "AMOUNT"]) }))),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { id, ...data } = input;
+      const c = id ? await ctx.prisma.commissionStructure.update({ where: { id }, data }) : await ctx.prisma.commissionStructure.create({ data });
+      return { id: c.id };
+    }),
+  commissionStructureDelete: permitted("Settings").input(z.object({ id: z.string() })).mutation(async ({ ctx, input }) => {
+    const users = await ctx.prisma.user.count({ where: { commissionStructureIds: { has: input.id } } });
+    if (users) throw new TRPCError({ code: "CONFLICT", message: `${users} user(s) have this structure; untick it on their user first.` });
+    await ctx.prisma.commissionStructure.delete({ where: { id: input.id } });
+  }),
+
   // ── Settings > Website & Email > Promotions/Specials (DiscountPromoMain / DiscountPromoModify) ──
 
   promoList: staffProcedure.query(({ ctx }) => ctx.prisma.promoCode.findMany({ orderBy: [{ isActive: "desc" }, { startDate: "desc" }], include: { _count: { select: { reservations: true } } } })),
