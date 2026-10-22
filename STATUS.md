@@ -255,7 +255,8 @@ RentCentric's Settings menu, item by item.
 | Website & Email | Configuration, Style & Format, Add/Edit Webpages | ⬜ (our public site replaces these) |
 | Website & Email | Online Reservation (incl. V3, mobile), I-Frame Widget, I-Frame Rotator | ⬜ (our public site replaces these) |
 | Website & Email | Merchandise Items, Orders | ⏸ not in use in RentCentric |
-| Email Marketing | Send Marketing Email, Email Template | ⬜ |
+| Email Marketing | Send Marketing Email | ✅ RentCentric's 7 "Select Email" groups (all customers, birthdays in a day/month range, new customers, by location, confirmed reservations, on rent, closed rentals), From Name / Email, Text or Html, Subject, attachment (5 MB), "Allow Customer To Unsubscribe" (signed link → `/unsubscribe`, ticks the customer's "Unsubscribed from email marketing"); shows the recipient count first; unsubscribed / no-email customers left out; 2,000 per send 🔑 SMTP. New routes: restart the server once |
+| Email Marketing | Email Template | ⏸ none in RentCentric (the template list is empty) |
 | Tasks & Messages | | ✅ My Tasks / Add Task / Tasks List (Email Task needs SMTP) |
 | Paperless Counter, Counter Agent Pro, Mobile Scanner | | ⬜ (hardware / integrations phase) |
 

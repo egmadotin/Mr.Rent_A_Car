@@ -19,6 +19,7 @@ import { vehicleRecordsRouter } from "./routers/staff/vehicle-records";
 import { inspectionsRouter } from "./routers/staff/inspections";
 import { checklistsRouter } from "./routers/staff/checklists";
 import { importsRouter } from "./routers/staff/imports";
+import { marketingRouter } from "./routers/staff/marketing";
 import { tasksRouter } from "./routers/staff/tasks";
 import { reportsRouter } from "./routers/staff/reports";
 
@@ -41,6 +42,7 @@ export const staffRouter = router({
   inspections: inspectionsRouter,
   checklists: checklistsRouter,
   imports: importsRouter,
+  marketing: marketingRouter,
   tasks: tasksRouter,
   reports: reportsRouter,
 });

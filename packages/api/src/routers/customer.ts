@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { checkPromo, promoDiscount } from "../lib/promo";
+import { checkUnsubscribe } from "../lib/unsubscribe";
 import { Prisma } from "@mrac/db";
 import { router, publicProcedure } from "../trpc";
 import { onlineOptions, periodTotal, pickOnlineRate, priceBooking } from "../lib/pricing";
@@ -63,6 +64,13 @@ async function priceOnline(
 const cents = (d: Prisma.Decimal) => Math.round(Number(d) * 100);
 
 export const customerRouter = router({
+  /** The link at the foot of a marketing email: stop marketing emails to this customer. */
+  unsubscribe: publicProcedure.input(z.object({ c: z.string().max(40), t: z.string().max(100) })).mutation(async ({ ctx, input }) => {
+    if (!checkUnsubscribe(input.c, input.t)) throw new TRPCError({ code: "BAD_REQUEST", message: "This unsubscribe link isn't valid." });
+    await ctx.prisma.customer.updateMany({ where: { id: input.c }, data: { unsubscribedFromMarketing: true } });
+    return { ok: true };
+  }),
+
   /** Step 3's rental policy (Settings > Rental Policies). */
   rentalPolicies: publicProcedure.query(async ({ ctx }) => (await ctx.prisma.emailSettings.findUnique({ where: { id: "default" }, select: { rentalPolicies: true } }))?.rentalPolicies ?? ""),
 

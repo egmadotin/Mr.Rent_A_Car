@@ -53,7 +53,7 @@ const CATEGORIES: SettingsCategory[] = [
   { title: "Website & Email Setup", items: [{ label: "Website Design V3" }, { label: "Add/Edit Webpages" }, { label: "Widget/Rotator Setup" }, { label: "Email Setup", href: "/admin/settings/email", desc: "SMTP account for agreements, invoices, confirmations and quotes (admins only)" }, { label: "Inspection Email", href: "/admin/settings/inspection-email", desc: "The email that sends a customer their inspection photos" }, { label: "Promotions/Specials", href: "/admin/settings/promotions", desc: "Promo codes for online bookings" }, { label: "Rental Policies", href: "/admin/settings/rental-policies", desc: "The policy online customers accept before booking" }] },
   { title: "SMS Notification", items: [{ label: "SMS Notification" }] },
   { title: "Point Of Sale", items: [{ label: "Point Of Sale" }] },
-  { title: "Email Marketing", items: [{ label: "Email Marketing" }] },
+  { title: "Email Marketing", items: [{ label: "Send Marketing Email", href: "/admin/settings/marketing-email", desc: "Email a group of customers (birthdays, new customers, on rent, …) with an unsubscribe link" }, { label: "Email Template" }] },
   { title: "Tasks Messages", items: [{ label: "Tasks Messages" }] },
 ];
 
