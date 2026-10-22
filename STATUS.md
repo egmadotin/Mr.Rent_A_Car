@@ -242,7 +242,8 @@ RentCentric's Settings menu, item by item.
 | Claims | Claims Management V2 | ⏸ no V2 claims in RentCentric |
 | Claims | Status Of Repair | ⏸ empty in RentCentric |
 | Claims | Claim Types | ⏸ empty in RentCentric (claims use Renter / 3rd Party / Other) |
-| Financial / Commission | Accounting | ⬜ |
+| Financial / Commission | Accounting | ⏸ GL Account Codes all empty in RentCentric (no accounting export used) |
+| Financial / Commission | Financial Settings | ✅ RentCentric's link opens its Referrals page (built) |
 | Financial / Commission | Commissions | ✅ every commission entered on rentals (Rental#, Amount, Date Entered, Referral, User, Entered By, Delete) |
 | Financial / Commission | Referrals | ✅ list, add, edit, deactivate; delete only when never used (fields as imported from RentCentric) |
 | Financial / Commission | Commission Structures | ✅ RentCentric's structure copied (coquitlam: 25% open + 25% close on Net Rate, Mileage, Prepaid Fuel, Additional Driver); agents get structures + a Commission type/amount on Settings › Users; the Commissions report adds what they earn |
@@ -309,7 +310,7 @@ Not built yet:
 
 ## Next session (Oct 22)
 
-3. Import Data tools, Financial Settings, Accounting.
+3. Import Data tools (CSV imports).
 4. Remaining reports, data migration, deployment.
 
 ## 12. Suggested order for what's left
