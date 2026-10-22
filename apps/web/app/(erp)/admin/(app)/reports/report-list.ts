@@ -14,7 +14,7 @@ export const REPORT_CATEGORIES: ReportCategory[] = [
       { name: "Rental Event Tracking", slug: "rental-event-tracking" }, { name: "Reservation Event Tracking", slug: "reservation-event-tracking" }, { name: "Tasks List", slug: "tasks" },
       { name: "Commissions", slug: "commissions" }, { name: "Broker Commission" }, { name: "Sales Projection" }, { name: "Work In Process" },
       { name: "Revenue By Customer", slug: "revenue-by-customer" }, { name: "Revenue By Vehicle", slug: "revenue-by-vehicle" }, { name: "Revenue By Location", slug: "revenue-by-location" }, { name: "Revenue By Rate" },
-      { name: "Revenue By Admin" }, { name: "Revenue By Company", slug: "revenue-by-company" }, { name: "Revenue By Options" }, { name: "Non-Revenue" },
+      { name: "Revenue By Admin", slug: "revenue-by-admin" }, { name: "Revenue By Company", slug: "revenue-by-company" }, { name: "Revenue By Options", slug: "revenue-by-options" }, { name: "Non-Revenue", slug: "non-revenue" },
     ],
   },
   {

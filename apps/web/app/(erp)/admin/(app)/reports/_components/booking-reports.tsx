@@ -144,3 +144,127 @@ function EventTracking({ kind }: { kind: "Rental" | "Reservation" }) {
 }
 export const RentalEventTrackingReport = () => <EventTracking kind="Rental" />;
 export const ReservationEventTrackingReport = () => <EventTracking kind="Reservation" />;
+
+/** Revenue By Admin (ReportsCommissions.aspx): commissions by the user who earned them. */
+export function RevenueByAdminReport() {
+  const trpc = useTRPC();
+  const f = useReportFilters();
+  const [v, setV] = React.useState({ from: "", to: "", locationOutId: "", locationInId: "" });
+  const [run, setRun] = React.useState<typeof v | null>(null);
+  const q = useQuery({ ...trpc.staff.reports.revenueByAdmin.queryOptions({ from: fromDay(run?.from ?? ""), to: fromDay(run?.to ?? ""), locationOutId: run?.locationOutId, locationInId: run?.locationInId }), enabled: !!run, retry: false });
+  const set = (k: keyof typeof v) => (x: string) => setV({ ...v, [k]: x });
+  return (
+    <ReportFrame title="Revenue By Admin" generated={!!run} onGenerate={() => setRun({ ...v })} loading={q.isLoading} error={q.error?.message}
+      filters={<>
+        <DateField id="ra-f" label="Commissions Begin Date" value={v.from} onChange={set("from")} />
+        <DateField id="ra-t" label="Commissions End Date" value={v.to} onChange={set("to")} />
+        <SelectFilter id="ra-lo" label="Location Out" value={v.locationOutId} onChange={set("locationOutId")} options={f.locations} />
+        <SelectFilter id="ra-li" label="Location In" value={v.locationInId} onChange={set("locationInId")} options={f.locations} />
+      </>}
+      header={[["Begin Date", run?.from ?? ""], ["End Date", run?.to ?? ""]]}
+    >
+      {q.data && (
+        <div className="space-y-4">
+          {q.data.groups.length === 0 && <ReportTable head={["Full Name", "Rental#", "Commission Amount", "Date Entered"]} rows={[]} />}
+          {q.data.groups.map((g) => (
+            <ReportTable key={g.name} head={["Full Name", "Rental#", "Commission Amount", "Date Entered"]} right={[2]}
+              rows={g.rows.map((r, i) => [i === 0 ? g.name : "", rental(r.rentalId, r.raNumber), money(r.amount), ymdhm(r.date)])}
+              foot={["", "", money(g.total), ""]} />
+          ))}
+          <p className="font-bold">Grand Total {money(q.data.total)}</p>
+        </div>
+      )}
+    </ReportFrame>
+  );
+}
+
+/** Revenue By Options (ReportsRevenueByOptions.aspx): per insurance / tax / misc charge, the closed rentals that had it. */
+export function RevenueByOptionsReport() {
+  const trpc = useTRPC();
+  const f = useReportFilters();
+  const names = useQuery(trpc.staff.reports.optionNames.queryOptions()).data ?? [];
+  const [v, setV] = React.useState({ closeFrom: "", closeTo: "", locationId: "", locationOutId: "", locationInId: "", customer: "", option: "" });
+  const [run, setRun] = React.useState<typeof v | null>(null);
+  const q = useQuery({
+    ...trpc.staff.reports.revenueByOptions.queryOptions({
+      closeFrom: fromDay(run?.closeFrom ?? ""), closeTo: fromDay(run?.closeTo ?? ""), locationIds: run?.locationId ? [run.locationId] : [], locationOutId: run?.locationOutId,
+      locationInId: run?.locationInId, customer: run?.customer || undefined, options: run?.option ? [run.option] : [],
+    }),
+    enabled: !!run,
+    retry: false,
+  });
+  const set = (k: keyof typeof v) => (x: string) => setV({ ...v, [k]: x });
+  const LABEL: Record<string, string> = { PROTECTION: "Insurance", TAX: "Tax", MISC: "Misc. charge" };
+  return (
+    <ReportFrame title="Revenue By Options" generated={!!run} onGenerate={() => setRun({ ...v })} loading={q.isLoading} error={q.error?.message}
+      filters={<>
+        <DateField id="ro-f" label="Rental Close Date Start" value={v.closeFrom} onChange={set("closeFrom")} />
+        <DateField id="ro-t" label="Rental Close Date End" value={v.closeTo} onChange={set("closeTo")} />
+        <SelectFilter id="ro-l" label="Location" value={v.locationId} onChange={set("locationId")} options={f.locations} />
+        <SelectFilter id="ro-lo" label="Location Out" value={v.locationOutId} onChange={set("locationOutId")} options={f.locations} />
+        <SelectFilter id="ro-li" label="Location In" value={v.locationInId} onChange={set("locationInId")} options={f.locations} />
+        {text("ro-c", "Customer", v.customer, set("customer"))}
+        <SelectFilter id="ro-o" label="Option" value={v.option} onChange={set("option")} options={names.map((n) => ({ value: n.name, label: `${n.name} (${LABEL[n.kind]})` }))} all="All taxes, insurances and misc charges" />
+      </>}
+      header={[["Location", f.locations.find((l) => l.id === run?.locationId)?.name ?? "All"], ["Rental Close Date Start", run?.closeFrom ?? ""], ["Rental Close Date End", run?.closeTo ?? ""]]}
+    >
+      {q.data && (
+        <div className="space-y-5">
+          {q.data.length === 0 && <p className="text-muted-foreground">No rentals.</p>}
+          {q.data.map((g) => (
+            <div key={g.group} className="space-y-3">
+              <p className="font-bold">{g.group}</p>
+              {g.options.map((o) => (
+                <div key={o.name}>
+                  <p className="mb-1 font-semibold">{o.name}</p>
+                  <ReportTable head={["RA#", "Pickup Date", "First Name", "Last Name", "Vehicle Type", "Assigned ID", "Created By", "Pickup Location", "Return Location", "No. Days", "Time", "Mileage", "Total", "Option Amount"]}
+                    right={[9, 10, 11, 12, 13]}
+                    rows={o.rows.map((r) => [rental(r.id as string, r.raNumber as number), ymdhm(r.pickup as string), r.firstName as string, r.lastName as string, r.vehicleType as string, r.assignedId as string, r.createdBy as string, r.pickupLocation as string, r.returnLocation as string, r.days as number, money(r.time as number), money(r.mileage as number), money(r.total as number), money(r.amount as number)])}
+                    foot={["Total", "", "", "", "", "", "", "", "", "", "", "", "", money(o.total)]} />
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+    </ReportFrame>
+  );
+}
+
+/** Non-Revenue (ReportsNonRevenueMove.aspx): rentals marked Non-Revenue (vehicle moves). */
+export function NonRevenueReport() {
+  const trpc = useTRPC();
+  const f = useReportFilters();
+  const [v, setV] = React.useState({ outFrom: "", outTo: "", inFrom: "", inTo: "", makeId: "", locationOutId: "", locationInId: "", vehicleTypeId: "", status: "" });
+  const [run, setRun] = React.useState<typeof v | null>(null);
+  const q = useQuery({
+    ...trpc.staff.reports.nonRevenue.queryOptions({
+      outFrom: fromDay(run?.outFrom ?? ""), outTo: fromDay(run?.outTo ?? ""), inFrom: fromDay(run?.inFrom ?? ""), inTo: fromDay(run?.inTo ?? ""), makeId: run?.makeId,
+      locationOutId: run?.locationOutId, locationInId: run?.locationInId, vehicleTypeId: run?.vehicleTypeId, status: (run?.status ?? "") as "",
+    }),
+    enabled: !!run,
+    retry: false,
+  });
+  const set = (k: keyof typeof v) => (x: string) => setV({ ...v, [k]: x });
+  return (
+    <ReportFrame title="Non Revenue" generated={!!run} onGenerate={() => setRun({ ...v })} loading={q.isLoading} error={q.error?.message}
+      filters={<>
+        <DateField id="nr-of" label="Begin Date Out" value={v.outFrom} onChange={set("outFrom")} />
+        <DateField id="nr-ot" label="End Date Out" value={v.outTo} onChange={set("outTo")} />
+        <DateField id="nr-if" label="Begin Date In" value={v.inFrom} onChange={set("inFrom")} />
+        <DateField id="nr-it" label="End Date In" value={v.inTo} onChange={set("inTo")} />
+        <SelectFilter id="nr-mk" label="Make" value={v.makeId} onChange={set("makeId")} options={f.makes} />
+        <SelectFilter id="nr-lo" label="Location Out" value={v.locationOutId} onChange={set("locationOutId")} options={f.locations} />
+        <SelectFilter id="nr-li" label="Location In" value={v.locationInId} onChange={set("locationInId")} options={f.locations} />
+        <SelectFilter id="nr-vt" label="Vehicle Type" value={v.vehicleTypeId} onChange={set("vehicleTypeId")} options={f.types} />
+        <SelectFilter id="nr-st" label="Status" value={v.status} onChange={set("status")} options={[{ value: "OPEN", label: "Open" }, { value: "CLOSED", label: "Closed" }]} all="Select Status" />
+      </>}
+      header={[["Begin Date Out", run?.outFrom ?? ""], ["End Date Out", run?.outTo ?? ""]]}
+    >
+      {q.data && (
+        <ReportTable head={["Rental#", "Full Name", "Vehicle ID", "Model", "Pickup Date", "Return Date"]}
+          rows={q.data.map((r) => [rental(r.id, r.raNumber), r.fullName, <Link key="v" className="text-primary hover:underline" href={`/admin/vehicles/${r.vehicleId}`}>{r.assignedId}</Link>, r.model, ymdhm(r.pickup), ymdhm(r.return)])} />
+      )}
+    </ReportFrame>
+  );
+}

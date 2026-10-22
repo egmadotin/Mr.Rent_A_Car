@@ -1162,6 +1162,121 @@ export const reportsRouter = router({
       });
     }),
 
+  /** Revenue By Admin (ReportsCommissions): commissions entered, by the user who earned them — Full Name, Rental#, Commission Amount, Date Entered. */
+  revenueByAdmin: staffProcedure
+    .input(z.object({ from: optDate, to: optDate, locationOutId: optId, locationInId: optId }))
+    .query(async ({ ctx, input }) => {
+      const cs = await ctx.prisma.commission.findMany({
+        where: {
+          userId: { not: null },
+          ...(range(input.from, input.to) ? { enteredAt: range(input.from, input.to) } : {}),
+          rental: { deletedAt: null, ...(input.locationOutId ? { checkOutLocationId: input.locationOutId } : {}), ...(input.locationInId ? { checkInLocationId: input.locationInId } : {}) },
+        },
+        orderBy: [{ user: { name: "asc" } }, { enteredAt: "asc" }],
+        take: 5000,
+        select: { id: true, amount: true, enteredAt: true, user: { select: { name: true } }, rental: { select: { id: true, raNumber: true } } },
+      });
+      const m = new Map<string, { name: string; rows: { id: string; rentalId: string; raNumber: number; amount: number; date: Date }[] }>();
+      for (const c of cs) {
+        const g = m.get(c.user!.name) ?? { name: c.user!.name, rows: [] };
+        g.rows.push({ id: c.id, rentalId: c.rental.id, raNumber: c.rental.raNumber, amount: num(c.amount), date: c.enteredAt });
+        m.set(c.user!.name, g);
+      }
+      const groups = [...m.values()].map((g) => ({ ...g, total: round(g.rows.reduce((a, r) => a + r.amount, 0)) }));
+      return { groups, total: round(groups.reduce((a, g) => a + g.total, 0)) };
+    }),
+
+  /**
+   * Revenue By Options (ReportsRevenueByOptions): for each insurance / tax / misc charge picked, the closed rentals that had
+   * it — RA#, Pickup Date, First / Last Name, Vehicle Type, Assigned ID, Created By, Pickup / Return Location, No. Days,
+   * Time, Mileage, Total, Option Amount — by rental close date, locations and customer.
+   */
+  revenueByOptions: staffProcedure
+    .input(
+      z.object({
+        closeFrom: optDate, closeTo: optDate, locationIds: z.array(z.string()).default([]), locationOutId: optId, locationInId: optId, customer: z.string().trim().optional(),
+        options: z.array(z.string()).default([]),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const names = new Set(input.options);
+      const rentals = await ctx.prisma.rental.findMany({
+        where: {
+          deletedAt: null,
+          status: "CLOSED",
+          ...(range(input.closeFrom, input.closeTo) ? { checkedInAt: range(input.closeFrom, input.closeTo) } : {}),
+          ...(input.locationIds.length ? { checkOutLocationId: { in: input.locationIds } } : {}),
+          ...(input.locationOutId ? { checkOutLocationId: input.locationOutId } : {}),
+          ...(input.locationInId ? { checkInLocationId: input.locationInId } : {}),
+          ...(input.customer ? { customer: { OR: [{ firstName: { contains: input.customer, mode: "insensitive" } }, { lastName: { contains: input.customer, mode: "insensitive" } }] } } : {}),
+          chargeLines: { some: { kind: { in: ["PROTECTION", "TAX", "MISC"] }, ...(names.size ? { name: { in: [...names] } } : {}) } },
+        },
+        orderBy: { raNumber: "asc" },
+        take: 3000,
+        select: {
+          id: true, raNumber: true, checkOutAt: true, customer: { select: { firstName: true, lastName: true } }, vehicleType: { select: { name: true } }, vehicle: { select: { assignedId: true } },
+          openedBy: { select: { name: true } }, checkOutLocation: { select: { name: true } }, checkInLocation: { select: { name: true } }, chargeLines: { select: { kind: true, name: true, units: true, total: true } },
+        },
+      });
+      const GROUP: Record<string, string> = { PROTECTION: "Insurances", TAX: "Taxes", MISC: "MiscCharges" };
+      const groups = new Map<string, Map<string, { rows: Record<string, unknown>[]; total: number }>>();
+      for (const r of rentals) {
+        const by = (...k: string[]) => round(r.chargeLines.filter((l) => k.includes(l.kind)).reduce((a, l) => a + num(l.total), 0));
+        const base = {
+          id: r.id, raNumber: r.raNumber, pickup: r.checkOutAt, firstName: r.customer.firstName, lastName: r.customer.lastName, vehicleType: r.vehicleType.name, assignedId: r.vehicle.assignedId,
+          createdBy: r.openedBy?.name ?? "", pickupLocation: r.checkOutLocation.name, returnLocation: r.checkInLocation.name, days: rentalDays(r.chargeLines), time: by("TIME"), mileage: by("MILEAGE"),
+          total: round(r.chargeLines.reduce((a, l) => a + num(l.total), 0)),
+        };
+        for (const l of r.chargeLines.filter((x) => GROUP[x.kind] && (!names.size || names.has(x.name)))) {
+          const g = groups.get(GROUP[l.kind]!) ?? new Map();
+          const o = g.get(l.name) ?? { rows: [], total: 0 };
+          o.rows.push({ ...base, amount: round(num(l.total)) });
+          o.total = round(o.total + num(l.total));
+          g.set(l.name, o);
+          groups.set(GROUP[l.kind]!, g);
+        }
+      }
+      return ["Insurances", "Taxes", "MiscCharges"].filter((k) => groups.has(k)).map((k) => ({
+        group: k,
+        options: [...groups.get(k)!.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([name, o]) => ({ name, total: o.total, rows: o.rows as (typeof o.rows)[number][] })),
+      }));
+    }),
+
+  /** Option names (insurances / taxes / misc charges) used on rentals, for the Revenue By Options picker. */
+  optionNames: staffProcedure.query(async ({ ctx }) => {
+    const rows = await ctx.prisma.chargeLine.groupBy({ by: ["kind", "name"], where: { rentalId: { not: null }, kind: { in: ["PROTECTION", "TAX", "MISC"] } }, orderBy: { name: "asc" } });
+    return rows.map((r) => ({ kind: r.kind, name: r.name }));
+  }),
+
+  /** Non-Revenue (ReportsNonRevenueMove): rentals marked Non-Revenue — Rental#, Full Name, Vehicle ID, Model, Pickup / Return Date. */
+  nonRevenue: staffProcedure
+    .input(
+      z.object({
+        outFrom: optDate, outTo: optDate, inFrom: optDate, inTo: optDate, makeId: optId, locationOutId: optId, locationInId: optId, vehicleTypeId: optId,
+        status: z.enum(["", "OPEN", "CLOSED"]).default(""),
+      }),
+    )
+    .query(({ ctx, input }) =>
+      ctx.prisma.rental
+        .findMany({
+          where: {
+            deletedAt: null,
+            isNonRevenue: true,
+            ...(input.status ? { status: input.status } : {}),
+            ...(range(input.outFrom, input.outTo) ? { checkOutAt: range(input.outFrom, input.outTo) } : {}),
+            ...(range(input.inFrom, input.inTo) ? { OR: [{ checkedInAt: range(input.inFrom, input.inTo) }, { checkedInAt: null, expectedReturnAt: range(input.inFrom, input.inTo) }] } : {}),
+            ...(input.makeId ? { vehicle: { makeId: input.makeId } } : {}),
+            ...(input.vehicleTypeId ? { vehicleTypeId: input.vehicleTypeId } : {}),
+            ...(input.locationOutId ? { checkOutLocationId: input.locationOutId } : {}),
+            ...(input.locationInId ? { checkInLocationId: input.locationInId } : {}),
+          },
+          orderBy: { raNumber: "asc" },
+          take: 3000,
+          select: { id: true, raNumber: true, checkOutAt: true, checkedInAt: true, expectedReturnAt: true, customer: { select: { firstName: true, lastName: true } }, vehicle: { select: { id: true, assignedId: true, make: { select: { name: true } }, model: { select: { name: true } } } } },
+        })
+        .then((rs) => rs.map((r) => ({ id: r.id, raNumber: r.raNumber, fullName: `${r.customer.firstName} ${r.customer.lastName}`, vehicleId: r.vehicle.id, assignedId: r.vehicle.assignedId, model: `${r.vehicle.make.name} ${r.vehicle.model.name}`, pickup: r.checkOutAt, return: r.checkedInAt ?? r.expectedReturnAt }))),
+    ),
+
   /** Pick-lists for the report filters. */
   filters: staffProcedure.query(async ({ ctx }) => {
     const [locations, makes, types] = await Promise.all([
