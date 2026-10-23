@@ -11,8 +11,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       brand="erp"
       storageKey="mrac-erp-theme"
       defaultTheme="light"
-      enableSystem={false}
-      forcedTheme="light"
+      enableSystem
     >
       <TRPCReactProvider>
         <TooltipProvider delayDuration={300}>

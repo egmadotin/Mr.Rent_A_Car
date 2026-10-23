@@ -64,7 +64,7 @@ export function OwnershipPanel({ vehicleId }: { vehicleId: string }) {
 
   return (
     <Card className="gap-2 py-4">
-      <CardHeader className="px-4"><CardTitle className="font-serif text-lg">Ownership Information</CardTitle></CardHeader>
+      <CardHeader className="px-4"><CardTitle className="text-base font-bold tracking-tight">Ownership Information</CardTitle></CardHeader>
       <CardContent className="px-4">
         <FormErrorsContext.Provider value={errors}>
           <form onSubmit={save} noValidate>
@@ -134,7 +134,7 @@ export function ConditionPanel({ vehicleId }: { vehicleId: string }) {
 
   return (
     <Card className="gap-2 py-4">
-      <CardHeader className="px-4"><CardTitle className="font-serif text-lg">Vehicle Condition</CardTitle></CardHeader>
+      <CardHeader className="px-4"><CardTitle className="text-base font-bold tracking-tight">Vehicle Condition</CardTitle></CardHeader>
       <CardContent className="px-4">
         <form onSubmit={save}>
           <fieldset disabled={!editable} className="space-y-4">
@@ -226,7 +226,7 @@ export function VehicleClaimsPanel({ vehicleId }: { vehicleId: string }) {
   return (
     <Card className="gap-2 py-4">
       <CardHeader className="flex-row items-center justify-between px-4">
-        <CardTitle className="font-serif text-lg">Claims</CardTitle>
+        <CardTitle className="text-base font-bold tracking-tight">Claims</CardTitle>
         {dialog()}
       </CardHeader>
       <CardContent className="px-0">

@@ -124,7 +124,7 @@ export function InspectionsPanel({ title = "Vehicle Inspection", vehicleId, rese
   return (
     <Card className="gap-2 py-4">
       <CardHeader className="flex-row items-center justify-between px-4">
-        <CardTitle className="font-serif text-lg">{title}</CardTitle>
+        <CardTitle className="text-base font-bold tracking-tight">{title}</CardTitle>
         {vehicleId ? (
           <FormDialog
             title="Add Inspection"
@@ -235,7 +235,7 @@ export function InspectionComparisonPanel({ vehicleId, rentalId }: { vehicleId?:
   const rows = useQuery(trpc.staff.inspections.comparison.queryOptions({ vehicleId, rentalId })).data;
   return (
     <Card className="gap-2 py-4">
-      <CardHeader className="px-4"><CardTitle className="font-serif text-lg">Inspection Comparison</CardTitle></CardHeader>
+      <CardHeader className="px-4"><CardTitle className="text-base font-bold tracking-tight">Inspection Comparison</CardTitle></CardHeader>
       <CardContent className="px-0">
         {!rows ? null : rows.length === 0 ? (
           <p className="px-4 text-sm text-muted-foreground">No Records Found</p>
@@ -253,9 +253,9 @@ export function InspectionComparisonPanel({ vehicleId, rentalId }: { vehicleId?:
                   <TableCell className="align-top">{dateTime(r.return)}</TableCell>
                   <TableCell className="align-top">
                     <div className="grid gap-2 md:grid-cols-2">
-                      <div><p className="mb-1 text-xs font-semibold text-muted-foreground uppercase">Pickup</p><Thumbs images={r.pickupImages} /></div>
-                      <div><p className="mb-1 text-xs font-semibold text-muted-foreground uppercase">Return</p><Thumbs images={r.returnImages} /></div>
-                      {r.otherImages.length > 0 && <div className="md:col-span-2"><p className="mb-1 text-xs font-semibold text-muted-foreground uppercase">Other</p><Thumbs images={r.otherImages} /></div>}
+                      <div><p className="mb-1 text-xs font-semibold text-muted-foreground">Pickup</p><Thumbs images={r.pickupImages} /></div>
+                      <div><p className="mb-1 text-xs font-semibold text-muted-foreground">Return</p><Thumbs images={r.returnImages} /></div>
+                      {r.otherImages.length > 0 && <div className="md:col-span-2"><p className="mb-1 text-xs font-semibold text-muted-foreground">Other</p><Thumbs images={r.otherImages} /></div>}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -285,7 +285,7 @@ export function ReportedDamagesPanel({ vehicleId }: { vehicleId: string }) {
   return (
     <Card className="gap-2 py-4">
       <CardHeader className="flex-row items-center justify-between px-4">
-        <CardTitle className="font-serif text-lg">Customer Reported Damages</CardTitle>
+        <CardTitle className="text-base font-bold tracking-tight">Customer Reported Damages</CardTitle>
         {can("DamagesAdd") ? (
           <FormDialog
             title="Add Customer Reported Damage"

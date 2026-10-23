@@ -41,53 +41,63 @@ export function BookingSummary({
     : [];
 
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
-      <div className="space-y-5">
-        <div className="grid grid-cols-2 gap-4 rounded-lg bg-muted px-5 py-4 text-xs uppercase">
+    <div className="grid overflow-hidden rounded-card border bg-card lg:grid-cols-[1fr_1fr]">
+      <div className="space-y-5 p-5 sm:p-6">
+        <div className="grid grid-cols-2 gap-4 text-sm">
           {[pickup, dropoff].map((p, i) => (
             <div key={i}>
-              <div className="font-medium">{p.location}</div>
-              <div className="mt-1 text-muted-foreground">{p.when}</div>
+              <div className="text-xs font-semibold text-muted-foreground">{i === 0 ? "Pick-up" : "Return"}</div>
+              <div className="mt-0.5 font-semibold">{p.location}</div>
+              <div className="text-muted-foreground">{p.when}</div>
             </div>
           ))}
         </div>
-        <div className="flex items-center gap-6">
-          <div className="grid h-24 w-36 shrink-0 place-items-center">
+        <div className="studio flex items-center gap-5 rounded-control p-4">
+          <div className="grid h-24 w-40 shrink-0 place-items-center">
             {vehicle?.imageKey ? <img src={vehicle.imageKey} alt={vehicle.name} className="max-h-full max-w-full object-contain" /> : <CarFrontIcon className="size-12 text-muted-foreground/50" aria-hidden />}
           </div>
-          <div className="text-2xl">{vehicle?.name ?? "…"}</div>
+          <div>
+            <div className="text-xs font-semibold text-muted-foreground">Your car</div>
+            <div className="type-title-3">{vehicle?.name ?? "…"}</div>
+          </div>
         </div>
       </div>
-      <table className="w-full text-sm">
-        <tbody>
-          {rows.map(([label, value, shade], i) => (
-            <tr key={i} className={shade || i % 2 === 0 ? "bg-muted/70" : undefined}>
-              <td className="px-2.5 py-1.5 text-muted-foreground">{label}</td>
-              <td className="px-2.5 py-1.5 text-right font-medium tabular-nums">{money(value)}</td>
-            </tr>
-          ))}
-          {lines && (
-            <tr>
-              <td className="px-2.5 py-1.5 font-semibold">Total</td>
-              <td className="px-2.5 py-1.5 text-right font-semibold tabular-nums">{money(Number(total ?? 0))}</td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-      {promo && <p role="status" className={promo.ok ? "text-sm font-medium text-success lg:col-start-2" : "text-sm font-medium text-destructive lg:col-start-2"}>{promo.message}</p>}
+      <div className="border-t bg-muted/40 p-5 sm:p-6 lg:border-t-0 lg:border-l">
+        <h2 className="text-[13px] font-semibold text-muted-foreground">Price summary</h2>
+        <table className="mt-3 w-full text-sm">
+          <tbody>
+            {rows.map(([label, value, strong], i) => (
+              <tr key={i} className={strong ? "font-semibold" : undefined}>
+                <td className={strong ? "py-1.5" : "py-1.5 text-muted-foreground"}>{label}</td>
+                <td className="py-1.5 text-right tabular-nums">{money(value)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {lines ? (
+          <div className="mt-3 flex items-end justify-between border-t pt-4">
+            <div>
+              <div className="font-semibold">Total</div>
+              <div className="text-xs text-muted-foreground">Taxes and fees included · CAD</div>
+            </div>
+            <div className="type-price">{money(Number(total ?? 0))}</div>
+          </div>
+        ) : (
+          <div className="mt-3 h-24 animate-pulse rounded-control bg-muted" />
+        )}
+        {promo && (
+          <p role="status" className={promo.ok ? "mt-4 rounded-control bg-green-tint px-3 py-2 text-sm font-semibold text-racing" : "mt-4 rounded-control bg-blush px-3 py-2 text-sm font-semibold text-brand"}>
+            {promo.message}
+          </p>
+        )}
+      </div>
     </div>
   );
 }
 
-/** Page banner used by the booking steps ("Rental Options", "Reservation Information"). */
+/** Page title used by the booking steps. */
 export function BookingBanner({ title }: { title: string }) {
-  return (
-    <section className="bg-secondary text-secondary-foreground">
-      <div className="mx-auto max-w-6xl px-4 py-12 text-center">
-        <h1 className="text-4xl font-extrabold tracking-tight">{title}</h1>
-      </div>
-    </section>
-  );
+  return <h1 className="type-title-2">{title}</h1>;
 }
 
 /** "10/20/2026 10:00 AM" — the live site's date format. */

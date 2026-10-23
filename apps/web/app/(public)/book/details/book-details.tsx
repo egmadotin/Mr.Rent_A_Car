@@ -134,9 +134,9 @@ export function BookDetails({ search, vehicleTypeId, insuranceId, extras }: { se
 
   return (
     <>
-      <BookingBanner title="Reservation Information" />
-      <div className="mx-auto max-w-5xl space-y-8 px-4 py-8">
+      <div className="mx-auto w-full max-w-[1100px] space-y-8 px-4 py-8 sm:px-8">
         <BookingSteps current={3} hrefs={[`/book?${toQuery(search)}`, `/book/options?${back}`]} />
+        <BookingBanner title="Your details" />
         <BookingSummary
           pickup={{ location: locName(search.pickup), when: when(search.from) }}
           dropoff={{ location: locName(search.return ?? search.pickup), when: when(search.to) }}
@@ -146,26 +146,26 @@ export function BookDetails({ search, vehicleTypeId, insuranceId, extras }: { se
           promo={quote.data?.promo}
         />
 
-        <form key={me ? "me" : "guest"} onSubmit={submit} noValidate className="mx-auto max-w-2xl space-y-6 border-t pt-8">
-          <h2 className="text-xl">Customer Information</h2>
+        <form key={me ? "me" : "guest"} onSubmit={submit} noValidate className="space-y-6 rounded-card border bg-card p-5 sm:p-8">
+          <h2 className="type-title-3">Driver details</h2>
           {me ? (
-            <p className="rounded-md bg-muted p-3 text-sm">Booking as <span className="font-semibold">{me.name}</span> — your details are filled in; check them before you reserve.</p>
+            <p className="rounded-control bg-muted px-4 py-3 text-sm">Booking as <span className="font-semibold">{me.name}</span> — your details are filled in; check them before you reserve.</p>
           ) : (
-            <p className="rounded-md bg-muted p-3 text-sm">
+            <p className="rounded-control bg-muted px-4 py-3 text-sm">
               Have an account?{" "}
               <Link
                 href="/account/login"
                 onClick={(e) => { e.preventDefault(); router.push(`/account/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`); }}
-                className="font-semibold text-primary hover:underline"
+                className="font-semibold text-foreground underline underline-offset-2 hover:text-brand"
               >Log in</Link>{" "}
               to fill in your details — or just continue as a guest.
             </p>
           )}
-          {formError && <p role="alert" className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{formError}</p>}
+          {formError && <p role="alert" className="rounded-control bg-blush px-4 py-3 text-sm font-semibold text-brand">{formError}</p>}
           <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
             {FIELDS.map((x) => (
               <div key={x.id} className="space-y-1.5">
-                <Label htmlFor={x.id} className="text-xs uppercase text-muted-foreground">{x.label} *</Label>
+                <Label htmlFor={x.id} className="text-muted-foreground">{x.label}</Label>
                 {x.id === "country" ? (
                   <NativeSelect id="country" name="country" defaultValue={mine?.country && (COUNTRIES as readonly string[]).includes(mine.country) ? mine.country : "Canada"} aria-invalid={!!err("country")}>
                     {COUNTRIES.map((c) => <option key={c}>{c}</option>)}
@@ -188,7 +188,7 @@ export function BookDetails({ search, vehicleTypeId, insuranceId, extras }: { se
             ))}
             {pay?.enabled && (
               <div className="space-y-1.5 sm:col-span-2">
-                <span className="text-xs uppercase text-muted-foreground">Credit Card *</span>
+                <span className="text-[13px] font-semibold text-muted-foreground">Credit card</span>
                 <CardField publishableKey={pay.publishableKey} mode={pay.onlineMode === "AUTHORIZE" ? "AUTHORIZE" : "SAVE_CARD"} amountCents={Math.round(Number(quote.data?.total ?? 0) * 100)} confirmRef={confirmCard} />
                 <p className="text-xs text-muted-foreground">
                   {pay.onlineMode === "AUTHORIZE" ? "The booking total is held on your card (not charged) until pick-up." : "Your card is kept securely by Stripe; nothing is charged now."}
@@ -196,30 +196,30 @@ export function BookDetails({ search, vehicleTypeId, insuranceId, extras }: { se
               </div>
             )}
             <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="notes" className="text-xs uppercase text-muted-foreground">Special Request/Local Information</Label>
-              <Textarea id="notes" name="notes" rows={3} placeholder="Special Request/Local Information" />
+              <Label htmlFor="notes" className="text-muted-foreground">Special requests or local address <span className="font-normal">(optional)</span></Label>
+              <Textarea id="notes" name="notes" rows={3} />
             </div>
             {/* honeypot */}
             <input type="text" name="website" tabIndex={-1} autoComplete="off" className="hidden" aria-hidden />
           </div>
 
-          <div className="space-y-2">
-            <h2 className="text-xl">Terms &amp; Conditions</h2>
+          <div className="space-y-3 border-t pt-6">
+            <h2 className="type-heading">Rental policy</h2>
             {policy && (
-              <details className="rounded border p-3 text-sm">
-                <summary className="cursor-pointer font-semibold text-primary">Rental Policy</summary>
+              <details className="rounded-control border px-4 py-3 text-sm">
+                <summary className="cursor-pointer font-semibold">Read the rental policy</summary>
                 {/* written by staff in Settings > Rental Policies */}
                 <div className="mt-2 space-y-2 text-muted-foreground" dangerouslySetInnerHTML={{ __html: policy }} />
               </details>
             )}
             <label className="flex items-center gap-2 text-sm font-semibold">
-              <input type="checkbox" name="acceptPolicy" className="size-4 accent-primary" /> I accept the rental policy
+              <input type="checkbox" name="acceptPolicy" className="size-4 accent-[var(--ink)]" /> I accept the rental policy
             </label>
             {err("acceptPolicy") && <p className="text-xs text-destructive">{err("acceptPolicy")}</p>}
           </div>
 
           <div className="flex justify-end">
-            <Button type="submit" size="lg" disabled={pending}>{pending && <Loader2Icon className="animate-spin" />}Reserve</Button>
+            <Button type="submit" size="lg" className="w-full sm:w-auto" disabled={pending}>{pending && <Loader2Icon className="animate-spin" />}Reserve</Button>
           </div>
         </form>
       </div>

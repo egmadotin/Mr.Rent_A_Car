@@ -60,7 +60,7 @@ function TodayOps({ d }: { d: DashData | undefined }) {
             <button key={t.key} type="button" role="tab" aria-selected={tab === t.key} onClick={() => setTab(t.key)}
               className={cn("flex items-center gap-1.5 rounded-md px-2.5 py-1 text-sm font-medium transition-colors", tab === t.key ? "bg-card shadow-sm" : "text-muted-foreground hover:text-foreground")}>
               {t.label}
-              <span className={cn("rounded-full px-1.5 text-[11px] tabular-nums", t.key === "late" && t.count ? "bg-destructive text-white" : "bg-background text-muted-foreground")}>{t.count}</span>
+              <span className={cn("rounded-full px-1.5 text-[11px] tabular-nums", t.key === "late" && t.count ? "bg-destructive text-destructive-foreground" : "bg-background text-muted-foreground")}>{t.count}</span>
             </button>
           ))}
         </div>

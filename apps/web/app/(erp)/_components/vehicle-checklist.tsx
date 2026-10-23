@@ -40,7 +40,7 @@ export function VehicleChecklistPanel({ vehicleId }: { vehicleId: string }) {
   return (
     <Card className="gap-2 py-4">
       <CardHeader className="flex-row items-center justify-between px-4">
-        <CardTitle className="font-serif text-lg">Vehicle Checklist</CardTitle>
+        <CardTitle className="text-base font-bold tracking-tight">Vehicle Checklist</CardTitle>
         <Button size="sm" onClick={() => setEditing("new")} disabled={!data.checklists.length} title={data.checklists.length ? undefined : "Set up a Vehicle CheckList for this vehicle type first (Settings › Vehicle CheckList)"}>
           <PlusIcon /> New Vehicle CheckList
         </Button>

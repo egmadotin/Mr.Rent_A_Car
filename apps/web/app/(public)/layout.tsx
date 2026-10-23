@@ -1,25 +1,24 @@
 import type { Metadata } from "next";
-import { Libre_Baskerville, Plus_Jakarta_Sans } from "next/font/google";
+import { fontVariables } from "../_fonts/fonts";
 import { Providers } from "./_components/providers";
 import { SiteFooter, SiteHeader } from "./_components/site-chrome";
 import "./public.css";
 
-const jakarta = Plus_Jakarta_Sans({ subsets: ["latin"], variable: "--font-jakarta" });
-/** design.md: Libre Baskerville for headings */
-const baskerville = Libre_Baskerville({ weight: ["400", "700"], style: ["normal", "italic"], subsets: ["latin"], variable: "--font-baskerville", display: "swap" });
-
 export const metadata: Metadata = {
-  title: { default: "Car Rentals in Vancouver & Calgary | Mr Rent A Car", template: "%s | Mr Rent A Car" },
-  description: "Rent a car in Surrey, Coquitlam and Calgary. Economy to luxury, minivans and SUVs.",
+  title: { default: "Car Rentals in Vancouver & Calgary | Mr. Rent A Car", template: "%s | Mr. Rent A Car" },
+  description: "Locally owned car rental in Metro Vancouver and Calgary since 1996. Economy to Signature, all-in prices, taxes in.",
 };
 
 /** Root layout for the public marketing/booking site. Separate <html> from the ERP. */
 export default function PublicRootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" data-brand="public" className={`${jakarta.variable} ${baskerville.variable}`} suppressHydrationWarning>
-      <body className="flex min-h-dvh flex-col font-sans">
+    <html lang="en" data-brand="public" className={fontVariables} suppressHydrationWarning>
+      <body className="flex min-h-dvh flex-col bg-background font-sans text-foreground">
         <Providers>
-          <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-primary focus:px-3 focus:py-2 focus:text-primary-foreground">
+          <a
+            href="#main"
+            className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-control focus:bg-primary focus:px-4 focus:py-2.5 focus:text-sm focus:font-semibold focus:text-primary-foreground"
+          >
             Skip to content
           </a>
           <SiteHeader />

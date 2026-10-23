@@ -1,16 +1,18 @@
-export const metadata = { title: "Blogs" };
+import { FileTextIcon } from "lucide-react";
+import { Container, Notice, PageHero } from "../_components/ds";
+
+export const metadata = { title: "Blog" };
 
 /** Shell only. Content migrates from the current WordPress site (copy, timeline/FAQ, blog posts). */
 export default function Page() {
   return (
     <>
-      <section className="bg-secondary text-secondary-foreground">
-        <div className="mx-auto max-w-6xl px-4 py-12">
-          <h1 className="text-4xl font-extrabold tracking-tight">Blogs</h1>
-          <p className="mt-2 opacity-80">News, travel tips and local guides</p>
-        </div>
-      </section>
-      <div className="mx-auto max-w-6xl px-4 py-10 text-muted-foreground">Content is being migrated from the current website.</div>
+      <PageHero kicker="Blog" title="Blog" lead="News, travel tips and local guides for Vancouver and Calgary." />
+      <Container className="py-10">
+        <Notice tone="muted" icon={FileTextIcon}>
+          This page’s content is being moved over from the current website.
+        </Notice>
+      </Container>
     </>
   );
 }

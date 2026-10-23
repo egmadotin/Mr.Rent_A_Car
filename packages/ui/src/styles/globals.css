@@ -1,14 +1,16 @@
 /*
- * Design tokens for every Mr Rent A Car surface.
+ * Mr. Rent A Car design system — tokens for every surface (public site + staff ERP).
  *
- * Components use token utilities only (bg-background, text-muted-foreground,
- * border-border, bg-primary …), never raw colours.
+ * Source: the "Mr. Rent A Car" design system (v3). Inter on clean white sheets, one bright
+ * Mr. Red for the action, honest all-in prices; the Signature wing (onyx, Instrument Serif,
+ * brushed champagne) for the luxury fleet; racing green for savings and EVs.
+ *
+ * Components use token utilities only (bg-background, text-muted-foreground, border-border,
+ * bg-primary, rounded-card, shadow-lift …), never raw colours.
  *
  * Two axes, both on <html>:
- *   data-brand="erp" | "public" | <future client brand>   → palette + radius
- *   class="dark"                                          → light/dark (next-themes)
- *
- * Adding a brand = add one [data-brand="x"] block + its .dark block. No component changes.
+ *   data-brand="erp" | "public"   → density (radius) — both share one palette
+ *   class="dark"                  → light/dark (next-themes)
  */
 @import "tailwindcss";
 @import "tw-animate-css";
@@ -18,185 +20,152 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* ── Base (shadcn neutral) — fallback when no brand is set ───────────────── */
+/* ── Design-system primitives (light) ────────────────────────────────────── */
 :root {
-  --radius: 0.5rem;
+  /* surface */
+  --surface-page: #f6f6f3;
+  --surface-sheet: #ffffff;
+  --surface-sunken: #eeeeea;
+  /* line */
+  --line: #e5e5e0;
+  --line-field: #86868b;
+  /* ink */
+  --ink: #111113;
+  --ink-muted: #5d5d64;
+  /* brand — Mr. Red */
+  --brand: #d0121b;
+  --brand-deep: #a80e16;
+  --brand-glow: rgba(208, 18, 27, 0.28);
+  --blush: #fdeeed;
+  --on-brand: #ffffff;
+  /* Signature wing */
+  --onyx: #0e0e10;
+  --onyx-sheet: #17171a;
+  --onyx-line: #2a2a2e;
+  --onyx-field: #8b877f;
+  --on-onyx: #f3f0ea;
+  --on-onyx-muted: #b0aca4;
+  --champagne: #c8a66e;
+  --champagne-light: #dcc394;
+  --champagne-ink: #7f5f2a;
+  --champagne-tint: #f3ead9;
+  --on-champagne: #141416;
+  /* status */
+  --racing: #0f7a3f;
+  --green-tint: #e7f4ec;
+  --amber: #8a5a12;
+  --amber-tint: #f7eedd;
+  --steel: #2f5b8a;
+  --steel-tint: #e8eef5;
+  --scrim: rgba(14, 14, 16, 0.52);
 
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-  --success: oklch(0.6 0.13 155);
-  --success-foreground: oklch(0.985 0 0);
-  --warning: oklch(0.77 0.15 75);
-  --warning-foreground: oklch(0.25 0.05 75);
-  --info: oklch(0.6 0.13 245);
-  --info-foreground: oklch(0.985 0 0);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  /* elevation */
+  --elev-primary: 0 1px 2px rgba(17, 17, 19, 0.12);
+  --elev-lift: 0 1px 2px rgba(17, 17, 19, 0.05), 0 12px 28px -10px rgba(17, 17, 19, 0.18);
+  --elev-booking: 0 2px 6px rgba(17, 17, 19, 0.05), 0 22px 50px -18px rgba(17, 17, 19, 0.28);
+  --elev-floating: 0 4px 12px rgba(17, 17, 19, 0.08), 0 28px 60px -14px rgba(17, 17, 19, 0.32);
 
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  /* shape */
+  --radius: 12px; /* radius-control */
+  --radius-card-size: 20px;
+  --radius-sheet-size: 28px;
 
-  /* booking-calendar status colours (Visual Scheduler legend) */
-  --status-unassigned: oklch(0.8 0.12 85);
-  --status-reservation: oklch(0.62 0.14 245);
-  --status-rental: oklch(0.6 0.14 155);
-  --status-oneway: oklch(0.6 0.16 300);
-  --status-overdue: oklch(0.6 0.2 27);
+  /* layout */
+  --header-height: 76px;
+  --control-height: 40px;
 }
 
-/* ── Staff ERP Brand Scope: [data-brand="erp"] (design.md) ───────────────── */
-[data-brand="erp"] {
-  --radius: 0.375rem;
+.dark {
+  --surface-page: #0b0b0d;
+  --surface-sheet: #151517;
+  --surface-sunken: #1d1d20;
+  --line: #2a2a2e;
+  --line-field: #6b6b72;
+  --ink: #f5f5f2;
+  --ink-muted: #a7a7ae;
+  --brand: #ff5b53;
+  --brand-deep: #ff8079;
+  --brand-glow: rgba(255, 91, 83, 0.28);
+  --blush: #2a1012;
+  --on-brand: #111113;
+  --onyx: #060607;
+  --onyx-sheet: #141416;
+  --onyx-line: #2a2a2e;
+  --champagne-ink: #d4b47e;
+  --champagne-tint: #231c10;
+  --racing: #5fd394;
+  --green-tint: #0f2618;
+  --amber: #e9b45a;
+  --amber-tint: #2a1f0c;
+  --steel: #93b6dd;
+  --steel-tint: #111d2b;
+  --scrim: rgba(0, 0, 0, 0.66);
 
-  /* Canvas & Containers */
-  --background: #E9E3D5;
-  --foreground: #2D2C2C;
-
-  --card: #FFFFFF;
-  --card-foreground: #2D2C2C;
-
-  --popover: #FFFFFF;
-  --popover-foreground: #2D2C2C;
-
-  /* Interactive States */
-  --primary: #9D302D;
-  --primary-foreground: #FFFFFF;
-
-  --secondary: #ECEEE9;
-  --secondary-foreground: #3B511F;
-
-  --muted: #D5D5D5;
-  --muted-foreground: #575656;
-
-  --accent: #F6EBEA;
-  --accent-foreground: #9D302D;
-
-  --destructive: #9D302D;
-  --destructive-foreground: #FFFFFF;
-
-  --success: #3B511F;
-  --success-foreground: #FFFFFF;
-
-  --warning: #F1B826;
-  --warning-foreground: #2D2C2C;
-
-  --border: #D5D5D5;
-  --input: #ABABAB;
-  --ring: #9D302D;
-
-  /* Executive Dark Sidebar */
-  --sidebar: #2D2C2C;
-  --sidebar-foreground: #E9E3D5;
-  --sidebar-primary: #9D302D;
-  --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: rgba(255, 255, 255, 0.08);
-  --sidebar-accent-foreground: #FFFFFF;
-  --sidebar-border: rgba(233, 227, 213, 0.12);
-  --sidebar-ring: #F1B826;
-
-  /* Visual Calendar Booking Status Colors */
-  --status-unassigned: #F1B826;   /* Golden Ember (Yellow 100) */
-  --status-reservation: #B15957;  /* Terra Red 80 */
-  --status-rental: #3B511F;       /* Forest Moss 100 */
-  --status-oneway: #899779;       /* Forest Moss 60 */
-  --status-overdue: #9D302D;      /* Urgent Terra Red 100 */
+  --elev-primary: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --elev-lift: 0 1px 2px rgba(0, 0, 0, 0.4), 0 14px 30px -10px rgba(0, 0, 0, 0.7);
+  --elev-booking: 0 2px 6px rgba(0, 0, 0, 0.4), 0 22px 50px -18px rgba(0, 0, 0, 0.8);
+  --elev-floating: 0 4px 12px rgba(0, 0, 0, 0.45), 0 28px 60px -14px rgba(0, 0, 0, 0.85);
 }
 
-/* ── Staff ERP: Always Light Warm Natural Canvas as per design.md ──────── */
-[data-brand="erp"].dark {
-  --background: #E9E3D5;
-  --foreground: #2D2C2C;
-  --card: #FFFFFF;
-  --card-foreground: #2D2C2C;
-  --popover: #FFFFFF;
-  --popover-foreground: #2D2C2C;
-  --primary: #9D302D;
-  --primary-foreground: #FFFFFF;
-  --secondary: #ECEEE9;
-  --secondary-foreground: #3B511F;
-  --muted: #D5D5D5;
-  --muted-foreground: #575656;
-  --accent: #F6EBEA;
-  --accent-foreground: #9D302D;
-  --destructive: #9D302D;
-  --destructive-foreground: #FFFFFF;
-  --success: #3B511F;
-  --success-foreground: #FFFFFF;
-  --warning: #F1B826;
-  --warning-foreground: #2D2C2C;
-  --border: #D5D5D5;
-  --input: #ABABAB;
-  --ring: #9D302D;
+/* ── Semantic (shadcn) tokens, mapped onto the primitives ────────────────── */
+:root,
+.dark {
+  --background: var(--surface-page);
+  --foreground: var(--ink);
+  --card: var(--surface-sheet);
+  --card-foreground: var(--ink);
+  --popover: var(--surface-sheet);
+  --popover-foreground: var(--ink);
+  --primary: var(--brand);
+  --primary-foreground: var(--on-brand);
+  --secondary: var(--surface-sunken);
+  --secondary-foreground: var(--ink);
+  --muted: var(--surface-sunken);
+  --muted-foreground: var(--ink-muted);
+  --accent: var(--surface-sunken);
+  --accent-foreground: var(--ink);
+  --destructive: var(--brand);
+  --destructive-foreground: var(--on-brand);
+  --success: var(--racing);
+  --success-foreground: var(--surface-sheet);
+  --warning: var(--amber);
+  --warning-foreground: var(--surface-sheet);
+  --info: var(--steel);
+  --info-foreground: var(--surface-sheet);
+  --border: var(--line);
+  --input: var(--line-field);
+  --ring: var(--steel);
 
-  --sidebar: #2D2C2C;
-  --sidebar-foreground: #E9E3D5;
-  --sidebar-primary: #9D302D;
-  --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: rgba(255, 255, 255, 0.08);
-  --sidebar-accent-foreground: #FFFFFF;
-  --sidebar-border: rgba(233, 227, 213, 0.12);
-  --sidebar-ring: #F1B826;
+  /* ERP sidebar: a clean sheet, like the header */
+  --sidebar: var(--surface-sheet);
+  --sidebar-foreground: var(--ink);
+  --sidebar-primary: var(--brand);
+  --sidebar-primary-foreground: var(--on-brand);
+  --sidebar-accent: var(--surface-sunken);
+  --sidebar-accent-foreground: var(--ink);
+  --sidebar-border: var(--line);
+  --sidebar-ring: var(--steel);
+
+  /* booking-calendar status colours (white text sits on all but "unassigned") */
+  --status-unassigned: #e9b45a;
+  --status-reservation: #2f5b8a;
+  --status-rental: #0f7a3f;
+  --status-oneway: #7f5f2a;
+  --status-overdue: #d0121b;
 }
 
-/* ── Public site: design.md palette (Terra Red, warm canvas, Carbon) ─────── */
+/* Public site: the full app-grade shape language. */
 [data-brand="public"] {
-  --radius: 0.75rem;
-  --background: #FFFFFF;
-  --foreground: #2D2C2C;
-  --card: #FFFFFF;
-  --card-foreground: #2D2C2C;
-  --popover: #FFFFFF;
-  --popover-foreground: #2D2C2C;
-  --primary: #9D302D;
-  --primary-foreground: #FFFFFF;
-  --secondary: #2D2C2C;
-  --secondary-foreground: #FFFFFF;
-  --muted: #F4F0E8;
-  --muted-foreground: #575656;
-  --accent: #F6EBEA;
-  --accent-foreground: #9D302D;
-  --border: #E2DCCF;
-  --input: #D5D5D5;
-  --ring: #9D302D;
+  --radius: 12px;
+  --control-height: 44px;
 }
 
-[data-brand="public"].dark {
-  --background: oklch(0.16 0.008 30);
-  --foreground: oklch(0.95 0.005 30);
-  --card: oklch(0.2 0.01 30);
-  --card-foreground: oklch(0.95 0.005 30);
-  --popover: oklch(0.2 0.01 30);
-  --popover-foreground: oklch(0.95 0.005 30);
-  --primary: oklch(0.64 0.2 27);
-  --secondary: oklch(0.9 0.005 30);
-  --secondary-foreground: oklch(0.18 0.01 30);
-  --muted: oklch(0.24 0.01 30);
-  --muted-foreground: oklch(0.7 0.01 30);
-  --accent: oklch(0.28 0.06 27);
-  --accent-foreground: oklch(0.9 0.05 27);
-  --border: oklch(0.3 0.01 30);
-  --input: oklch(0.33 0.01 30);
+/* Staff ERP: same palette, a touch denser — controls 10px, cards 16px. */
+[data-brand="erp"] {
+  --radius: 10px;
+  --control-height: 36px;
+  --radius-card-size: 16px;
+  --radius-sheet-size: 22px;
 }
 
 /* ── Token → Tailwind utility mapping ────────────────────────────────────── */
@@ -205,6 +174,15 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  --radius-control: var(--radius);
+  --radius-card: var(--radius-card-size);
+  --radius-sheet: var(--radius-sheet-size);
+  --radius-pill: 999px;
+
+  --shadow-primary: var(--elev-primary);
+  --shadow-lift: var(--elev-lift);
+  --shadow-booking: var(--elev-booking);
+  --shadow-floating: var(--elev-floating);
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -246,29 +224,159 @@
   --color-status-rental: var(--status-rental);
   --color-status-oneway: var(--status-oneway);
   --color-status-overdue: var(--status-overdue);
+
+  /* design-system names, for the few places that need them directly */
+  --color-surface-page: var(--surface-page);
+  --color-surface-sheet: var(--surface-sheet);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-line: var(--line);
+  --color-line-field: var(--line-field);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-brand: var(--brand);
+  --color-brand-deep: var(--brand-deep);
+  --color-brand-glow: var(--brand-glow);
+  --color-blush: var(--blush);
+  --color-on-brand: var(--on-brand);
+  --color-onyx: var(--onyx);
+  --color-onyx-sheet: var(--onyx-sheet);
+  --color-onyx-line: var(--onyx-line);
+  --color-onyx-field: var(--onyx-field);
+  --color-on-onyx: var(--on-onyx);
+  --color-on-onyx-muted: var(--on-onyx-muted);
+  --color-champagne: var(--champagne);
+  --color-champagne-light: var(--champagne-light);
+  --color-champagne-ink: var(--champagne-ink);
+  --color-champagne-tint: var(--champagne-tint);
+  --color-on-champagne: var(--on-champagne);
+  --color-racing: var(--racing);
+  --color-green-tint: var(--green-tint);
+  --color-amber-ds: var(--amber);
+  --color-amber-tint: var(--amber-tint);
+  --color-steel: var(--steel);
+  --color-steel-tint: var(--steel-tint);
+  --color-scrim: var(--scrim);
+
+  /* type — the font variables are set by each surface's root layout (next/font) */
+  --font-sans: var(--font-inter), "Inter", ui-sans-serif, system-ui, "Noto Sans SC", "Noto Sans TC", sans-serif;
+  --font-serif: var(--font-instrument), "Instrument Serif", Georgia, "Noto Serif SC", "Noto Serif TC", serif;
+  --font-mono: var(--font-geist-mono), "Geist Mono", ui-monospace, Menlo, Consolas, monospace;
+
+  --ease-out-quick: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    -webkit-tap-highlight-color: transparent;
+    background: var(--background);
+  }
   body {
     @apply bg-background text-foreground antialiased;
+    font-feature-settings: "cv11", "ss01";
+  }
+  ::selection {
+    background: var(--brand);
+    color: var(--on-brand);
+  }
+}
+
+@layer utilities {
+  /* Tabular figures for prices, totals and counts. */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+  /* The type scale (Inter). */
+  .type-hero {
+    font-size: clamp(2.5rem, 6vw, 4rem);
+    line-height: 1.03;
+    font-weight: 800;
+    letter-spacing: -0.04em;
+  }
+  .type-title-1 {
+    font-size: clamp(2.125rem, 4.2vw, 3rem);
+    line-height: 1.08;
+    font-weight: 700;
+    letter-spacing: -0.035em;
+  }
+  .type-title-2 {
+    font-size: clamp(1.75rem, 3vw, 2.25rem);
+    line-height: 1.11;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+  }
+  .type-title-3 {
+    font-size: 1.375rem;
+    line-height: 1.27;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  .type-price {
+    font-size: 1.875rem;
+    line-height: 1.13;
+    font-weight: 800;
+    letter-spacing: -0.035em;
+    font-variant-numeric: tabular-nums;
+  }
+  .type-heading {
+    font-size: 1.0625rem;
+    line-height: 1.41;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .type-label {
+    font-size: 0.8125rem;
+    line-height: 1.38;
+    font-weight: 600;
+  }
+  .type-code {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    line-height: 1.33;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  /* Signature wing serif. */
+  .type-signature-display {
+    font-family: var(--font-serif);
+    font-size: clamp(2.75rem, 6vw, 3.75rem);
+    line-height: 1.03;
+    font-weight: 400;
+    letter-spacing: -0.015em;
+  }
+  .type-signature-title {
+    font-family: var(--font-serif);
+    font-size: 1.75rem;
+    line-height: 1.14;
+    font-weight: 400;
+    letter-spacing: -0.01em;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
   }
 }
 
 /* Printed documents are always light (paper), whatever the app theme. */
 .force-light {
   color-scheme: light;
-  --background: #FFFFFF;
-  --foreground: #2D2C2C;
-  --card: #FFFFFF;
-  --card-foreground: #2D2C2C;
-  --muted: #EAEAEA;
-  --muted-foreground: #575656;
-  --border: #D5D5D5;
-  --primary: #9D302D;
-  --primary-foreground: #FFFFFF;
+  --background: #ffffff;
+  --foreground: #111113;
+  --card: #ffffff;
+  --card-foreground: #111113;
+  --muted: #eeeeea;
+  --muted-foreground: #5d5d64;
+  --border: #e5e5e0;
+  --primary: #d0121b;
+  --primary-foreground: #ffffff;
   background: var(--background);
   color: var(--foreground);
 }

@@ -87,7 +87,7 @@ export function RateDetailsButton({
       <Button
         type="button"
         size="icon-sm"
-        variant={active ? "default" : "ghost"}
+        variant={active ? "ink" : "ghost"}
         onClick={show}
         disabled={disabled}
         aria-label={active ? "Rate details (changed for this booking)" : "Rate details"}

@@ -73,16 +73,16 @@ export function BookOptions({ search, vehicleTypeId }: { search: BookingSearch; 
   const when = (v?: string) => (v ? legacyStamp(fromDateTimeLocal(v, tz), tz) : "");
   const detailsLink = (title: string, body: string | null) =>
     body ? (
-      <button type="button" className="ml-1 font-semibold italic hover:underline" onClick={(e) => { e.preventDefault(); setDetails({ title, body }); }}>
-        (Details)
+      <button type="button" className="ml-1.5 text-sm font-medium text-muted-foreground underline underline-offset-2 hover:text-foreground" onClick={(e) => { e.preventDefault(); setDetails({ title, body }); }}>
+        Details
       </button>
     ) : null;
 
   return (
     <>
-      <BookingBanner title="Rental Options" />
-      <div className="mx-auto max-w-5xl space-y-8 px-4 py-8">
+      <div className="mx-auto w-full max-w-[1100px] space-y-8 px-4 py-8 sm:px-8">
         <BookingSteps current={2} hrefs={[`/book?${toQuery(search)}`]} />
+        <BookingBanner title="Protection & extras" />
         <BookingSummary
           pickup={{ location: locName(search.pickup), when: when(search.from) }}
           dropoff={{ location: locName(search.return ?? search.pickup), when: when(search.to) }}
@@ -91,22 +91,25 @@ export function BookOptions({ search, vehicleTypeId }: { search: BookingSearch; 
           total={quote.data?.total}
           promo={quote.data?.promo}
         />
-        {opts.isLoading && <p className="text-muted-foreground">Loading options…</p>}
-        {opts.error && <p role="alert" className="text-destructive">{opts.error.message}</p>}
+        {opts.isLoading && <div className="h-40 animate-pulse rounded-card border bg-card" />}
+        {opts.error && <p role="alert" className="rounded-control bg-blush px-4 py-3 text-sm font-semibold text-brand">{opts.error.message}</p>}
 
         {opts.data && opts.data.protections.length > 0 && (
-          <section aria-labelledby="prot-h" className="space-y-3 border-t pt-8">
-            <h2 id="prot-h" className="text-xl">Protections &amp; Coverages</h2>
+          <section aria-labelledby="prot-h" className="space-y-4">
+            <div>
+              <h2 id="prot-h" className="type-title-3">Protection &amp; coverage</h2>
+              <p className="mt-1 text-sm text-muted-foreground">Choose the cover that suits your trip.</p>
+            </div>
             <div role="radiogroup" aria-labelledby="prot-h" className="grid gap-3">
               {opts.data.protections.map((p) => (
-                <label key={p.id} className="flex cursor-pointer items-center gap-3 rounded-sm bg-muted px-3 py-2.5 text-sm">
+                <label key={p.id} className={cn("flex cursor-pointer items-center gap-3 rounded-card border bg-card px-4 py-3.5 text-[15px] transition-[box-shadow,border-color] hover:border-foreground/30", insuranceId === p.id && "border-foreground ring-1 ring-foreground")}>
                   <OptionIcon src={p.image} />
-                  <input type="radio" name="protection" className="accent-primary" checked={insuranceId === p.id} onChange={() => setInsuranceId(p.id)} />
-                  <span className="flex-1 uppercase text-muted-foreground">
+                  <input type="radio" name="protection" className="size-4 accent-[var(--ink)]" checked={insuranceId === p.id} onChange={() => setInsuranceId(p.id)} />
+                  <span className="flex-1 font-semibold">
                     {p.name}
                     {detailsLink(p.name, p.description)}
                   </span>
-                  <span className="pr-4 tabular-nums text-muted-foreground">{money(p.total)}</span>
+                  <span className="font-semibold tabular-nums">{money(p.total)}</span>
                 </label>
               ))}
             </div>
@@ -114,19 +117,22 @@ export function BookOptions({ search, vehicleTypeId }: { search: BookingSearch; 
         )}
 
         {opts.data && opts.data.extras.length > 0 && (
-          <section aria-labelledby="extra-h" className="space-y-3">
-            <h2 id="extra-h" className="text-xl">Choose Extra Options</h2>
+          <section aria-labelledby="extra-h" className="space-y-4">
+            <div>
+              <h2 id="extra-h" className="type-title-3">Extras</h2>
+              <p className="mt-1 text-sm text-muted-foreground">Add what you need. Every price is shown before you reserve.</p>
+            </div>
             <div className="grid gap-3 sm:grid-cols-2">
               {opts.data.extras.map((x) => {
                 const qty = x.included ? 1 : extras[x.id] ?? 0;
                 const price = x.percent ? (rentalCharges * Number(x.percent)) / 100 : Number(x.total);
                 return (
-                  <div key={x.id} className="flex items-center gap-3 rounded-sm bg-muted px-3 py-2.5 text-sm">
+                  <div key={x.id} className={cn("flex items-center gap-3 rounded-card border bg-card px-4 py-3.5 text-[15px] transition-[box-shadow,border-color]", qty > 0 && "border-foreground ring-1 ring-foreground")}>
                     <OptionIcon src={x.image} />
                     <input
                       id={`x-${x.id}`}
                       type="checkbox"
-                      className="size-4 accent-primary"
+                      className="size-4 accent-[var(--ink)]"
                       checked={qty > 0}
                       disabled={x.included}
                       title={x.included ? "Included with every rental" : undefined}
@@ -140,21 +146,21 @@ export function BookOptions({ search, vehicleTypeId }: { search: BookingSearch; 
                         })
                       }
                     />
-                    <label htmlFor={`x-${x.id}`} className="flex-1 uppercase text-muted-foreground">
+                    <label htmlFor={`x-${x.id}`} className="flex-1 cursor-pointer font-semibold">
                       {x.name}
                       {detailsLink(x.name, x.description)}
                     </label>
                     {x.multiSelect && qty > 0 && (
                       <select
                         aria-label={`${x.name} quantity`}
-                        className="h-8 rounded-md border bg-background px-1 text-sm"
+                        className="h-8 rounded-[8px] border border-input bg-card px-1.5 text-sm"
                         value={qty}
                         onChange={(e) => setExtras((s) => ({ ...s, [x.id]: Number(e.target.value) }))}
                       >
                         {[1, 2, 3, 4].map((n) => <option key={n} value={n}>{n}</option>)}
                       </select>
                     )}
-                    <span className="tabular-nums text-muted-foreground">{money(price)}</span>
+                    <span className="font-semibold tabular-nums">{money(price)}</span>
                   </div>
                 );
               })}
@@ -162,8 +168,8 @@ export function BookOptions({ search, vehicleTypeId }: { search: BookingSearch; 
           </section>
         )}
 
-        <div className="flex justify-end">
-          <Button size="lg" onClick={next} disabled={!opts.data}>Continue <ArrowRightIcon /></Button>
+        <div className="sticky bottom-4 z-10 flex justify-end">
+          <Button size="lg" className="shadow-booking" onClick={next} disabled={!opts.data}>Continue <ArrowRightIcon /></Button>
         </div>
       </div>
 

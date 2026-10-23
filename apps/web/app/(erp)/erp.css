@@ -1,108 +1,22 @@
 @import "@mrac/ui/globals.css";
 
-@theme inline {
-  --font-serif: var(--font-serif), "Libre Baskerville", Georgia, serif;
-  --font-sans: "Helvetica Now Display", "Helvetica Neue", Helvetica, Arial, sans-serif;
-  --font-mono: var(--font-mono), "JetBrains Mono", Menlo, Consolas, monospace;
+/* Staff ERP — everything comes from the design-system tokens in @mrac/ui/globals.css. */
 
-  /* Core Palette */
-  --color-kawa-bg: #E9E3D5;
-  --color-kawa-primary: #9D302D;
-  --color-kawa-primary2: #3B511F;
-  --color-kawa-ember: #F1B826;
-  --color-kawa-carbon: #2D2C2C;
-
-  /* Terra Red Scale (Brand Primary) */
-  --color-terra-100: #9D302D;
-  --color-terra-80: #B15957;
-  --color-terra-60: #C48381;
-  --color-terra-40: #D8ACAB;
-  --color-terra-20: #EBD6D5;
-  --color-terra-10: #F6EBEA;
-
-  /* Forest Moss Scale (Secondary & Operational Success) */
-  --color-forest-100: #3B511F;
-  --color-forest-80: #62744C;
-  --color-forest-60: #899779;
-  --color-forest-40: #B1B9A5;
-  --color-forest-20: #D8DCD2;
-  --color-forest-10: #ECEEE9;
-
-  /* Yellow / Golden Ember Scale (Warnings & Pending) */
-  --color-yellow-100: #F1B826;
-  --color-yellow-80: #F4C651;
-  --color-yellow-60: #F7D47D;
-  --color-yellow-40: #F9E3A8;
-  --color-yellow-20: #FCF1D4;
-  --color-yellow-10: #FEF8EA;
-
-  /* Carbon Slate Scale (Neutrals, Surfaces & High-Contrast Text) */
-  --color-carbon-100: #2D2C2C;
-  --color-carbon-80: #575656;
-  --color-carbon-60: #818080;
-  --color-carbon-40: #ABABAB;
-  --color-carbon-20: #D5D5D5;
-  --color-carbon-10: #EAEAEA;
-}
-
-/* Master ERP Canvas Background Pattern (Applied to all pages) */
-.bg-erp-canvas-pattern {
-  background-color: #E9E3D5;
-  background-image: linear-gradient(rgba(233, 227, 213, 0.70), rgba(233, 227, 213, 0.82)),
-                    url('/assest/pattern bg.png');
-  background-repeat: no-repeat;
-  background-position: center top;
-  background-size: cover;
-  background-attachment: fixed;
-}
-
-/* Sidebar Dark Pattern */
-.bg-erp-sidebar-pattern {
-  background-color: #2D2C2C;
-  background-image: linear-gradient(rgba(45, 44, 44, 0.88), rgba(45, 44, 44, 0.94)),
-                    url('/assest/pattern bg.png');
-  background-repeat: no-repeat;
-  background-position: center top;
-  background-size: cover;
-}
-
-/* Hero Warm Brand Header Pattern */
-.bg-erp-hero-pattern {
-  background-color: #9D302D;
-  background-image: linear-gradient(135deg, rgba(157, 48, 45, 0.90) 0%, rgba(120, 36, 34, 0.94) 100%),
-                    url('/assest/pattern bg.png');
-  background-repeat: no-repeat;
-  background-position: center center;
-  background-size: cover;
-}
-
-/* Login Page Watermark Pattern - Non-repeating, clearly visible */
-.bg-erp-watermark-pattern {
-  background-color: #E9E3D5;
-  background-image: linear-gradient(rgba(233, 227, 213, 0.45), rgba(233, 227, 213, 0.62)),
-                    url('/assest/pattern bg.png');
-  background-repeat: no-repeat;
-  background-position: center center;
-  background-size: cover;
-  background-attachment: fixed;
-}
-
-/* Luxury Editorial Print Styles */
 @media print {
   body {
-    background: #FFFFFF !important;
+    background: #ffffff !important;
     color: #000000 !important;
   }
-  .no-print, [data-sidebar], header {
+  .no-print,
+  [data-sidebar],
+  header {
     display: none !important;
   }
   .print-header {
-    border-bottom: 2px solid #9D302D;
-    font-family: var(--font-serif), 'Libre Baskerville', Georgia, serif;
+    border-bottom: 2px solid #d0121b;
   }
   .contract-table {
     border-collapse: collapse;
     width: 100%;
-    font-family: var(--font-sans), 'Helvetica Now Display', Arial, sans-serif;
   }
 }

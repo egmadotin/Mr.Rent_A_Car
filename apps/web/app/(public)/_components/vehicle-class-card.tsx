@@ -1,46 +1,42 @@
 /* eslint-disable @next/next/no-img-element -- class photos are static files in public/legacy */
-import { BriefcaseIcon, CarFrontIcon, DoorOpenIcon, UsersIcon } from "lucide-react";
+import { CarFrontIcon } from "lucide-react";
 import { cn } from "@mrac/ui/lib/utils";
-
+import { Specs, categoryOf } from "./ds";
 import { resolveVehicleImage } from "../_lib/vehicle-images";
 
 export type VehicleClass = { id: string; name: string; description: string | null; seats: number | null; luggage: number | null; doors: number | null; imageKey?: string | null };
 
-/** One vehicle class: picture slot, name, "… or similar", seats / luggage / doors. Shared by Fleet and booking results. */
+/**
+ * One vehicle class as a wide row: studio photo, class name, "… or similar", icon specs; the price and action
+ * (children) on the right. Used by the booking results.
+ */
 export function VehicleClassCard({ vc, children, className }: { vc: VehicleClass; children?: React.ReactNode; className?: string }) {
-  const specs = [
-    vc.seats != null && { icon: UsersIcon, label: `${vc.seats} seats` },
-    vc.luggage != null && { icon: BriefcaseIcon, label: `${vc.luggage} bags` },
-    vc.doors != null && { icon: DoorOpenIcon, label: `${vc.doors} doors` },
-  ].filter(Boolean) as { icon: typeof UsersIcon; label: string }[];
-
-  const resolvedImage = resolveVehicleImage(vc.name, vc.imageKey);
+  const image = resolveVehicleImage(vc.name, vc.imageKey);
+  const sig = categoryOf(vc.name) === "Signature";
 
   return (
-    <article className={cn("flex flex-col overflow-hidden rounded-xl border bg-card sm:flex-row", className)}>
-      {/* Class photo */}
-      <div className="grid aspect-[16/10] place-items-center bg-white sm:aspect-auto sm:w-56 sm:shrink-0 p-3">
-        {resolvedImage ? (
-          <img src={resolvedImage} alt={vc.name} loading="lazy" className="size-full object-contain" />
+    <article
+      className={cn(
+        "group grid overflow-hidden rounded-card border transition-shadow duration-180 hover:shadow-lift sm:grid-cols-[17rem_minmax(0,1fr)]",
+        sig ? "signature border-onyx-line" : "bg-card",
+        className,
+      )}
+    >
+      <div className="studio relative grid aspect-[16/10] place-items-center p-4 sm:aspect-auto sm:min-h-44">
+        {image ? (
+          <img src={image} alt={vc.name} loading="lazy" className="max-h-40 w-full object-contain transition-transform duration-700 ease-out-quick group-hover:scale-[1.03]" />
         ) : (
-          <CarFrontIcon className="size-14 text-muted-foreground/50" aria-hidden />
+          <CarFrontIcon className="size-14 text-muted-foreground/40" aria-hidden />
         )}
+        {sig && <span className="absolute top-3 left-3 rounded-pill bg-champagne px-2.5 py-0.5 text-[11px] font-semibold text-on-champagne">Signature</span>}
       </div>
-      <div className="flex flex-1 flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
-        <div className="space-y-2">
-          <h3 className="text-xl font-bold">{vc.name}</h3>
+      <div className="flex flex-col gap-4 p-5 md:flex-row md:items-center md:justify-between md:gap-6 md:p-6">
+        <div className="min-w-0 space-y-2">
+          <h3 className={cn("type-title-3", sig && "font-serif text-[26px] font-normal tracking-normal")}>{vc.name}</h3>
           {vc.description && <p className="text-sm text-muted-foreground">{vc.description}</p>}
-          {specs.length > 0 && (
-            <ul className="flex flex-wrap gap-2 text-xs">
-              {specs.map((s) => (
-                <li key={s.label} className="flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-muted-foreground">
-                  <s.icon className="size-3.5" /> {s.label}
-                </li>
-              ))}
-            </ul>
-          )}
+          <Specs vc={vc} className="pt-1" />
         </div>
-        {children && <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">{children}</div>}
+        {children && <div className="flex shrink-0 flex-col items-start gap-3 md:items-end">{children}</div>}
       </div>
     </article>
   );

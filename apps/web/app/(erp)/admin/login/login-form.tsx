@@ -30,47 +30,23 @@ export function LoginForm({ next, forbidden }: { next?: string; forbidden?: bool
   }
 
   return (
-    <Card className="gap-0 overflow-hidden rounded-xl border border-[#D5D5D5] bg-white/95 p-0 text-[#2D2C2C] shadow-2xl backdrop-blur-xs">
-      <div className="h-1 w-full bg-primary" />
-      <CardContent className="p-6">
-        <form onSubmit={onSubmit} className="space-y-4">
+    <Card className="gap-0 rounded-sheet p-0 shadow-lift">
+      <CardContent className="p-6 sm:p-8">
+        <form onSubmit={onSubmit} className="space-y-5">
           <div className="space-y-1.5">
-            <Label htmlFor="email" className="text-xs font-semibold uppercase tracking-wider text-[#575656]">
-              Email Address
-            </Label>
-            <Input
-              id="email"
-              name="email"
-              type="email"
-              autoComplete="username"
-              required
-              autoFocus
-              className="h-10 border-[#D5D5D5] bg-white text-[#2D2C2C] shadow-2xs focus-visible:border-primary focus-visible:ring-primary/30"
-            />
+            <Label htmlFor="email">Email</Label>
+            <Input id="email" name="email" type="email" autoComplete="username" required autoFocus className="h-11" />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="password" className="text-xs font-semibold uppercase tracking-wider text-[#575656]">
-              Password
-            </Label>
-            <Input
-              id="password"
-              name="password"
-              type="password"
-              autoComplete="current-password"
-              required
-              className="h-10 border-[#D5D5D5] bg-white text-[#2D2C2C] shadow-2xs focus-visible:border-primary focus-visible:ring-primary/30"
-            />
+            <Label htmlFor="password">Password</Label>
+            <Input id="password" name="password" type="password" autoComplete="current-password" required className="h-11" />
           </div>
           {error && (
-            <p role="alert" className="text-xs font-semibold text-destructive">
+            <p role="alert" className="rounded-control bg-blush px-3.5 py-2.5 text-sm font-semibold text-brand">
               {error}
             </p>
           )}
-          <Button
-            type="submit"
-            className="h-10 w-full bg-primary font-bold text-white shadow-xs transition-colors hover:bg-terra-80"
-            disabled={pending}
-          >
+          <Button type="submit" size="lg" className="w-full" disabled={pending}>
             {pending && <Loader2Icon className="animate-spin" />}
             Sign in
           </Button>

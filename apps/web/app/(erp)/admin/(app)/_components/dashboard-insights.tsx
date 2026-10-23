@@ -20,7 +20,7 @@ export function DashCard({ title: t, action, children, className }: { title: Rea
   return (
     <Card className={cn("gap-3 py-4", className)}>
       <CardHeader className="flex-row flex-wrap items-center justify-between gap-2 px-4">
-        <CardTitle className="flex items-center gap-2 font-serif text-lg">{t}</CardTitle>
+        <CardTitle className="flex items-center gap-2 text-base font-bold tracking-tight">{t}</CardTitle>
         {action}
       </CardHeader>
       <CardContent className="px-4">{children}</CardContent>
@@ -32,15 +32,15 @@ function Kpi({ label, value, sub, icon: Icon, trend, children, href }: {
   label: string; value: string; sub?: React.ReactNode; icon: React.ComponentType<{ className?: string }>; trend?: number | null; children?: React.ReactNode; href?: string;
 }) {
   const body = (
-    <Card className={cn("h-full gap-2 p-4", href && "transition-shadow hover:shadow-md")}>
+    <Card className={cn("h-full gap-2 p-4", href && "transition-shadow hover:shadow-lift")}>
       <div className="flex items-start justify-between gap-2">
-        <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{label}</span>
-        <span className="rounded-md bg-primary/10 p-1.5 text-primary"><Icon className="size-4" /></span>
+        <span className="text-[13px] font-semibold text-muted-foreground">{label}</span>
+        <span className="grid size-8 place-items-center rounded-control bg-muted text-foreground"><Icon className="size-4" /></span>
       </div>
       <div className="flex items-baseline gap-2">
-        <span className="font-serif text-3xl font-bold tabular-nums">{value}</span>
+        <span className="tracking-tight text-3xl font-bold tabular-nums">{value}</span>
         {trend != null && (
-          <span className={cn("inline-flex items-center text-xs font-semibold", trend >= 0 ? "text-forest-100 dark:text-emerald-400" : "text-destructive")}>
+          <span className={cn("inline-flex items-center text-xs font-semibold", trend >= 0 ? "text-success" : "text-destructive")}>
             {trend >= 0 ? <ArrowUpRightIcon className="size-3.5" /> : <ArrowDownRightIcon className="size-3.5" />}
             {Math.abs(trend).toFixed(1)}%
           </span>
@@ -50,7 +50,7 @@ function Kpi({ label, value, sub, icon: Icon, trend, children, href }: {
       {children}
     </Card>
   );
-  return href ? <Link href={href} className="rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{body}</Link> : body;
+  return href ? <Link href={href} className="rounded-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{body}</Link> : body;
 }
 
 function Sparkline({ values }: { values: number[] }) {
@@ -59,8 +59,8 @@ function Sparkline({ values }: { values: number[] }) {
   const pts = values.map((v, i) => `${(i / Math.max(values.length - 1, 1)) * w},${h - 2 - (v / max) * (h - 4)}`);
   return (
     <svg viewBox={`0 0 ${w} ${h}`} className="mt-1 h-9 w-full" preserveAspectRatio="none" aria-hidden>
-      <polygon points={`0,${h} ${pts.join(" ")} ${w},${h}`} className="fill-primary/10" />
-      <polyline points={pts.join(" ")} fill="none" className="stroke-primary" strokeWidth={2} vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
+      <polygon points={`0,${h} ${pts.join(" ")} ${w},${h}`} className="fill-steel/10" />
+      <polyline points={pts.join(" ")} fill="none" className="stroke-steel" strokeWidth={2} vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -68,13 +68,13 @@ function Sparkline({ values }: { values: number[] }) {
 function Meter({ percent, className }: { percent: number; className?: string }) {
   return (
     <div className="h-2 overflow-hidden rounded-full bg-muted" role="meter" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100}>
-      <div className={cn("h-full rounded-full bg-forest-100", className)} style={{ width: `${Math.min(100, Math.max(percent, percent > 0 ? 2 : 0))}%` }} />
+      <div className={cn("h-full rounded-full bg-success", className)} style={{ width: `${Math.min(100, Math.max(percent, percent > 0 ? 2 : 0))}%` }} />
     </div>
   );
 }
 
 /** A single-series column chart with a hover tooltip; values are labelled on hover only. */
-function Columns({ data, format, height = 180, barClass = "fill-primary", ariaLabel }: {
+function Columns({ data, format, height = 180, barClass = "fill-steel", ariaLabel }: {
   data: { label: string; sub?: string; value: number; tip: string }[]; format: (n: number) => string; height?: number; barClass?: string; ariaLabel: string;
 }) {
   const [hover, setHover] = React.useState<number | null>(null);
@@ -133,7 +133,7 @@ function bar(x: number, y: number, w: number, h: number) {
 
 /** Vehicle statuses grouped for the fleet bar: each group keeps one colour wherever it appears. */
 const STATUS_GROUPS = [
-  { key: "available", label: "Available", className: "bg-forest-100", match: ["AVAILABLE"] },
+  { key: "available", label: "Available", className: "bg-success", match: ["AVAILABLE"] },
   { key: "rent", label: "On rent", className: "bg-status-reservation", match: ["ON_RENT", "IN_CHECKOUT_PROCESS"] },
   { key: "service", label: "Service / repair", className: "bg-status-unassigned", match: ["IN_SERVICE", "IN_REPAIR", "HAS_PROBLEM", "COMPREHENSIVE"] },
   { key: "out", label: "Out of service", className: "bg-status-overdue", match: ["OUT_OF_SERVICE", "GROUNDED", "STOLEN"] },
@@ -227,8 +227,8 @@ export function Pipeline() {
           { label: "Quotes · 30 days", value: p?.quotes30, icon: ReceiptIcon },
         ].map((x) => (
           <div key={x.label} className="rounded-lg border bg-muted/30 p-3">
-            <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"><x.icon className="size-3.5" />{x.label}</div>
-            <div className="mt-1 font-serif text-2xl font-bold tabular-nums">{x.value ?? "—"}</div>
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground"><x.icon className="size-3.5" />{x.label}</div>
+            <div className="mt-1 tracking-tight text-2xl font-bold tabular-nums">{x.value ?? "—"}</div>
           </div>
         ))}
       </div>
@@ -252,13 +252,13 @@ export function ForecastChart() {
       action={
         <div className="flex gap-1" role="group" aria-label="Period">
           {([[7, "7 Days"], [14, "14 Days"], [30, "1 Month"]] as const).map(([n, label]) => (
-            <Button key={n} size="sm" variant={days === n ? "default" : "outline"} onClick={() => setDays(n)} aria-pressed={days === n}>{label}</Button>
+            <Button key={n} size="sm" variant={days === n ? "ink" : "outline"} onClick={() => setDays(n)} aria-pressed={days === n}>{label}</Button>
           ))}
         </div>
       }
     >
       {g ? (
-        <Columns ariaLabel="Share of the fleet booked each day" format={(n) => `${Math.round(n)}%`} height={170} barClass="fill-forest-100"
+        <Columns ariaLabel="Share of the fleet booked each day" format={(n) => `${Math.round(n)}%`} height={170} barClass="fill-success"
           data={g.map((x) => ({ label: day(x.date), sub: `${weekday(x.date)}, ${day(x.date)}`, value: x.percent, tip: `${x.percent}% booked · ${x.booked} vehicle${x.booked === 1 ? "" : "s"}` }))} />
       ) : <div className="h-40 animate-pulse rounded-md bg-muted" />}
       {peak && <p className="mt-1 text-xs text-muted-foreground">Busiest: {weekday(peak.date)} {day(peak.date)} at {peak.percent}% — rentals out plus reservations, of the active fleet.</p>}
@@ -274,7 +274,7 @@ export function TypeTable() {
       {!rows.length ? <p className="rounded-md bg-muted/60 px-3 py-4 text-sm text-muted-foreground">No vehicle types.</p> : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="text-left text-[11px] uppercase tracking-wider text-muted-foreground">
+            <thead className="text-left text-xs font-semibold text-muted-foreground">
               <tr><th className="pb-2 font-semibold">Type</th><th className="pb-2 text-right font-semibold">Fleet</th><th className="pb-2 text-right font-semibold">On rent</th><th className="w-[30%] pb-2 pl-4 font-semibold">Utilization</th><th className="pb-2 text-right font-semibold">Revenue</th></tr>
             </thead>
             <tbody className="divide-y">
@@ -328,7 +328,7 @@ export function RecentActivity() {
         <ol className="relative space-y-3 border-l pl-4 text-sm">
           {d.recent.map((r) => (
             <li key={`${r.kind}${r.id}`} className="relative">
-              <span className={cn("absolute top-1.5 -left-[1.3rem] size-2.5 rounded-full ring-2 ring-card", r.kind === "RENTAL" ? "bg-forest-100" : "bg-status-reservation")} />
+              <span className={cn("absolute top-1.5 -left-[1.3rem] size-2.5 rounded-full ring-2 ring-card", r.kind === "RENTAL" ? "bg-success" : "bg-status-reservation")} />
               <div className="flex flex-wrap items-center justify-between gap-x-2">
                 <Link href={r.kind === "RENTAL" ? `/admin/rentals/${r.id}` : `/admin/reservations/${r.id}`} className="font-medium text-primary hover:underline">
                   {r.kind === "RENTAL" ? `RA #${r.number}` : `Res #${r.number}`} · {r.name || "—"}

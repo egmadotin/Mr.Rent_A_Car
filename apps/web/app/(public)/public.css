@@ -1,7 +1,37 @@
 @import "@mrac/ui/globals.css";
 
-@theme inline {
-  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
-  /* design.md: Libre Baskerville for headings */
-  --font-serif: var(--font-baskerville), Georgia, "Times New Roman", serif;
+/* Public site — everything comes from the design-system tokens in @mrac/ui/globals.css. */
+
+/* The Signature wing: onyx ground, serif, champagne accents. Wrap a section in .signature. */
+.signature {
+  --background: var(--onyx);
+  --foreground: var(--on-onyx);
+  --card: var(--onyx-sheet);
+  --card-foreground: var(--on-onyx);
+  --muted: var(--onyx-sheet);
+  --muted-foreground: var(--on-onyx-muted);
+  --border: var(--onyx-line);
+  --input: var(--onyx-field);
+  --primary: var(--champagne);
+  --primary-foreground: var(--on-champagne);
+  --ring: var(--champagne-light);
+  background: var(--onyx);
+  color: var(--on-onyx);
+}
+
+/* Studio backdrop for vehicle photos. Most class photos are JPGs on white, so the plate stays light
+   and the photo multiplies into it (white disappears, the car keeps its shadow). */
+.studio {
+  background:
+    radial-gradient(70% 45% at 50% 92%, rgba(17, 17, 19, 0.07) 0%, transparent 70%),
+    linear-gradient(180deg, #ffffff 0%, #f1f1ed 100%);
+}
+.studio img {
+  mix-blend-mode: multiply;
+}
+/* In the Signature wing the plate is warm ivory under a champagne glow. */
+.signature .studio {
+  background:
+    radial-gradient(70% 45% at 50% 92%, rgba(127, 95, 42, 0.16) 0%, transparent 70%),
+    linear-gradient(180deg, #f6f3ec 0%, #e9e2d3 100%);
 }

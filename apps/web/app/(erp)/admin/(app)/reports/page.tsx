@@ -19,27 +19,27 @@ export default async function ReportsPage() {
 
   return (
     <div className="space-y-6 p-4 md:p-6">
-      <PageHeader title="Fleet & Financial Reports" description={`${built} of RentCentric's ${total} reports available`} />
+      <PageHeader className="-mx-4 -mt-4 md:-mx-6 md:-mt-6" title="Reports" description={`${built} of RentCentric's ${total} reports available`} />
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         {REPORT_CATEGORIES.map((c) => (
-          <Card key={c.title} className="border-[#D5D5D5] bg-white shadow-xs">
-            <CardHeader className="border-b border-[#D5D5D5]/60 bg-[#F4EFE6]/30 pb-3">
+          <Card key={c.title} className="gap-0 py-0">
+            <CardHeader className="border-b py-4">
               <div className="flex items-center gap-2.5">
-                <span className="grid size-9 place-items-center rounded-lg bg-primary/10 text-primary">
-                  <ErpIcon name={c.icon} size={18} className="text-primary" />
+                <span className="grid size-9 place-items-center rounded-control bg-muted text-foreground">
+                  <ErpIcon name={c.icon} size={18} />
                 </span>
                 <div>
-                  <CardTitle className="font-serif text-base text-[#2D2C2C]">{c.title}</CardTitle>
-                  <CardDescription className="line-clamp-1 text-xs text-[#575656]">{c.desc}</CardDescription>
+                  <CardTitle className="text-base font-bold tracking-tight">{c.title}</CardTitle>
+                  <CardDescription className="line-clamp-1 text-xs">{c.desc}</CardDescription>
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="px-2 pt-2">
+            <CardContent className="px-2 py-2">
               <ul className="grid sm:grid-cols-2">
                 {c.reports.map((r) =>
                   r.slug ? (
                     <li key={r.name}>
-                      <Link href={`/admin/reports/${r.slug}`} className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm font-medium text-[#2D2C2C] hover:bg-accent hover:text-primary">
+                      <Link href={`/admin/reports/${r.slug}`} className="flex items-center justify-between gap-2 rounded-[calc(var(--radius)-2px)] px-3 py-2 text-sm font-medium hover:bg-muted">
                         {r.name} <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
                       </Link>
                     </li>

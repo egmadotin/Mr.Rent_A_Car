@@ -37,33 +37,38 @@ export default async function DashboardPage() {
 
   return (
     <>
-      <PageHeader title="Dashboard" description={`${today} · fleet, bookings and revenue at a glance`} />
+      <PageHeader
+        title="Dashboard"
+        description={`${today} · fleet, bookings and revenue at a glance`}
+        actions={
+          <>
+            <Button asChild variant="ghost"><Link href="/admin/calendar"><CalendarDaysIcon /> Fleet calendar</Link></Button>
+            {(await can("CheckAddQuote")) && <Button asChild variant="outline"><Link href="/admin/quotes/new"><FileTextIcon /> New quote</Link></Button>}
+            {(await can("CheckOuts")) && <Button asChild variant="outline"><Link href="/admin/rentals/new"><CarIcon /> Start rental</Link></Button>}
+            {(await can("ReservationsAdd")) && <Button asChild><Link href="/admin/reservations/new"><CalendarPlusIcon /> Make reservation</Link></Button>}
+          </>
+        }
+      />
       <div className="space-y-6 p-4 md:p-6">
-        <div className="flex flex-wrap items-center gap-2">
-          {(await can("ReservationsAdd")) && <Button asChild><Link href="/admin/reservations/new"><CalendarPlusIcon /> Make reservation</Link></Button>}
-          {(await can("CheckOuts")) && <Button asChild variant="outline"><Link href="/admin/rentals/new"><CarIcon /> Start rental</Link></Button>}
-          {(await can("CheckAddQuote")) && <Button asChild variant="outline"><Link href="/admin/quotes/new"><FileTextIcon /> New quote</Link></Button>}
-          <Button asChild variant="ghost"><Link href="/admin/calendar"><CalendarDaysIcon /> Fleet calendar</Link></Button>
-        </div>
 
         <KpiRow onRent={s.onRent} inFleet={s.inFleet} overdue={s.overdue} />
 
         {/* Live status strip */}
-        <Card className="p-0">
-          <section aria-label="Fleet status" className="grid grid-cols-3 divide-x divide-y sm:grid-cols-5 sm:divide-y-0 lg:grid-cols-9">
+        <Card className="gap-0 overflow-hidden p-0">
+          <section aria-label="Fleet status" className="grid grid-cols-3 gap-px bg-border sm:grid-cols-5 lg:grid-cols-9">
             {tiles.map((t) => {
               const body = (
-                <div className={cn("flex h-full flex-col gap-1 px-3 py-3", t.href && "transition-colors hover:bg-accent/60")}>
-                  <span className="flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wider text-muted-foreground">
+                <div className={cn("flex h-full flex-col gap-1.5 bg-card px-4 py-3.5", t.href && "transition-colors hover:bg-muted/60")}>
+                  <span className="flex min-h-8 items-start gap-1.5 text-xs font-semibold text-muted-foreground">
                     <ErpIcon name={t.icon} size={13} className="shrink-0 opacity-70" />
-                    <span className="line-clamp-1">{t.label}</span>
+                    <span className="line-clamp-2 leading-tight">{t.label}</span>
                   </span>
                   <span
                     className={cn(
-                      "font-serif text-2xl font-bold tabular-nums",
+                      "text-2xl font-bold tracking-[-0.03em] tabular-nums",
                       t.tone === "bad" && "text-destructive",
-                      t.tone === "warn" && "text-amber-600 dark:text-amber-400",
-                      t.tone === "good" && "text-forest-100 dark:text-emerald-400",
+                      t.tone === "warn" && "text-warning",
+                      t.tone === "good" && "text-success",
                     )}
                   >
                     {t.value}
@@ -71,9 +76,9 @@ export default async function DashboardPage() {
                 </div>
               );
               return t.href ? (
-                <Link key={t.label} href={t.href} className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{body}</Link>
+                <Link key={t.label} href={t.href} className="bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">{body}</Link>
               ) : (
-                <div key={t.label}>{body}</div>
+                <div key={t.label} className="bg-card">{body}</div>
               );
             })}
           </section>

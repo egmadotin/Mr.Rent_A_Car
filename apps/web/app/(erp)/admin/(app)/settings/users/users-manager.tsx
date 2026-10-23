@@ -197,12 +197,12 @@ function UserPermissions({ sections, groups, groupId: initialGroupId, added = []
       </summary>
       <div className="mt-3 flex flex-wrap items-center gap-3 text-xs">
         <Button type="button" size="sm" variant="outline" onClick={() => setTicked(new Set(base))}>Use group&apos;s permissions</Button>
-        <span className="text-muted-foreground"><span className="font-semibold text-forest-100">+</span> extra for this user · <span className="font-semibold text-destructive">−</span> taken away from the group</span>
+        <span className="text-muted-foreground"><span className="font-semibold text-success">+</span> extra for this user · <span className="font-semibold text-destructive">−</span> taken away from the group</span>
       </div>
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         {sections.map((sec) => (
           <fieldset key={sec.title} className="space-y-1">
-            <legend className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{sec.title}</legend>
+            <legend className="text-xs font-semibold text-muted-foreground">{sec.title}</legend>
             {sec.items.map(([k, label]) => {
               const on = ticked.has(k);
               const diff = on !== base.has(k);
@@ -210,7 +210,7 @@ function UserPermissions({ sections, groups, groupId: initialGroupId, added = []
                 <label key={k} className="flex items-center gap-2 text-sm">
                   <input type="checkbox" name="perm" value={k} data-multi="1" checked={on} onChange={(e) => toggle(k, e.target.checked)} className="size-4" />
                   {label}
-                  {diff && <span className={on ? "font-semibold text-forest-100" : "font-semibold text-destructive"}>{on ? "+" : "−"}</span>}
+                  {diff && <span className={on ? "font-semibold text-success" : "font-semibold text-destructive"}>{on ? "+" : "−"}</span>}
                 </label>
               );
             })}

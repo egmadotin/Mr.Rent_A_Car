@@ -93,7 +93,7 @@ export function VehicleActions({ vehicleId, isActive, status }: { vehicleId: str
     return (
       <Card className="gap-2 py-4">
         <CardHeader className="flex-row items-center justify-between px-4">
-          <CardTitle className="font-serif text-lg">{title}</CardTitle>
+          <CardTitle className="text-base font-bold tracking-tight">{title}</CardTitle>
           {can(addP) ? (
             <FormDialog title={`Add ${title}`} wide={wide} trigger={<Button size="sm"><PlusIcon /> Add New</Button>} onSubmit={(v) => save(kind, undefined, toData(v))}>{form()}</FormDialog>
           ) : (
@@ -352,7 +352,7 @@ export function VehicleActions({ vehicleId, isActive, status }: { vehicleId: str
       {data && panel === "status" && (
         <Card className="gap-2 py-4">
           <CardHeader className="flex-row items-center justify-between px-4">
-            <CardTitle className="font-serif text-lg">Status Change <span className="ml-2 text-sm font-normal text-muted-foreground">Now: {STATUS_LABEL[status] ?? status}</span></CardTitle>
+            <CardTitle className="text-base font-bold tracking-tight">Status Change <span className="ml-2 text-sm font-normal text-muted-foreground">Now: {STATUS_LABEL[status] ?? status}</span></CardTitle>
             {can("VehiclesEdit") ? (
               <FormDialog
                 title="Change status"
@@ -423,7 +423,7 @@ function DamagePanel({ rows, locations, conditions, canAdd, canEdit, onSave, onD
   return (
     <Card className="gap-2 py-4">
       <CardHeader className="flex-row items-center justify-between px-4">
-        <CardTitle className="font-serif text-lg">Damage</CardTitle>
+        <CardTitle className="text-base font-bold tracking-tight">Damage</CardTitle>
         <Button size="sm" disabled={!canAdd} title={canAdd ? undefined : NO_PERMISSION} onClick={() => { setItems([]); setOpen(true); }}><PlusIcon /> Add New</Button>
       </CardHeader>
       <CardContent className="px-0">
@@ -483,7 +483,7 @@ function HistoryPanel({ vehicleId }: { vehicleId: string }) {
   const st = (x: string | null | undefined) => (x ? STATUS_LABEL[x] ?? x : "");
   return (
     <Card className="gap-2 py-4">
-      <CardHeader className="px-4"><CardTitle className="font-serif text-lg">Vehicle History {q.data && <Badge variant="muted">{q.data.length}</Badge>}</CardTitle></CardHeader>
+      <CardHeader className="px-4"><CardTitle className="text-base font-bold tracking-tight">Vehicle History {q.data && <Badge variant="muted">{q.data.length}</Badge>}</CardTitle></CardHeader>
       <CardContent className="px-0">
         {!q.data?.length ? <p className="px-4 text-sm text-muted-foreground">{q.isLoading ? "Loading…" : "No records."}</p> : (
           <Table>
@@ -512,7 +512,7 @@ function BookingsPanel({ vehicleId, show }: { vehicleId: string; show: "rentals"
   const name = (c: { firstName: string; lastName: string } | null, f?: string | null, l?: string | null) => (c ? `${c.firstName} ${c.lastName}` : [f, l].filter(Boolean).join(" ") || "—");
   return (
     <Card className="gap-2 py-4">
-      <CardHeader className="px-4"><CardTitle className="font-serif text-lg">{show === "rentals" ? "Rentals" : "Reservations"}</CardTitle></CardHeader>
+      <CardHeader className="px-4"><CardTitle className="text-base font-bold tracking-tight">{show === "rentals" ? "Rentals" : "Reservations"}</CardTitle></CardHeader>
       <CardContent className="px-0">
         {show === "rentals" ? (
           !q?.rentals.length ? <p className="px-4 text-sm text-muted-foreground">No records.</p> : (

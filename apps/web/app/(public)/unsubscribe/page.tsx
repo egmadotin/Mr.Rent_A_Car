@@ -6,11 +6,11 @@ export const metadata = { title: "Unsubscribe", robots: { index: false } };
 export default async function UnsubscribePage({ searchParams }: { searchParams: Promise<{ c?: string; t?: string }> }) {
   const { c, t } = await searchParams;
   return (
-    <div className="mx-auto max-w-xl space-y-4 px-4 py-16 text-center">
-      <h1 className="text-3xl font-extrabold tracking-tight">Unsubscribe</h1>
+    <div className="mx-auto max-w-xl space-y-4 px-4 py-20 text-center">
+      <h1 className="type-title-1">Unsubscribe</h1>
       {c && t ? (
         <>
-          <p className="text-muted-foreground">Stop receiving offers and news from Mr Rent A Car by email? You will still get emails about your own bookings.</p>
+          <p className="text-muted-foreground">Stop receiving offers and news from Mr. Rent A Car by email? You will still get emails about your own bookings.</p>
           <UnsubscribeButton c={c} t={t} />
         </>
       ) : (

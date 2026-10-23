@@ -44,7 +44,7 @@ export function VehicleFilesPanel({ vehicleId }: { vehicleId: string }) {
     <div className="grid gap-4 lg:grid-cols-3">
       <Card className="gap-2 py-4">
         <CardHeader className="flex-row items-center justify-between px-4">
-          <CardTitle className="font-serif text-lg">Notes</CardTitle>
+          <CardTitle className="text-base font-bold tracking-tight">Notes</CardTitle>
           <FormDialog
             title="Notes"
             trigger={<Button size="sm" variant="outline" disabled={!editable} title={editable ? undefined : NO_PERMISSION}><PencilIcon /> Edit</Button>}
@@ -61,7 +61,7 @@ export function VehicleFilesPanel({ vehicleId }: { vehicleId: string }) {
 
       <Card className="gap-2 py-4">
         <CardHeader className="flex-row items-center justify-between px-4">
-          <CardTitle className="font-serif text-lg">Images ({data.images.length})</CardTitle>
+          <CardTitle className="text-base font-bold tracking-tight">Images ({data.images.length})</CardTitle>
           <FormDialog title="Upload Image" trigger={<Button size="sm" variant="outline" disabled={!editable} title={editable ? undefined : NO_PERMISSION}><PlusIcon /> Add More Images</Button>} onSubmit={add("IMAGE")}>
             <PhotoUploader folder="vehicles" label="Select file" />
           </FormDialog>
@@ -86,7 +86,7 @@ export function VehicleFilesPanel({ vehicleId }: { vehicleId: string }) {
 
       <Card className="gap-2 py-4">
         <CardHeader className="flex-row items-center justify-between px-4">
-          <CardTitle className="font-serif text-lg">Documents ({data.documents.length})</CardTitle>
+          <CardTitle className="text-base font-bold tracking-tight">Documents ({data.documents.length})</CardTitle>
           <FormDialog title="Upload Document" trigger={<Button size="sm" variant="outline" disabled={!editable} title={editable ? undefined : NO_PERMISSION}><PlusIcon /> Add More Documents</Button>} onSubmit={add("DOCUMENT")}>
             <PhotoUploader folder="vehicles" label="Select file" documents />
             <TextareaField label="Description" name="description" rows={2} />

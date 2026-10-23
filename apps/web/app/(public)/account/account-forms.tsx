@@ -18,10 +18,10 @@ export const safeNext = (next?: string | null) => (next && next.startsWith("/") 
 
 export function AccountCard({ title, intro, children }: { title: string; intro?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div className="mx-auto w-full max-w-md px-4 py-12">
-      <div className="rounded-2xl border bg-card p-6 shadow-sm md:p-8">
-        <h1 className="text-2xl font-bold">{title}</h1>
-        {intro && <p className="mt-1 text-sm text-muted-foreground">{intro}</p>}
+    <div className="mx-auto w-full max-w-md px-4 py-14">
+      <div className="rounded-sheet border bg-card p-6 md:p-9">
+        <h1 className="type-title-2">{title}</h1>
+        {intro && <p className="mt-2 text-[15px] text-muted-foreground">{intro}</p>}
         <div className="mt-6">{children}</div>
       </div>
     </div>
@@ -38,7 +38,7 @@ function F({ id, label, type = "text", auto, err }: { id: string; label: string;
   );
 }
 
-const Alert = ({ children }: { children: React.ReactNode }) => <p role="alert" className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{children}</p>;
+const Alert = ({ children }: { children: React.ReactNode }) => <p role="alert" className="rounded-control bg-blush px-4 py-3 text-sm font-semibold text-brand">{children}</p>;
 
 function useSubmit<T>(fn: (f: FormData) => Promise<T>) {
   const [pending, setPending] = React.useState(false);
@@ -73,15 +73,15 @@ export function LoginForm({ next }: { next?: string }) {
     router.refresh();
   });
   return (
-    <AccountCard title="Log In" intro="Log in to fill in your details when you book and to see your bookings.">
+    <AccountCard title="Log in" intro="Log in to fill in your details when you book and to see your bookings.">
       <form onSubmit={onSubmit} className="space-y-4">
         {error && <Alert>{error}</Alert>}
         <F id="email" label="Email" type="email" auto="email" />
         <F id="password" label="Password" type="password" auto="current-password" />
-        <div className="flex justify-end text-sm"><Link href="/account/forgot" className="text-primary hover:underline">Forgot password?</Link></div>
-        <Button type="submit" className="w-full" size="lg" disabled={pending}>{pending && <Loader2Icon className="animate-spin" />}Log In</Button>
+        <div className="flex justify-end text-sm"><Link href="/account/forgot" className="font-semibold underline underline-offset-2 hover:text-brand">Forgot password?</Link></div>
+        <Button type="submit" className="w-full" size="lg" disabled={pending}>{pending && <Loader2Icon className="animate-spin" />}Log in</Button>
         <p className="text-center text-sm text-muted-foreground">
-          New here? <Link href={`/account/signup${next ? `?next=${encodeURIComponent(next)}` : ""}`} className="font-medium text-primary hover:underline">Create an account</Link>
+          New here? <Link href={`/account/signup${next ? `?next=${encodeURIComponent(next)}` : ""}`} className="font-semibold underline underline-offset-2 hover:text-brand">Create an account</Link>
         </p>
       </form>
     </AccountCard>
@@ -106,9 +106,9 @@ export function SignUpForm({ next }: { next?: string }) {
     return (
       <AccountCard title="Account created">
         <div className="space-y-4 text-sm">
-          <p className="flex items-start gap-2"><CheckCircle2Icon className="mt-0.5 size-5 shrink-0 text-forest-100" /> You&apos;re logged in.</p>
+          <p className="flex items-start gap-2"><CheckCircle2Icon className="mt-0.5 size-5 shrink-0 text-success" /> You&apos;re logged in.</p>
           {done.emailed
-            ? <p className="flex items-start gap-2"><MailIcon className="mt-0.5 size-5 shrink-0 text-primary" /> We sent you an email: confirm your address to see your earlier bookings in your account.</p>
+            ? <p className="flex items-start gap-2"><MailIcon className="mt-0.5 size-5 shrink-0 text-steel" /> We sent you an email: confirm your address to see your earlier bookings in your account.</p>
             : <p className="text-muted-foreground">We couldn&apos;t send the confirmation email right now; you can resend it from your account later.</p>}
           <Button className="w-full" onClick={() => router.push(safeNext(next))}>Continue</Button>
         </div>
@@ -127,7 +127,7 @@ export function SignUpForm({ next }: { next?: string }) {
         <F id="confirm" label="Confirm Password" type="password" auto="new-password" />
         <input type="text" name="website" tabIndex={-1} autoComplete="off" className="hidden" aria-hidden />
         <Button type="submit" className="w-full" size="lg" disabled={pending}>{pending && <Loader2Icon className="animate-spin" />}Create account</Button>
-        <p className="text-center text-sm text-muted-foreground">Already have an account? <Link href="/account/login" className="font-medium text-primary hover:underline">Log in</Link></p>
+        <p className="text-center text-sm text-muted-foreground">Already have an account? <Link href="/account/login" className="font-semibold underline underline-offset-2 hover:text-brand">Log in</Link></p>
       </form>
     </AccountCard>
   );
@@ -143,13 +143,13 @@ export function ForgotForm() {
   return (
     <AccountCard title="Forgot password" intro="Enter your email and we'll send you a link to choose a new password.">
       {sent ? (
-        <p className="flex items-start gap-2 text-sm"><MailIcon className="mt-0.5 size-5 shrink-0 text-primary" /> If there&apos;s an account with that email, a reset link is on its way. It works for 1 hour.</p>
+        <p className="flex items-start gap-2 text-sm"><MailIcon className="mt-0.5 size-5 shrink-0 text-steel" /> If there&apos;s an account with that email, a reset link is on its way. It works for 1 hour.</p>
       ) : (
         <form onSubmit={onSubmit} className="space-y-4" noValidate>
           {error && <Alert>{error}</Alert>}
           <F id="email" label="Email" type="email" auto="email" err={err("email")} />
           <Button type="submit" className="w-full" disabled={pending}>{pending && <Loader2Icon className="animate-spin" />}Send reset link</Button>
-          <p className="text-center text-sm"><Link href="/account/login" className="text-primary hover:underline">Back to log in</Link></p>
+          <p className="text-center text-sm"><Link href="/account/login" className="font-semibold underline underline-offset-2 hover:text-brand">Back to log in</Link></p>
         </form>
       )}
     </AccountCard>
@@ -169,7 +169,7 @@ export function ResetForm({ token }: { token: string }) {
     <AccountCard title="Choose a new password">
       {done ? (
         <div className="space-y-4 text-sm">
-          <p className="flex items-start gap-2"><CheckCircle2Icon className="mt-0.5 size-5 shrink-0 text-forest-100" /> Your password is changed.</p>
+          <p className="flex items-start gap-2"><CheckCircle2Icon className="mt-0.5 size-5 shrink-0 text-success" /> Your password is changed.</p>
           <Button asChild className="w-full"><Link href="/account/login">Log in</Link></Button>
         </div>
       ) : (
@@ -202,7 +202,7 @@ export function VerifyEmail({ token }: { token: string }) {
       {state === "working" ? <p className="flex items-center gap-2 text-sm"><Loader2Icon className="size-4 animate-spin" /> Confirming…</p>
         : state === "ok" ? (
           <div className="space-y-4 text-sm">
-            <p className="flex items-start gap-2"><CheckCircle2Icon className="mt-0.5 size-5 shrink-0 text-forest-100" /> Your email is confirmed. Your bookings with us now show in your account.</p>
+            <p className="flex items-start gap-2"><CheckCircle2Icon className="mt-0.5 size-5 shrink-0 text-success" /> Your email is confirmed. Your bookings with us now show in your account.</p>
             <Button asChild className="w-full"><Link href="/account">My account</Link></Button>
           </div>
         ) : <Alert>{state}</Alert>}
@@ -214,18 +214,18 @@ const day = (d: Date | string, tz: string) => new Date(d).toLocaleString("en-CA"
 const cad = (n: number) => n.toLocaleString("en-CA", { style: "currency", currency: "CAD" });
 /** Customer-facing booking statuses (badge text + colour). */
 export const STATUS: Record<string, { label: string; className: string }> = {
-  TENTATIVE: { label: "Requested", className: "bg-amber-100 text-amber-900" },
-  CONFIRMED: { label: "Confirmed", className: "bg-sky-100 text-sky-900" },
-  CHECKED_OUT: { label: "Picked up", className: "bg-emerald-100 text-emerald-900" },
+  TENTATIVE: { label: "Requested", className: "bg-amber-tint text-amber-ds" },
+  CONFIRMED: { label: "Confirmed", className: "bg-steel-tint text-steel" },
+  CHECKED_OUT: { label: "Picked up", className: "bg-green-tint text-racing" },
   CHECKED_IN: { label: "Completed", className: "bg-muted text-foreground" },
-  CANCELLED: { label: "Cancelled", className: "bg-red-100 text-red-900" },
-  NO_SHOW: { label: "No show", className: "bg-red-100 text-red-900" },
-  OPEN: { label: "On rent", className: "bg-emerald-100 text-emerald-900" },
+  CANCELLED: { label: "Cancelled", className: "bg-blush text-brand" },
+  NO_SHOW: { label: "No show", className: "bg-blush text-brand" },
+  OPEN: { label: "On rent", className: "bg-green-tint text-racing" },
   CLOSED: { label: "Completed", className: "bg-muted text-foreground" },
-  VOIDED: { label: "Voided", className: "bg-red-100 text-red-900" },
+  VOIDED: { label: "Voided", className: "bg-blush text-brand" },
 };
 export const StatusBadge = ({ status }: { status: string }) => (
-  <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS[status]?.className ?? "bg-muted"}`}>{STATUS[status]?.label ?? status}</span>
+  <span className={`rounded-pill px-2.5 py-0.5 text-xs font-semibold ${STATUS[status]?.className ?? "bg-muted"}`}>{STATUS[status]?.label ?? status}</span>
 );
 
 type Row = { key: string; href: string; title: string; status: string; when: string; where: string; total: number; paid: number; balance: number; at: Date; upcoming: boolean };
@@ -263,10 +263,10 @@ export function MyAccount() {
   ].sort((x, y) => +y.at - +x.at);
 
   return (
-    <div className="mx-auto max-w-4xl space-y-8 px-4 py-10">
+    <div className="mx-auto w-full max-w-4xl space-y-8 px-4 py-10 sm:px-8">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold">My Account</h1>
+          <h1 className="type-title-1">My account</h1>
           <p className="text-muted-foreground">{u.name} · {u.email}</p>
         </div>
         <div className="flex gap-2">
@@ -276,7 +276,7 @@ export function MyAccount() {
       </div>
 
       {!u.emailVerified && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-card bg-amber-tint p-4 text-sm text-foreground">
           <span>Confirm your email to see bookings you made before (we sent you a link).</span>
           <Button size="sm" variant="outline" onClick={() => client.account.resendVerification.mutate().then(() => setResent("Sent — check your inbox."), (e: Error) => setResent(e.message))}>Resend email</Button>
           {resent && <span className="w-full">{resent}</span>}
@@ -301,24 +301,24 @@ function BookingHistory({ rows, loading }: { rows: Row[]; loading: boolean }) {
   return (
     <section className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-xl font-bold">My Bookings</h2>
-        <div className="flex gap-1 rounded-lg bg-muted p-1" role="tablist">
+        <h2 className="type-title-3">My bookings</h2>
+        <div className="flex gap-1 rounded-pill bg-muted p-1" role="tablist">
           {tabs.map((t) => (
             <button key={t.key} type="button" role="tab" aria-selected={tab === t.key} onClick={() => setTab(t.key)}
-              className={`rounded-md px-3 py-1 text-sm font-medium ${tab === t.key ? "bg-card shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+              className={`rounded-pill px-3.5 py-1.5 text-sm font-semibold ${tab === t.key ? "bg-card shadow-primary" : "text-muted-foreground hover:text-foreground"}`}>
               {t.label} <span className="tabular-nums text-muted-foreground">{t.n}</span>
             </button>
           ))}
         </div>
       </div>
-      {owing > 0.005 && <p className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">Balance owing on your bookings: <span className="font-semibold">{cad(owing)}</span></p>}
+      {owing > 0.005 && <p className="rounded-control bg-amber-tint px-4 py-3 text-sm text-foreground">Balance owing on your bookings: <span className="font-semibold">{cad(owing)}</span></p>}
       {loading ? <p className="text-sm text-muted-foreground">Loading…</p> : !shown.length ? (
-        <p className="rounded-md bg-muted p-4 text-sm text-muted-foreground">{tab === "current" ? "No upcoming bookings." : "No bookings here yet."} <Link href="/book" className="font-medium text-primary hover:underline">Book a car</Link></p>
+        <p className="rounded-card bg-muted p-5 text-sm text-muted-foreground">{tab === "current" ? "No upcoming bookings." : "No bookings here yet."} <Link href="/book" className="font-semibold underline underline-offset-2 hover:text-brand">Book a car</Link></p>
       ) : (
-        <ul className="divide-y rounded-lg border bg-card">
+        <ul className="divide-y overflow-hidden rounded-card border bg-card">
           {shown.map((r) => (
             <li key={r.key}>
-              <Link href={r.href} className="flex flex-wrap items-center justify-between gap-3 p-4 text-sm hover:bg-muted/50">
+              <Link href={r.href} className="flex flex-wrap items-center justify-between gap-3 p-5 text-sm transition-colors hover:bg-muted/50">
                 <div className="min-w-0">
                   <p className="flex flex-wrap items-center gap-2 font-semibold">{r.title} <StatusBadge status={r.status} /></p>
                   <p className="text-muted-foreground">{r.when}</p>
@@ -327,8 +327,8 @@ function BookingHistory({ rows, loading }: { rows: Row[]; loading: boolean }) {
                 <div className="text-right tabular-nums">
                   <p className="font-semibold">{cad(r.total)}</p>
                   {r.paid > 0 && <p className="text-xs text-muted-foreground">Paid {cad(r.paid)}</p>}
-                  {r.balance > 0.005 && <p className="text-xs font-semibold text-amber-700">Balance {cad(r.balance)}</p>}
-                  <p className="mt-1 text-xs font-medium text-primary">Details →</p>
+                  {r.balance > 0.005 && <p className="text-xs font-semibold text-amber-ds">Balance {cad(r.balance)}</p>}
+                  <p className="mt-1 text-xs font-semibold">Details →</p>
                 </div>
               </Link>
             </li>
@@ -360,20 +360,20 @@ export function BookingDetail({ kind, number }: { kind: "reservation" | "rental"
   const places: [string, typeof out][] = [["Pick-up", out], ["Return", back]];
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 px-4 py-10">
-      <Link href="/account" className="text-sm text-primary hover:underline">← My Account</Link>
+    <div className="mx-auto w-full max-w-3xl space-y-6 px-4 py-10 sm:px-8">
+      <Link href="/account" className="text-sm font-semibold text-muted-foreground hover:text-foreground">← My account</Link>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">{d.kind === "rental" ? `Rental #${d.raNumber}` : `Reservation #${d.number}`}</h1>
+        <h1 className="type-title-2">{d.kind === "rental" ? `Rental #${d.raNumber}` : `Reservation #${d.number}`}</h1>
         <StatusBadge status={d.status} />
       </div>
-      {d.kind === "reservation" && d.rental && <p className="text-sm">This reservation was picked up as <Link href={`/account/bookings/rental/${d.rental.raNumber}`} className="font-semibold text-primary hover:underline">Rental #{d.rental.raNumber}</Link>.</p>}
+      {d.kind === "reservation" && d.rental && <p className="text-sm">This reservation was picked up as <Link href={`/account/bookings/rental/${d.rental.raNumber}`} className="font-semibold underline underline-offset-2 hover:text-brand">Rental #{d.rental.raNumber}</Link>.</p>}
       {d.kind === "rental" && d.reservation && <p className="text-sm text-muted-foreground">From reservation #{d.reservation.number}.</p>}
-      {d.kind === "reservation" && d.status === "TENTATIVE" && <p className="rounded-md bg-amber-50 p-3 text-sm text-amber-900">We have received your request and will confirm it shortly.</p>}
+      {d.kind === "reservation" && d.status === "TENTATIVE" && <p className="rounded-control bg-amber-tint px-4 py-3 text-sm text-foreground">We have received your request and will confirm it shortly.</p>}
 
       <ol className="grid gap-3 sm:grid-cols-3">
         {steps.map((st) => (
-          <li key={st.label} className={`rounded-lg border p-3 text-sm ${st.done ? "border-emerald-300 bg-emerald-50" : "bg-card"}`}>
-            <p className="flex items-center gap-1.5 font-semibold">{st.done && <CheckCircle2Icon className="size-4 text-emerald-700" />}{st.label}</p>
+          <li key={st.label} className={`rounded-card border p-4 text-sm ${st.done ? "border-transparent bg-green-tint" : "bg-card"}`}>
+            <p className="flex items-center gap-1.5 font-semibold">{st.done && <CheckCircle2Icon className="size-4 text-racing" />}{st.label}</p>
             <p className="text-muted-foreground">{day(st.at, tz)}</p>
           </li>
         ))}
@@ -381,23 +381,23 @@ export function BookingDetail({ kind, number }: { kind: "reservation" | "rental"
 
       <div className="grid gap-4 sm:grid-cols-2">
         {places.map(([label, x]) => (
-          <div key={label} className="rounded-lg border bg-card p-4 text-sm">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
+          <div key={label} className="rounded-card border bg-card p-5 text-sm">
+            <p className="text-xs font-semibold text-muted-foreground">{label}</p>
             <p className="font-semibold">{x.name}</p>
             <p className="text-muted-foreground">{[x.address1, x.city].filter(Boolean).join(", ")}</p>
-            {x.phone && <a href={`tel:${x.phone}`} className="text-primary hover:underline">{x.phone}</a>}
+            {x.phone && <a href={`tel:${x.phone}`} className="font-semibold underline underline-offset-2 hover:text-brand">{x.phone}</a>}
           </div>
         ))}
       </div>
 
-      <div className="rounded-lg border bg-card p-4 text-sm">
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Vehicle</p>
+      <div className="rounded-card border bg-card p-5 text-sm">
+        <p className="text-xs font-semibold text-muted-foreground">Vehicle</p>
         <p className="font-semibold">{d.kind === "rental" && d.vehicle ? `${d.vehicle.year ?? ""} ${d.vehicle.make.name} ${d.vehicle.model.name}`.trim() : d.vehicleType.name}</p>
         <p className="text-muted-foreground">{d.vehicleType.name}{d.kind === "rental" && d.vehicle?.licenseNumber ? ` · Plate ${d.vehicle.licenseNumber}` : ""}</p>
         {d.kind === "rental" && <p className="text-muted-foreground">Km out {d.odometerOut.toLocaleString()}{d.odometerIn != null ? ` · in ${d.odometerIn.toLocaleString()} (${(d.odometerIn - d.odometerOut).toLocaleString()} km)` : ""}</p>}
       </div>
 
-      <div className="rounded-lg border bg-card">
+      <div className="overflow-hidden rounded-card border bg-card">
         <p className="border-b px-4 py-3 text-sm font-semibold">Charges</p>
         <table className="w-full text-sm">
           <tbody className="divide-y">
@@ -416,7 +416,7 @@ export function BookingDetail({ kind, number }: { kind: "reservation" | "rental"
                 <td className="px-4 py-1.5 text-right tabular-nums">{p.refund ? "" : "−"}{cad(p.amount)}</td>
               </tr>
             ))}
-            <tr className={d.balance > 0.005 ? "text-amber-700" : undefined}><td className="px-4 py-2">Balance</td><td className="px-4 py-2 text-right tabular-nums">{cad(d.balance)}</td></tr>
+            <tr className={d.balance > 0.005 ? "text-amber-ds" : undefined}><td className="px-4 py-2">Balance</td><td className="px-4 py-2 text-right tabular-nums">{cad(d.balance)}</td></tr>
           </tfoot>
         </table>
       </div>
