@@ -289,7 +289,7 @@ Not built yet:
 |---|---|
 | Home, About, Services, Locations, Fleet, Blogs, Contact | ✅ |
 | Booking bar (home / results): Pick-up and Drop-off location (Drop-off defaults to "Same as pick-up") | ✅ |
-| Booking: dates and vehicle → options → details → confirmation, same prices as the live site | ✅ |
+| Booking: dates and vehicle → options → details → confirmation, same prices as the live site | ✅ (home hero bar and results bar: Pick-up + Drop-off location, "Same as pick-up" by default; a different drop-off adds the one-way fee) |
 | Card at booking (Stripe) | ✅ 🔑 keys |
 | Fleet filters | ✅ type (Car / SUV / Minivan / Van / Truck, from the class name), seats, bags, doors |
 | Customer Login | ⬜ (ask the client) |
