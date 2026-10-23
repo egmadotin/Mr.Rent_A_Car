@@ -139,7 +139,7 @@ RentCentric's Settings menu, item by item.
 | Locations | ✅ (now including legal name, GST number and fuel prices) |
 | Hours Of Operation | ✅ |
 | Customer Areas/Regions | ✅ |
-| Offsite Locations | 🟡 offsite flag on each location |
+| Offsite Locations | ✅ `/admin/settings/offsite-locations`: per location, list (Location Name, Contact Name, Phone, Address, Active) + RentCentric's form (Parking Symbol, Name, Code, Contact, address, Region, Lat/Lon, Parking, Parking Explanation, Memo, Active, Use One Way, Online Booking, Private Property, Taxes); RentCentric's one (Richmond: (O) Mr Rent A Car Edmonton Off-Site) already copied. Not built: boundary map, parking image, offsite hours/documents (all empty in RentCentric) |
 | Add Location | ✅ |
 | Upload Logo | ✅ per location; printed at ##LogoImage## (245 templates use it), inline so emails show it |
 

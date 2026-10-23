@@ -12,7 +12,7 @@ const CATEGORIES: SettingsCategory[] = [
   { title: "Location Information", items: [
     { label: "Locations", href: "/admin/settings/locations", desc: "Location name, address, phone, active and on-website flags" },
     { label: "Add Location" },
-    { label: "Offsite Locations", desc: "Additional pickup/return points that are not full locations" },
+    { label: "Offsite Locations", href: "/admin/settings/offsite-locations", desc: "Additional pickup/return points that are not full locations" },
     { label: "Hours Of Operation", href: "/admin/settings/hours", desc: "Opening hours per weekday" },
     { label: "Upload Logo" },
     { label: "Customer Areas/Regions", href: "/admin/settings/lists/regions" },
