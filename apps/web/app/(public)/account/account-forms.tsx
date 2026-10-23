@@ -211,7 +211,24 @@ export function VerifyEmail({ token }: { token: string }) {
 }
 
 const day = (d: Date | string, tz: string) => new Date(d).toLocaleString("en-CA", { timeZone: tz, dateStyle: "medium", timeStyle: "short" });
-const RES_STATUS: Record<string, string> = { TENTATIVE: "Requested", CONFIRMED: "Confirmed", CHECKED_OUT: "Picked up", CHECKED_IN: "Returned", CANCELLED: "Cancelled", NO_SHOW: "No show" };
+const cad = (n: number) => n.toLocaleString("en-CA", { style: "currency", currency: "CAD" });
+/** Customer-facing booking statuses (badge text + colour). */
+export const STATUS: Record<string, { label: string; className: string }> = {
+  TENTATIVE: { label: "Requested", className: "bg-amber-100 text-amber-900" },
+  CONFIRMED: { label: "Confirmed", className: "bg-sky-100 text-sky-900" },
+  CHECKED_OUT: { label: "Picked up", className: "bg-emerald-100 text-emerald-900" },
+  CHECKED_IN: { label: "Completed", className: "bg-muted text-foreground" },
+  CANCELLED: { label: "Cancelled", className: "bg-red-100 text-red-900" },
+  NO_SHOW: { label: "No show", className: "bg-red-100 text-red-900" },
+  OPEN: { label: "On rent", className: "bg-emerald-100 text-emerald-900" },
+  CLOSED: { label: "Completed", className: "bg-muted text-foreground" },
+  VOIDED: { label: "Voided", className: "bg-red-100 text-red-900" },
+};
+export const StatusBadge = ({ status }: { status: string }) => (
+  <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS[status]?.className ?? "bg-muted"}`}>{STATUS[status]?.label ?? status}</span>
+);
+
+type Row = { key: string; href: string; title: string; status: string; when: string; where: string; total: number; paid: number; balance: number; at: Date; upcoming: boolean };
 
 export function MyAccount() {
   const trpc = useTRPC();
@@ -227,6 +244,23 @@ export function MyAccount() {
   if (!me.data) return <div className="py-24 text-center text-sm text-muted-foreground"><Loader2Icon className="mx-auto size-5 animate-spin" /></div>;
   const u = me.data;
   const b = bookings.data;
+  const now = Date.now();
+  // one history: reservations not yet turned into a rental, and every rental (its reservation is shown on it)
+  const rows: Row[] = [
+    ...(b?.reservations ?? []).filter((r) => !r.rental).map((r) => ({
+      key: `res${r.number}`, href: `/account/bookings/reservation/${r.number}`, title: `Reservation #${r.number} · ${r.vehicleType.name}`, status: r.status,
+      when: `${day(r.pickupAt, r.pickupLocation.timeZone)} → ${day(r.returnAt, r.pickupLocation.timeZone)}`,
+      where: r.pickupLocation.name + (r.returnLocation.name !== r.pickupLocation.name ? ` → ${r.returnLocation.name}` : ""),
+      total: r.total, paid: r.paid, balance: r.balance, at: new Date(r.pickupAt), upcoming: ["TENTATIVE", "CONFIRMED"].includes(r.status) && +new Date(r.returnAt) > now,
+    })),
+    ...(b?.rentals ?? []).map((r) => ({
+      key: `ra${r.raNumber}`, href: `/account/bookings/rental/${r.raNumber}`,
+      title: `Rental #${r.raNumber} · ${r.vehicle ? `${r.vehicle.year ?? ""} ${r.vehicle.make.name} ${r.vehicle.model.name}`.trim() : r.vehicleType.name}`, status: r.status,
+      when: `${day(r.checkOutAt, r.checkOutLocation.timeZone)} → ${day(r.checkedInAt ?? r.expectedReturnAt, r.checkOutLocation.timeZone)}`,
+      where: r.checkOutLocation.name + (r.checkInLocation.name !== r.checkOutLocation.name ? ` → ${r.checkInLocation.name}` : ""),
+      total: r.total, paid: r.paid, balance: r.balance, at: new Date(r.checkOutAt), upcoming: r.status === "OPEN",
+    })),
+  ].sort((x, y) => +y.at - +x.at);
 
   return (
     <div className="mx-auto max-w-4xl space-y-8 px-4 py-10">
@@ -249,43 +283,144 @@ export function MyAccount() {
         </div>
       )}
 
-      <section className="space-y-3">
-        <h2 className="text-xl font-bold">Reservations</h2>
-        {!b?.reservations.length ? <p className="rounded-md bg-muted p-4 text-sm text-muted-foreground">No reservations yet.</p> : (
-          <ul className="divide-y rounded-lg border bg-card">
-            {b.reservations.map((r) => (
-              <li key={r.number} className="flex flex-wrap items-center justify-between gap-2 p-4 text-sm">
-                <div>
-                  <p className="font-semibold">#{r.number} · {r.vehicleType.name}</p>
-                  <p className="text-muted-foreground">{day(r.pickupAt, r.pickupLocation.timeZone)} → {day(r.returnAt, r.pickupLocation.timeZone)}</p>
-                  <p className="text-muted-foreground">{r.pickupLocation.name}{r.returnLocation.name !== r.pickupLocation.name ? ` → ${r.returnLocation.name}` : ""}</p>
-                </div>
-                <div className="text-right">
-                  <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold">{RES_STATUS[r.status] ?? r.status}</span>
-                  <p className="mt-1 font-semibold tabular-nums">{r.total.toLocaleString("en-CA", { style: "currency", currency: "CAD" })}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      <BookingHistory rows={rows} loading={bookings.isLoading} />
+    </div>
+  );
+}
 
-      <section className="space-y-3">
-        <h2 className="text-xl font-bold">Rentals</h2>
-        {!b?.rentals.length ? <p className="rounded-md bg-muted p-4 text-sm text-muted-foreground">No rentals yet.</p> : (
-          <ul className="divide-y rounded-lg border bg-card">
-            {b.rentals.map((r) => (
-              <li key={r.raNumber} className="flex flex-wrap items-center justify-between gap-2 p-4 text-sm">
-                <div>
-                  <p className="font-semibold">Rental #{r.raNumber} · {r.vehicleType.name}</p>
-                  <p className="text-muted-foreground">{day(r.checkOutAt, r.checkOutLocation.timeZone)} → {day(r.checkedInAt ?? r.expectedReturnAt, r.checkOutLocation.timeZone)}</p>
+/** My Account booking history: Upcoming & current / Past / All, each opening its details. */
+function BookingHistory({ rows, loading }: { rows: Row[]; loading: boolean }) {
+  const [tab, setTab] = React.useState<"current" | "past" | "all">("current");
+  const shown = rows.filter((r) => (tab === "all" ? true : tab === "current" ? r.upcoming : !r.upcoming));
+  const tabs = [
+    { key: "current" as const, label: "Upcoming & current", n: rows.filter((r) => r.upcoming).length },
+    { key: "past" as const, label: "Past", n: rows.filter((r) => !r.upcoming).length },
+    { key: "all" as const, label: "All", n: rows.length },
+  ];
+  const owing = rows.reduce((a, r) => a + Math.max(0, r.balance), 0);
+  return (
+    <section className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-xl font-bold">My Bookings</h2>
+        <div className="flex gap-1 rounded-lg bg-muted p-1" role="tablist">
+          {tabs.map((t) => (
+            <button key={t.key} type="button" role="tab" aria-selected={tab === t.key} onClick={() => setTab(t.key)}
+              className={`rounded-md px-3 py-1 text-sm font-medium ${tab === t.key ? "bg-card shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+              {t.label} <span className="tabular-nums text-muted-foreground">{t.n}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+      {owing > 0.005 && <p className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">Balance owing on your bookings: <span className="font-semibold">{cad(owing)}</span></p>}
+      {loading ? <p className="text-sm text-muted-foreground">Loading…</p> : !shown.length ? (
+        <p className="rounded-md bg-muted p-4 text-sm text-muted-foreground">{tab === "current" ? "No upcoming bookings." : "No bookings here yet."} <Link href="/book" className="font-medium text-primary hover:underline">Book a car</Link></p>
+      ) : (
+        <ul className="divide-y rounded-lg border bg-card">
+          {shown.map((r) => (
+            <li key={r.key}>
+              <Link href={r.href} className="flex flex-wrap items-center justify-between gap-3 p-4 text-sm hover:bg-muted/50">
+                <div className="min-w-0">
+                  <p className="flex flex-wrap items-center gap-2 font-semibold">{r.title} <StatusBadge status={r.status} /></p>
+                  <p className="text-muted-foreground">{r.when}</p>
+                  <p className="text-muted-foreground">{r.where}</p>
                 </div>
-                <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold">{r.status === "OPEN" ? "On rent" : "Returned"}</span>
-              </li>
+                <div className="text-right tabular-nums">
+                  <p className="font-semibold">{cad(r.total)}</p>
+                  {r.paid > 0 && <p className="text-xs text-muted-foreground">Paid {cad(r.paid)}</p>}
+                  {r.balance > 0.005 && <p className="text-xs font-semibold text-amber-700">Balance {cad(r.balance)}</p>}
+                  <p className="mt-1 text-xs font-medium text-primary">Details →</p>
+                </div>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+/** One booking in full (reservation or rental): status, dates, branches, vehicle, charges, payments and balance. */
+export function BookingDetail({ kind, number }: { kind: "reservation" | "rental"; number: number }) {
+  const trpc = useTRPC();
+  const router = useRouter();
+  const me = useQuery(trpc.account.me.queryOptions());
+  const q = useQuery({ ...trpc.account.booking.queryOptions({ kind, number }), enabled: !!me.data, retry: false });
+  React.useEffect(() => {
+    if (me.isFetched && !me.data) router.replace(`/account/login?next=/account/bookings/${kind}/${number}`);
+  }, [me.isFetched, me.data, router, kind, number]);
+  if (q.error) return <AccountCard title="Booking not found"><p className="text-sm text-muted-foreground">{q.error.message}</p><Button asChild className="mt-4"><Link href="/account">My Account</Link></Button></AccountCard>;
+  const d = q.data;
+  if (!d) return <div className="py-24 text-center"><Loader2Icon className="mx-auto size-5 animate-spin text-muted-foreground" /></div>;
+  const tz = d.kind === "rental" ? d.checkOutLocation.timeZone : d.pickupLocation.timeZone;
+  const out = d.kind === "rental" ? d.checkOutLocation : d.pickupLocation;
+  const back = d.kind === "rental" ? d.checkInLocation : d.returnLocation;
+  const steps = d.kind === "rental"
+    ? [{ label: "Picked up", at: d.checkOutAt, done: true }, { label: d.status === "OPEN" ? "Due back" : "Returned", at: d.checkedInAt ?? d.expectedReturnAt, done: d.status === "CLOSED" }]
+    : [{ label: "Booked", at: d.createdAt, done: true }, { label: "Pick-up", at: d.pickupAt, done: ["CHECKED_OUT", "CHECKED_IN"].includes(d.status) }, { label: "Return", at: d.returnAt, done: d.status === "CHECKED_IN" }];
+  const places: [string, typeof out][] = [["Pick-up", out], ["Return", back]];
+
+  return (
+    <div className="mx-auto max-w-3xl space-y-6 px-4 py-10">
+      <Link href="/account" className="text-sm text-primary hover:underline">← My Account</Link>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold">{d.kind === "rental" ? `Rental #${d.raNumber}` : `Reservation #${d.number}`}</h1>
+        <StatusBadge status={d.status} />
+      </div>
+      {d.kind === "reservation" && d.rental && <p className="text-sm">This reservation was picked up as <Link href={`/account/bookings/rental/${d.rental.raNumber}`} className="font-semibold text-primary hover:underline">Rental #{d.rental.raNumber}</Link>.</p>}
+      {d.kind === "rental" && d.reservation && <p className="text-sm text-muted-foreground">From reservation #{d.reservation.number}.</p>}
+      {d.kind === "reservation" && d.status === "TENTATIVE" && <p className="rounded-md bg-amber-50 p-3 text-sm text-amber-900">We have received your request and will confirm it shortly.</p>}
+
+      <ol className="grid gap-3 sm:grid-cols-3">
+        {steps.map((st) => (
+          <li key={st.label} className={`rounded-lg border p-3 text-sm ${st.done ? "border-emerald-300 bg-emerald-50" : "bg-card"}`}>
+            <p className="flex items-center gap-1.5 font-semibold">{st.done && <CheckCircle2Icon className="size-4 text-emerald-700" />}{st.label}</p>
+            <p className="text-muted-foreground">{day(st.at, tz)}</p>
+          </li>
+        ))}
+      </ol>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        {places.map(([label, x]) => (
+          <div key={label} className="rounded-lg border bg-card p-4 text-sm">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
+            <p className="font-semibold">{x.name}</p>
+            <p className="text-muted-foreground">{[x.address1, x.city].filter(Boolean).join(", ")}</p>
+            {x.phone && <a href={`tel:${x.phone}`} className="text-primary hover:underline">{x.phone}</a>}
+          </div>
+        ))}
+      </div>
+
+      <div className="rounded-lg border bg-card p-4 text-sm">
+        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Vehicle</p>
+        <p className="font-semibold">{d.kind === "rental" && d.vehicle ? `${d.vehicle.year ?? ""} ${d.vehicle.make.name} ${d.vehicle.model.name}`.trim() : d.vehicleType.name}</p>
+        <p className="text-muted-foreground">{d.vehicleType.name}{d.kind === "rental" && d.vehicle?.licenseNumber ? ` · Plate ${d.vehicle.licenseNumber}` : ""}</p>
+        {d.kind === "rental" && <p className="text-muted-foreground">Km out {d.odometerOut.toLocaleString()}{d.odometerIn != null ? ` · in ${d.odometerIn.toLocaleString()} (${(d.odometerIn - d.odometerOut).toLocaleString()} km)` : ""}</p>}
+      </div>
+
+      <div className="rounded-lg border bg-card">
+        <p className="border-b px-4 py-3 text-sm font-semibold">Charges</p>
+        <table className="w-full text-sm">
+          <tbody className="divide-y">
+            {d.lines.map((l, i) => (
+              <tr key={i} className={l.tax ? "text-muted-foreground" : undefined}>
+                <td className="px-4 py-2">{l.name}{!l.tax && l.units !== 1 && l.units !== 0 ? <span className="text-muted-foreground"> · {l.units} × {cad(l.rate)}</span> : ""}</td>
+                <td className="px-4 py-2 text-right tabular-nums">{cad(l.total)}</td>
+              </tr>
             ))}
-          </ul>
-        )}
-      </section>
+          </tbody>
+          <tfoot className="border-t font-semibold">
+            <tr><td className="px-4 py-2">Total</td><td className="px-4 py-2 text-right tabular-nums">{cad(d.total)}</td></tr>
+            {d.payments.map((p, i) => (
+              <tr key={i} className="font-normal text-muted-foreground">
+                <td className="px-4 py-1.5">{p.refund ? "Refund" : "Payment"} · {p.method}{p.last4 ? ` ••${p.last4}` : ""} · {new Date(p.at).toLocaleDateString("en-CA", { timeZone: tz, dateStyle: "medium" })}</td>
+                <td className="px-4 py-1.5 text-right tabular-nums">{p.refund ? "" : "−"}{cad(p.amount)}</td>
+              </tr>
+            ))}
+            <tr className={d.balance > 0.005 ? "text-amber-700" : undefined}><td className="px-4 py-2">Balance</td><td className="px-4 py-2 text-right tabular-nums">{cad(d.balance)}</td></tr>
+          </tfoot>
+        </table>
+      </div>
+      <p className="text-xs text-muted-foreground">Questions about this booking? Call {out.phone ?? "us"} and quote {d.kind === "rental" ? `rental #${d.raNumber}` : `reservation #${d.number}`}.</p>
     </div>
   );
 }

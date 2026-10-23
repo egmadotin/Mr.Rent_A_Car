@@ -5,6 +5,10 @@ import type { Prisma } from "@mrac/db";
 import { customerProcedure, publicProcedure, router } from "../trpc";
 import { consumeToken, issueToken, siteUrl } from "../lib/customer-account";
 import { sendMail } from "../lib/mailer";
+import { rentalTotals } from "../lib/totals";
+import { methodLabel } from "../lib/payment-methods";
+
+const myCustomer = (db: Db, userId: string) => db.customer.findUnique({ where: { userId }, select: { id: true } });
 
 type Db = Prisma.TransactionClient;
 const DAY = 86_400_000;
@@ -113,23 +117,75 @@ export const accountRouter = router({
     return { ok: true };
   }),
 
-  /** My bookings: the linked customer's reservations and rentals, newest first. */
+  /** My bookings: every reservation and rental of the linked customer, newest first, with status, total, paid and balance. */
   bookings: customerProcedure.query(async ({ ctx }) => {
-    const c = await ctx.prisma.customer.findUnique({ where: { userId: ctx.session.user.id }, select: { id: true } });
+    const c = await myCustomer(ctx.prisma, ctx.session.user.id);
     if (!c) return { reservations: [], rentals: [] };
+    const money = { chargeLines: { select: { kind: true, total: true, tax: { select: { kind: true } } } }, payments: { select: { transactionType: true, amount: true } } } as const;
     const [reservations, rentals] = await Promise.all([
       ctx.prisma.reservation.findMany({
-        where: { customerId: c.id, deletedAt: null }, orderBy: { pickupAt: "desc" }, take: 50,
-        select: { number: true, status: true, pickupAt: true, returnAt: true, vehicleType: { select: { name: true } }, pickupLocation: { select: { name: true, timeZone: true } }, returnLocation: { select: { name: true } }, chargeLines: { select: { total: true } } },
+        where: { customerId: c.id, deletedAt: null }, orderBy: { pickupAt: "desc" }, take: 500,
+        select: { number: true, status: true, pickupAt: true, returnAt: true, createdAt: true, vehicleType: { select: { name: true } }, pickupLocation: { select: { name: true, timeZone: true } }, returnLocation: { select: { name: true } }, rental: { select: { raNumber: true } }, ...money },
       }),
       ctx.prisma.rental.findMany({
-        where: { customerId: c.id, deletedAt: null, voidedAt: null }, orderBy: { checkOutAt: "desc" }, take: 50,
-        select: { raNumber: true, status: true, checkOutAt: true, expectedReturnAt: true, checkedInAt: true, vehicleType: { select: { name: true } }, checkOutLocation: { select: { name: true, timeZone: true } }, checkInLocation: { select: { name: true } } },
+        where: { customerId: c.id, deletedAt: null }, orderBy: { checkOutAt: "desc" }, take: 500,
+        select: {
+          raNumber: true, status: true, checkOutAt: true, expectedReturnAt: true, checkedInAt: true, vehicleType: { select: { name: true } },
+          vehicle: { select: { year: true, make: { select: { name: true } }, model: { select: { name: true } } } },
+          checkOutLocation: { select: { name: true, timeZone: true } }, checkInLocation: { select: { name: true } }, reservation: { select: { number: true } }, ...money,
+        },
       }),
     ]);
+    const sums = (x: { chargeLines: never[] | { kind: string; total: Prisma.Decimal; tax: { kind: string } | null }[]; payments: { transactionType: string; amount: Prisma.Decimal }[] }) => {
+      const t = rentalTotals(x.chargeLines as never, x.payments);
+      return { total: Number(t.total), paid: Number(t.totalPayments), balance: Number(t.balance) };
+    };
     return {
-      reservations: reservations.map(({ chargeLines, ...r }) => ({ ...r, total: chargeLines.reduce((a, l) => a + Number(l.total), 0) })),
-      rentals,
+      reservations: reservations.map(({ chargeLines, payments, ...r }) => ({ ...r, ...sums({ chargeLines, payments }) })),
+      rentals: rentals.map(({ chargeLines, payments, ...r }) => ({ ...r, ...sums({ chargeLines, payments }) })),
     };
   }),
+
+  /** One of my bookings in full: status, vehicle, dates, branches, charges, payments and balance. */
+  booking: customerProcedure
+    .input(z.object({ kind: z.enum(["reservation", "rental"]), number: z.coerce.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const c = await myCustomer(ctx.prisma, ctx.session.user.id);
+      const notFound = () => new TRPCError({ code: "NOT_FOUND", message: "Booking not found." });
+      if (!c) throw notFound();
+      const lines = { orderBy: [{ sortOrder: "asc" as const }, { id: "asc" as const }], select: { kind: true, name: true, units: true, rate: true, total: true, tax: { select: { kind: true } } } };
+      const pays = { where: { transactionType: { in: ["PAYMENT", "REFUND"] as ("PAYMENT" | "REFUND")[] } }, orderBy: { takenAt: "asc" as const }, select: { takenAt: true, method: true, methodName: true, transactionType: true, amount: true, cardLast4: true } };
+      const loc = { select: { name: true, address1: true, city: true, phone: true, timeZone: true } };
+      const shape = <T extends { chargeLines: { kind: string; name: string; units: Prisma.Decimal; rate: Prisma.Decimal; total: Prisma.Decimal; tax: { kind: string } | null }[]; payments: { takenAt: Date; method: string; methodName: string | null; transactionType: string; amount: Prisma.Decimal; cardLast4: string | null }[] }>(x: T) => {
+        const t = rentalTotals(x.chargeLines, x.payments);
+        return {
+          lines: x.chargeLines.map((l) => ({ name: l.name, units: Number(l.units), rate: Number(l.rate), total: Number(l.total), tax: l.kind === "TAX" })),
+          payments: x.payments.map((p) => ({ at: p.takenAt, method: methodLabel(p), last4: p.cardLast4, refund: p.transactionType === "REFUND", amount: Number(p.amount) })),
+          total: Number(t.total), subTotal: Number(t.subTotal), taxes: Number(t.taxes), paid: Number(t.totalPayments), balance: Number(t.balance),
+        };
+      };
+      if (input.kind === "reservation") {
+        const r = await ctx.prisma.reservation.findFirst({
+          where: { number: input.number, customerId: c.id, deletedAt: null },
+          select: {
+            number: true, status: true, createdAt: true, pickupAt: true, returnAt: true, cancelledAt: true, vehicleType: { select: { name: true } },
+            pickupLocation: loc, returnLocation: loc, rental: { select: { raNumber: true } }, chargeLines: lines, payments: pays,
+          },
+        });
+        if (!r) throw notFound();
+        const { chargeLines, payments, ...rest } = r;
+        return { kind: "reservation" as const, ...rest, ...shape({ chargeLines, payments }) };
+      }
+      const r = await ctx.prisma.rental.findFirst({
+        where: { raNumber: input.number, customerId: c.id, deletedAt: null },
+        select: {
+          raNumber: true, status: true, checkOutAt: true, expectedReturnAt: true, checkedInAt: true, voidedAt: true, odometerOut: true, odometerIn: true,
+          vehicleType: { select: { name: true } }, vehicle: { select: { year: true, licenseNumber: true, make: { select: { name: true } }, model: { select: { name: true } } } },
+          checkOutLocation: loc, checkInLocation: loc, reservation: { select: { number: true } }, chargeLines: lines, payments: pays,
+        },
+      });
+      if (!r) throw notFound();
+      const { chargeLines, payments, ...rest } = r;
+      return { kind: "rental" as const, ...rest, ...shape({ chargeLines, payments }) };
+    }),
 });
