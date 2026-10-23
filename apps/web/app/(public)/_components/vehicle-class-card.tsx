@@ -2,6 +2,8 @@
 import { BriefcaseIcon, CarFrontIcon, DoorOpenIcon, UsersIcon } from "lucide-react";
 import { cn } from "@mrac/ui/lib/utils";
 
+import { resolveVehicleImage } from "../_lib/vehicle-images";
+
 export type VehicleClass = { id: string; name: string; description: string | null; seats: number | null; luggage: number | null; doors: number | null; imageKey?: string | null };
 
 /** One vehicle class: picture slot, name, "… or similar", seats / luggage / doors. Shared by Fleet and booking results. */
@@ -11,12 +13,15 @@ export function VehicleClassCard({ vc, children, className }: { vc: VehicleClass
     vc.luggage != null && { icon: BriefcaseIcon, label: `${vc.luggage} bags` },
     vc.doors != null && { icon: DoorOpenIcon, label: `${vc.doors} doors` },
   ].filter(Boolean) as { icon: typeof UsersIcon; label: string }[];
+
+  const resolvedImage = resolveVehicleImage(vc.name, vc.imageKey);
+
   return (
     <article className={cn("flex flex-col overflow-hidden rounded-xl border bg-card sm:flex-row", className)}>
-      {/* Class photo (VehicleType.imageKey — real photos copied from RentCentric / mrrentacar.com). */}
-      <div className="grid aspect-[16/10] place-items-center bg-white sm:aspect-auto sm:w-56 sm:shrink-0">
-        {vc.imageKey ? (
-          <img src={vc.imageKey} alt={vc.name} loading="lazy" className="size-full object-contain p-3" />
+      {/* Class photo */}
+      <div className="grid aspect-[16/10] place-items-center bg-white sm:aspect-auto sm:w-56 sm:shrink-0 p-3">
+        {resolvedImage ? (
+          <img src={resolvedImage} alt={vc.name} loading="lazy" className="size-full object-contain" />
         ) : (
           <CarFrontIcon className="size-14 text-muted-foreground/50" aria-hidden />
         )}
