@@ -109,14 +109,14 @@ export function SiteFooter() {
       <div className="pointer-events-none absolute -top-40 left-1/2 h-80 w-[60rem] -translate-x-1/2 rounded-full bg-[#9D302D]/10 blur-3xl" />
 
       {/* Main Footer Content */}
-      <div className="relative mx-auto max-w-7xl px-4 pt-28 pb-8 sm:px-6 md:pt-36 lg:px-8">
+      <div className="relative mx-auto max-w-7xl px-4 pt-16 pb-6 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 gap-10 md:grid-cols-2 lg:grid-cols-12 lg:gap-8">
-          {/* Col 1: Brand & Identity (4 cols) */}
-          <div className="space-y-5 lg:col-span-4">
+          {/* Col 1: Brand & Identity (5 cols) */}
+          <div className="space-y-5 lg:col-span-5">
             <Link href="/" className="inline-block transition-transform hover:scale-[1.02]">
               <BrandLogo variant="white" className="h-10 w-auto" />
             </Link>
-            <p className="max-w-sm text-sm leading-relaxed text-white/70">
+            <p className="max-w-md text-sm leading-relaxed text-white/70">
               Vancouver &amp; Calgary&apos;s trusted independent car rental company since 1996. Clean, reliable vehicles, upfront pricing with zero surprises, and seamless 24/7 key-drop returns.
             </p>
 
@@ -136,48 +136,8 @@ export function SiteFooter() {
             </div>
           </div>
 
-          {/* Col 2: Fleet Classes (3 cols) */}
+          {/* Col 2: Quick Navigation (3 cols) */}
           <div className="space-y-4 lg:col-span-3">
-            <h3 className="flex items-center gap-2 text-xs font-bold tracking-widest text-white uppercase">
-              <span className="inline-block size-1.5 rounded-full bg-[#9D302D]" />
-              Vehicle Fleet
-            </h3>
-            <ul className="space-y-2.5 text-sm text-white/70">
-              <li>
-                <Link href="/fleet" className="transition-colors hover:text-white hover:underline">
-                  Economy &amp; Compact Cars
-                </Link>
-              </li>
-              <li>
-                <Link href="/fleet" className="transition-colors hover:text-white hover:underline">
-                  Full-Size &amp; Midsize Sedans
-                </Link>
-              </li>
-              <li>
-                <Link href="/fleet" className="transition-colors hover:text-white hover:underline">
-                  Compact &amp; Standard SUVs
-                </Link>
-              </li>
-              <li>
-                <Link href="/fleet" className="transition-colors hover:text-white hover:underline">
-                  7 &amp; 8 Passenger Minivans
-                </Link>
-              </li>
-              <li>
-                <Link href="/fleet" className="transition-colors hover:text-white hover:underline">
-                  Electric Vehicles (Tesla Model 3, EQB)
-                </Link>
-              </li>
-              <li>
-                <Link href="/fleet" className="transition-colors hover:text-white hover:underline">
-                  Cargo Vans &amp; Pickup Trucks
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          {/* Col 3: Quick Navigation (2 cols) */}
-          <div className="space-y-4 lg:col-span-2">
             <h3 className="flex items-center gap-2 text-xs font-bold tracking-widest text-white uppercase">
               <span className="inline-block size-1.5 rounded-full bg-[#9D302D]" />
               Explore
@@ -206,8 +166,8 @@ export function SiteFooter() {
             </ul>
           </div>
 
-          {/* Col 4: Contact & Locations (3 cols) */}
-          <div className="space-y-4 lg:col-span-3">
+          {/* Col 3: Contact & Locations (4 cols) */}
+          <div className="space-y-4 lg:col-span-4">
             <h3 className="flex items-center gap-2 text-xs font-bold tracking-widest text-white uppercase">
               <span className="inline-block size-1.5 rounded-full bg-[#9D302D]" />
               Get In Touch
@@ -255,27 +215,48 @@ export function SiteFooter() {
         </div>
 
         {/* ── BIG BIG STYLISH COMPANY NAME AT THE BOTTOM ─────────────────── */}
-        <div className="relative mt-16 pt-10 pb-2 text-center">
+        <div className="relative mt-12 pt-8 pb-1 text-center">
           <div className="mb-4 flex items-center justify-center gap-3">
-            <span className="h-px w-12 bg-gradient-to-r from-transparent to-[#9D302D]/60 sm:w-28" />
-            <span className="text-[10px] font-bold tracking-[0.32em] text-[#B15957] uppercase sm:text-xs">
+            <span className="h-px w-10 bg-gradient-to-r from-transparent to-[#9D302D]/60 sm:w-24" />
+            <span className="text-[10px] font-bold tracking-[0.3em] text-[#B15957] uppercase sm:text-xs">
               Canada&apos;s Independent Car Rental Choice • Since 1996
             </span>
-            <span className="h-px w-12 bg-gradient-to-l from-transparent to-[#9D302D]/60 sm:w-28" />
+            <span className="h-px w-10 bg-gradient-to-l from-transparent to-[#9D302D]/60 sm:w-24" />
           </div>
 
-          <div
-            className="group relative select-none font-black tracking-tighter uppercase transition-all duration-700"
-            style={{ fontFamily: "var(--font-sans), sans-serif" }}
-          >
-            {/* Desktop & Tablet: Unbroken horizontal statement */}
-            <span className="hidden sm:block text-[9.5vw] md:text-[10.2vw] lg:text-[10.8vw] leading-none whitespace-nowrap bg-gradient-to-b from-white/[0.28] via-white/[0.12] to-white/[0.02] bg-clip-text text-transparent group-hover:from-white/[0.48] group-hover:via-white/[0.22] transition-all duration-700">
-              MR. RENT A CAR
-            </span>
-            {/* Mobile: 2 stacked impactful lines */}
-            <span className="block sm:hidden text-[17vw] leading-[0.82] bg-gradient-to-b from-white/[0.28] via-white/[0.12] to-white/[0.02] bg-clip-text text-transparent">
-              MR. RENT<br />A CAR
-            </span>
+          {/* SVG Vector Watermark: 100% responsive, never crops, stays on ONE single line on all screen sizes */}
+          <div className="group relative w-full overflow-hidden select-none transition-all duration-700">
+            <svg
+              viewBox="0 0 1120 100"
+              className="w-full h-auto max-w-full drop-shadow-sm select-none"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-label="Mr. Rent A Car"
+            >
+              <defs>
+                <linearGradient id="footer-brand-watermark-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.25" />
+                  <stop offset="60%" stopColor="#FFFFFF" stopOpacity="0.10" />
+                  <stop offset="100%" stopColor="#FFFFFF" stopOpacity="0.02" />
+                </linearGradient>
+              </defs>
+              <text
+                x="50%"
+                y="55%"
+                dominantBaseline="middle"
+                textAnchor="middle"
+                fill="url(#footer-brand-watermark-grad)"
+                className="font-black uppercase transition-all duration-700 group-hover:opacity-100"
+                style={{
+                  fontFamily: "var(--font-jakarta), var(--font-sans), ui-sans-serif, system-ui, sans-serif",
+                  fontWeight: 900,
+                  fontSize: "96px",
+                  letterSpacing: "-0.04em",
+                }}
+              >
+                MR. RENT A CAR
+              </text>
+            </svg>
           </div>
         </div>
 

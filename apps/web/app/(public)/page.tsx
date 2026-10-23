@@ -109,20 +109,6 @@ export default async function HomePage() {
           </ul>
         </section>
       )}
-
-      {/* ── Call to action, half over the dark footer ──────────────────────── */}
-      <section className="-mb-16 bg-[linear-gradient(to_bottom,white_55%,#242323_55%)] px-4 pb-16">
-        <div className="relative mx-auto grid max-w-6xl items-center gap-6 overflow-hidden rounded-3xl bg-[#9D302D] bg-[linear-gradient(135deg,rgba(157,48,45,0.95),rgba(120,36,34,0.98)),url('/assest/pattern%20bg.png')] bg-[length:auto,280px_auto] p-8 text-white md:grid-cols-2 md:p-12">
-          <img src={HERO_CAR} alt="" className="w-full max-w-md rounded-2xl bg-white/95 p-3 md:justify-self-start" />
-          <div>
-            <h2 className="font-serif text-3xl leading-tight font-bold md:text-4xl">Ready to Hit the Road?<br />Book Your Ride Today</h2>
-            <p className="mt-3 text-white/80">Check prices for your dates and reserve online in minutes.</p>
-            <a href="#book" className="mt-6 inline-flex items-center gap-2 rounded-md bg-white px-5 py-2.5 text-sm font-semibold text-[#9D302D] hover:bg-[#F6EBEA]">
-              Rent Now <ArrowRightIcon className="size-4" />
-            </a>
-          </div>
-        </div>
-      </section>
     </div>
   );
 }
