@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
+import { Prisma } from "@mrac/db";
 import { router, staffProcedure, permitted, requirePermission } from "../../trpc";
 import { BUILTIN_PAYMENT_METHODS, paymentMethodInput } from "../../lib/payment-methods";
 
@@ -159,6 +160,40 @@ export const setupRouter = router({
     const used = Object.values(r._count).reduce((a, n) => a + n, 0);
     if (used) throw new TRPCError({ code: "CONFLICT", message: `${r.name} is used on ${used} booking(s) / customer(s); make it inactive instead.` });
     await ctx.prisma.referral.delete({ where: { id: r.id } });
+  }),
+
+  // ── Settings > Offsite Locations (OffsiteLocationsMain.aspx / OffsiteLocationsModify.aspx) ──
+
+  /** One location's offsite locations (Location Name, Contact Name, Phone, Address, Active). */
+  offsiteList: staffProcedure.input(z.object({ locationId: z.string() })).query(({ ctx, input }) =>
+    ctx.prisma.offsiteLocation.findMany({ where: { locationId: input.locationId }, orderBy: [{ isActive: "desc" }, { name: "asc" }] }),
+  ),
+  offsiteSave: permitted("LocationsEdit")
+    .input(
+      z.object({
+        id: z.string().optional(),
+        locationId: z.string(),
+        name: req("Location Name"),
+        parkingSymbol: optStr, code: optStr, contactName: optStr, address: optStr, city: optStr, province: optStr, country: optStr, postal: optStr,
+        phone: optStr, fax: optStr,
+        email: z.string().trim().email("Enter a valid email").optional().or(z.literal("")).transform((v) => v || null),
+        regionId: optStr,
+        latitude: z.preprocess((v) => (v === "" || v == null ? null : Number(v)), z.number().min(-90).max(90).nullable()),
+        longitude: z.preprocess((v) => (v === "" || v == null ? null : Number(v)), z.number().min(-180).max(180).nullable()),
+        boundary: z.array(z.tuple([z.number(), z.number()])).max(4).default([]),
+        parkingType: optStr, parkingExplanation: optStr, memo: optStr,
+        isActive: z.boolean().default(true), useOneWay: z.boolean().default(false), webCustomer: z.boolean().default(false), isPrivateProperty: z.boolean().default(false),
+        taxIds: z.array(z.string()).default([]),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { id, boundary, ...data } = input;
+      const row = { ...data, boundary: boundary.length ? boundary : Prisma.JsonNull };
+      const o = id ? await ctx.prisma.offsiteLocation.update({ where: { id }, data: row }) : await ctx.prisma.offsiteLocation.create({ data: row });
+      return { id: o.id };
+    }),
+  offsiteDelete: permitted("LocationsEdit").input(z.object({ id: z.string() })).mutation(async ({ ctx, input }) => {
+    await ctx.prisma.offsiteLocation.delete({ where: { id: input.id } });
   }),
 
   // ── Settings > One Way Regions (LocationRegionsMain) and One Way Rates (OneWay.aspx / OneWaysModify.aspx) ──

@@ -13,7 +13,7 @@ export default async function Page() {
         description="Extra pick-up / return points that belong to a location (e.g. an airport or hotel lot)."
         breadcrumbs={[{ label: "Settings", href: "/admin/settings" }, { label: "Location Information" }, { label: "Offsite Locations" }]}
       />
-      <OffsiteSettings defaultLocationId={await workingLocationId()} />
+      <OffsiteSettings initialLocationId={await workingLocationId()} />
     </>
   );
 }

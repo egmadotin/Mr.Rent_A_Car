@@ -216,6 +216,7 @@ model Location {
   paymentMethods       LocationPaymentMethod[]
   commissionStructures CommissionStructure[]
   reservationEmail     ReservationEmailSetup?
+  offsiteLocations     OffsiteLocation[]
 }
 
 /// Settings > Location Information > Hours Of Operation
@@ -2331,4 +2332,46 @@ model CommissionStructure {
   location   Location? @relation(fields: [locationId], references: [id], onDelete: SetNull)
   rules      Json      @default("{}")
   createdAt  DateTime  @default(now())
+}
+
+/// Settings > Offsite Locations (OffsiteLocationsMain.aspx / OffsiteLocationsModify.aspx): extra pick-up / return
+/// points that belong to a location (e.g. Richmond's "(O) Mr Rent A Car Edmonton Off-Site").
+model OffsiteLocation {
+  id                 String   @id @default(cuid())
+  legacyId           Int?     @unique
+  locationId         String
+  location           Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  /// "Parking Symbol", shown before the name, e.g. "(O)"
+  parkingSymbol      String?
+  name               String
+  code               String?
+  contactName        String?
+  address            String?
+  city               String?
+  province           String?
+  country            String?  @default("Canada")
+  postal             String?
+  phone              String?
+  fax                String?
+  email              String?
+  /// "Region" (a Customer Area/Region)
+  regionId           String?
+  latitude           Decimal? @db.Decimal(10, 6)
+  longitude          Decimal? @db.Decimal(11, 6)
+  /// "Boundary" corners 1–4: [[lat, lon], …]
+  boundary           Json?
+  /// Private / Parking lot / On-Street
+  parkingType        String?
+  parkingExplanation String?
+  memo               String?
+  imageKey           String?
+  isActive           Boolean  @default(true)
+  useOneWay          Boolean  @default(false)
+  /// "Web Customer": offered on the public booking site
+  webCustomer        Boolean  @default(false)
+  isPrivateProperty  Boolean  @default(false)
+  /// taxes that apply at this offsite location
+  taxIds             String[] @default([])
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 }
