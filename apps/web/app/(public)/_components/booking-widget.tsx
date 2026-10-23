@@ -3,12 +3,12 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarIcon, ChevronDownIcon, MapPinIcon, SearchIcon, TagIcon } from "lucide-react";
+import { CalendarIcon, ChevronDownIcon, ClockIcon, MapPinIcon, SearchIcon, TagIcon } from "lucide-react";
 import { useTRPC } from "@mrac/api/client";
 import { Button } from "@mrac/ui/components/button";
 import { Input } from "@mrac/ui/components/input";
 import { Label } from "@mrac/ui/components/label";
-import { NativeSelect } from "@mrac/ui/components/native-select";
+import { ListPicker, locationOptions } from "./pickers";
 import { cn } from "@mrac/ui/lib/utils";
 
 /** Search state carried in the URL: ?pickup=&return=&from=YYYY-MM-DDTHH:mm&to=…&promo= (viewer-local times). */
@@ -87,16 +87,10 @@ export function BookingWidget({
   }
 
   const today = mounted ? localDate(new Date()) : undefined;
-  const locationOptions = (
-    <>
-      {!locations && <option value="">Loading…</option>}
-      {locations?.map((l) => (
-        <option key={l.id} value={l.id}>
-          {l.name}
-        </option>
-      ))}
-    </>
-  );
+  const locOpts = locationOptions(locations);
+  const locSearch = locOpts.length > 8;
+  const loading = locations ? "Select a location" : "Loading…";
+  const timeOpts = TIMES.map((t) => ({ value: t.value, label: t.label }));
 
   /* ── Capsule (home bar + results "compact") ───────────────────────────── */
   if (variant === "bar" || variant === "compact") {
@@ -110,36 +104,28 @@ export function BookingWidget({
               ? "rounded-sheet p-2 shadow-booking lg:rounded-pill lg:p-1.5"
               : "rounded-card p-1.5",
             sameReturn
-              ? "lg:grid-cols-[1.25fr_1fr_1fr_auto]"
-              : "lg:grid-cols-[1.1fr_1.1fr_1fr_1fr_auto]",
+              ? "lg:grid-cols-[1.1fr_1.2fr_1.2fr_auto]"
+              : "lg:grid-cols-[0.9fr_0.9fr_1.25fr_1.25fr_auto]",
           )}
         >
           <Cell id="bw-pickup" label="Pick-up" icon={MapPinIcon} first>
-            <select id="bw-pickup" className={bare} value={pickup} onChange={(e) => setPickup(e.target.value)} required>
-              {locationOptions}
-            </select>
+            <ListPicker id="bw-pickup" ariaLabel="Pick-up location" value={pickup} onChange={setPickup} options={locOpts} search={locSearch} placeholder={loading} />
           </Cell>
           {!sameReturn && (
             <Cell id="bw-return" label="Return" icon={MapPinIcon}>
-              <select id="bw-return" className={bare} value={ret || pickup} onChange={(e) => setRet(e.target.value)}>
-                {locationOptions}
-              </select>
+              <ListPicker id="bw-return" ariaLabel="Return location" value={ret || pickup} onChange={setRet} options={locOpts} search={locSearch} placeholder={loading} />
             </Cell>
           )}
           <Cell id="bw-from" label="Pick-up date" icon={CalendarIcon}>
             <div className="flex items-center gap-2">
-              <input id="bw-from" type="date" className={cn(bare, "flex-1")} value={fromDate} min={today} onChange={(e) => setFromDate(e.target.value)} required />
-              <select aria-label="Pick-up time" className={cn(bare, "w-auto text-muted-foreground")} value={fromTime} onChange={(e) => setFromTime(e.target.value)}>
-                {TIMES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-              </select>
+              <input id="bw-from" type="date" className={cn(bare, "min-w-[7.25rem] flex-1")} value={fromDate} min={today} onChange={(e) => setFromDate(e.target.value)} required />
+              <TimePick label="Pick-up time" value={fromTime} onChange={setFromTime} options={timeOpts} />
             </div>
           </Cell>
           <Cell id="bw-to" label="Return date" icon={CalendarIcon}>
             <div className="flex items-center gap-2">
-              <input id="bw-to" type="date" className={cn(bare, "flex-1")} value={toDate} min={fromDate || today} onChange={(e) => setToDate(e.target.value)} required />
-              <select aria-label="Return time" className={cn(bare, "w-auto text-muted-foreground")} value={toTime} onChange={(e) => setToTime(e.target.value)}>
-                {TIMES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-              </select>
+              <input id="bw-to" type="date" className={cn(bare, "min-w-[7.25rem] flex-1")} value={toDate} min={fromDate || today} onChange={(e) => setToDate(e.target.value)} required />
+              <TimePick label="Return time" value={toTime} onChange={setToTime} options={timeOpts} />
             </div>
           </Cell>
           <div className="p-1 lg:pl-1.5">
@@ -192,9 +178,7 @@ export function BookingWidget({
     >
       <div className="space-y-1.5 sm:col-span-2">
         <Label htmlFor="bw-pickup" className={label}>Pick-up location</Label>
-        <NativeSelect id="bw-pickup" value={pickup} onChange={(e) => setPickup(e.target.value)} required>
-          {locationOptions}
-        </NativeSelect>
+        <ListPicker id="bw-pickup" variant="field" icon={MapPinIcon} ariaLabel="Pick-up location" value={pickup} onChange={setPickup} options={locOpts} search={locSearch} placeholder={loading} showSubInTrigger contentClassName="w-(--radix-popover-trigger-width) min-w-72" />
         <label className="flex cursor-pointer items-center gap-2 pt-1.5 text-sm font-medium">
           <input type="checkbox" className="size-4 accent-[var(--brand)]" checked={!sameReturn} onChange={(e) => setSameReturn(!e.target.checked)} />
           Return to a different location
@@ -204,9 +188,7 @@ export function BookingWidget({
       {!sameReturn && (
         <div className="space-y-1.5 sm:col-span-2">
           <Label htmlFor="bw-return" className={label}>Return location</Label>
-          <NativeSelect id="bw-return" value={ret || pickup} onChange={(e) => setRet(e.target.value)}>
-            {locationOptions}
-          </NativeSelect>
+          <ListPicker id="bw-return" variant="field" icon={MapPinIcon} ariaLabel="Return location" value={ret || pickup} onChange={setRet} options={locOpts} search={locSearch} placeholder={loading} showSubInTrigger contentClassName="w-(--radix-popover-trigger-width) min-w-72" />
         </div>
       )}
 
@@ -216,9 +198,7 @@ export function BookingWidget({
       </div>
       <div className="space-y-1.5">
         <Label htmlFor="bw-from-t" className={label}>Time</Label>
-        <NativeSelect id="bw-from-t" value={fromTime} onChange={(e) => setFromTime(e.target.value)}>
-          {TIMES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-        </NativeSelect>
+        <ListPicker id="bw-from-t" variant="field" icon={ClockIcon} ariaLabel="Pick-up time" value={fromTime} onChange={setFromTime} options={timeOpts} contentClassName="w-44" />
       </div>
       <div className="space-y-1.5">
         <Label htmlFor="bw-to" className={label}>Return date</Label>
@@ -226,9 +206,7 @@ export function BookingWidget({
       </div>
       <div className="space-y-1.5">
         <Label htmlFor="bw-to-t" className={label}>Time</Label>
-        <NativeSelect id="bw-to-t" value={toTime} onChange={(e) => setToTime(e.target.value)}>
-          {TIMES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-        </NativeSelect>
+        <ListPicker id="bw-to-t" variant="field" icon={ClockIcon} ariaLabel="Return time" value={toTime} onChange={setToTime} options={timeOpts} contentClassName="w-44" />
       </div>
 
       {showPromo ? (
@@ -281,6 +259,24 @@ function Cell({
         <div className="relative">{children}</div>
       </div>
       {id === "bw-pickup" || id === "bw-return" ? <ChevronDownIcon className="size-4 shrink-0 text-muted-foreground" /> : null}
+    </div>
+  );
+}
+
+/** The time half of a date cell: a compact themed list of half-hour slots. */
+function TimePick({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: { value: string; label: string }[] }) {
+  return (
+    <div className="shrink-0">
+      <ListPicker
+        ariaLabel={label}
+        value={value}
+        onChange={onChange}
+        options={options}
+        stretch={false}
+        align="end"
+        contentClassName="w-40"
+        triggerClassName="font-medium text-muted-foreground hover:text-foreground"
+      />
     </div>
   );
 }
