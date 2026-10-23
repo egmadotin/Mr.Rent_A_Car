@@ -307,7 +307,6 @@ Not built yet:
 - SMS provider decision.
 - Price master sheet.
 - Printed samples of the Standard and Bill Split invoices.
-- Customer Login: is it needed?
 - Database hosting decision (Neon was planned).
 
 ## Next session (Oct 22)
