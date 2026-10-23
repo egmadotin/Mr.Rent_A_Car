@@ -3,7 +3,9 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ExternalLinkIcon, MenuIcon, XIcon } from "lucide-react";
+import { ExternalLinkIcon, MenuIcon, UserIcon, XIcon } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { useTRPC } from "@mrac/api/client";
 import { Button } from "@mrac/ui/components/button";
 import { cn } from "@mrac/ui/lib/utils";
 import { BrandLogo } from "@mrac/ui/components/brand-logo";
@@ -26,6 +28,11 @@ export function SiteHeader() {
   const [open, setOpen] = React.useState(false);
   React.useEffect(() => setOpen(false), [pathname]);
   const active = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
+  const trpc = useTRPC();
+  const me = useQuery(trpc.account.me.queryOptions()).data;
+  const account = me
+    ? { href: "/account", label: me.name.split(" ")[0] || "My Account" }
+    : { href: `/account/login${pathname.startsWith("/book") || pathname.startsWith("/account") ? "" : `?next=${encodeURIComponent(pathname)}`}`, label: "Login" };
 
   return (
     <header className="sticky top-0 z-40">
@@ -51,6 +58,9 @@ export function SiteHeader() {
                 </Link>
               ),
             )}
+            <Link href={account.href} className={cn("ml-1 flex items-center gap-1.5 rounded-md border px-3 py-2 text-sm font-medium hover:text-primary", active("/account") && "border-primary text-primary")}>
+              <UserIcon className="size-4" /> {account.label}
+            </Link>
           </nav>
           <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-label={open ? "Close menu" : "Open menu"}>
             {open ? <XIcon /> : <MenuIcon />}
@@ -63,6 +73,9 @@ export function SiteHeader() {
                 {n.label}
               </a>
             ))}
+            <Link href={account.href} className={cn("flex items-center gap-2 rounded-md px-3 py-2.5 font-medium", active("/account") && "bg-accent text-accent-foreground")}>
+              <UserIcon className="size-4" /> {me ? "My Account" : "Login"}
+            </Link>
           </nav>
         )}
       </div>

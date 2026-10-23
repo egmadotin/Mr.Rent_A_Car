@@ -1,6 +1,7 @@
 import type { inferRouterInputs, inferRouterOutputs } from "@trpc/server";
 import { router, createCallerFactory } from "./trpc";
 import { customerRouter } from "./routers/customer";
+import { accountRouter } from "./routers/account";
 import { metaRouter } from "./routers/staff/meta";
 import { rentalRouter } from "./routers/staff/rental";
 import { vehicleRouter } from "./routers/staff/vehicle";
@@ -49,6 +50,7 @@ export const staffRouter = router({
 
 export const appRouter = router({
   customer: customerRouter,
+  account: accountRouter,
   staff: staffRouter,
 });
 

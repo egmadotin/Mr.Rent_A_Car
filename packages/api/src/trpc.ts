@@ -40,9 +40,9 @@ export const createCallerFactory = t.createCallerFactory;
 /** Public site + future mobile app. Stable surface — version deliberately. */
 export const publicProcedure = t.procedure;
 
-/** Signed-in customer (portal / app). */
+/** Signed-in customer (public site "Login" / app); a staff session is not a customer. */
 export const customerProcedure = t.procedure.use(({ ctx, next }) => {
-  if (!ctx.session) throw new TRPCError({ code: "UNAUTHORIZED" });
+  if (!ctx.session || (ctx.session.user as { kind?: string }).kind !== "CUSTOMER") throw new TRPCError({ code: "UNAUTHORIZED", message: "Please log in." });
   return next({ ctx: { ...ctx, session: ctx.session } });
 });
 

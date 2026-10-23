@@ -335,8 +335,11 @@ export const customerRouter = router({
           if (card?.heldCents != null && card.heldCents !== cents(priced.total))
             throw new TRPCError({ code: "BAD_REQUEST", message: "The price changed while you were booking. Please go back and try again." });
 
-          // Link to an existing customer only on an exact email match; otherwise create one.
-          let customer = await tx.customer.findFirst({ where: { email: { equals: input.email, mode: "insensitive" } }, orderBy: { updatedAt: "desc" } });
+          // A logged-in customer books as their own (verified, linked) customer record; a guest links to an existing
+          // customer only on an exact email match, otherwise a new one is made.
+          const me = ctx.session?.user as { id: string; kind?: string } | undefined;
+          const mine = me?.kind === "CUSTOMER" ? await tx.customer.findUnique({ where: { userId: me.id } }) : null;
+          let customer = mine ?? (await tx.customer.findFirst({ where: { email: { equals: input.email, mode: "insensitive" } }, orderBy: { updatedAt: "desc" } }));
           if (customer?.isUndesired) throw new TRPCError({ code: "BAD_REQUEST", message: "We can't complete this booking online. Please call us." });
           const profile = {
             birthDate: input.birthDate,

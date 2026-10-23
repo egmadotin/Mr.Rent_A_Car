@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2Icon } from "lucide-react";
@@ -58,6 +59,20 @@ export function BookDetails({ search, vehicleTypeId, insuranceId, extras }: { se
   const [pending, setPending] = React.useState(false);
   const [birth, setBirth] = React.useState("2000-01-01");
   const pay = useQuery(trpc.customer.paymentConfig.queryOptions()).data;
+  // logged-in customer: their details are filled in (they can still change them for this booking)
+  const me = useQuery(trpc.account.me.queryOptions()).data;
+  const mine = me?.customer;
+  const ymd = (d: Date | string | null | undefined) => (d ? new Date(d).toISOString().slice(0, 10) : "");
+  const prefill: Record<string, string> = me
+    ? {
+        firstName: mine?.firstName ?? me.name.split(" ")[0] ?? "", lastName: mine?.lastName ?? me.name.split(" ").slice(1).join(" "), email: mine?.email ?? me.email,
+        phone: mine?.phone ?? "", address: mine?.address1 ?? "", city: mine?.city ?? "", province: mine?.province ?? "", postal: mine?.postal ?? "",
+        licenseNumber: mine?.licenseNumber ?? "", licenseExpiry: ymd(mine?.licenseExpiry), licenseProvince: mine?.licenseProvince ?? "",
+      }
+    : {};
+  React.useEffect(() => {
+    if (mine?.birthDate) setBirth(ymd(mine.birthDate));
+  }, [mine?.birthDate]);
   const policy = useQuery(trpc.customer.rentalPolicies.queryOptions()).data;
   const confirmCard = React.useRef<ConfirmCard | null>(null);
 
@@ -131,15 +146,28 @@ export function BookDetails({ search, vehicleTypeId, insuranceId, extras }: { se
           promo={quote.data?.promo}
         />
 
-        <form onSubmit={submit} noValidate className="mx-auto max-w-2xl space-y-6 border-t pt-8">
+        <form key={me ? "me" : "guest"} onSubmit={submit} noValidate className="mx-auto max-w-2xl space-y-6 border-t pt-8">
           <h2 className="text-xl">Customer Information</h2>
+          {me ? (
+            <p className="rounded-md bg-muted p-3 text-sm">Booking as <span className="font-semibold">{me.name}</span> — your details are filled in; check them before you reserve.</p>
+          ) : (
+            <p className="rounded-md bg-muted p-3 text-sm">
+              Have an account?{" "}
+              <Link
+                href="/account/login"
+                onClick={(e) => { e.preventDefault(); router.push(`/account/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`); }}
+                className="font-semibold text-primary hover:underline"
+              >Log in</Link>{" "}
+              to fill in your details — or just continue as a guest.
+            </p>
+          )}
           {formError && <p role="alert" className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{formError}</p>}
           <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
             {FIELDS.map((x) => (
               <div key={x.id} className="space-y-1.5">
                 <Label htmlFor={x.id} className="text-xs uppercase text-muted-foreground">{x.label} *</Label>
                 {x.id === "country" ? (
-                  <NativeSelect id="country" name="country" defaultValue="Canada" aria-invalid={!!err("country")}>
+                  <NativeSelect id="country" name="country" defaultValue={mine?.country && (COUNTRIES as readonly string[]).includes(mine.country) ? mine.country : "Canada"} aria-invalid={!!err("country")}>
                     {COUNTRIES.map((c) => <option key={c}>{c}</option>)}
                   </NativeSelect>
                 ) : (
@@ -150,6 +178,7 @@ export function BookDetails({ search, vehicleTypeId, insuranceId, extras }: { se
                     autoComplete={x.auto}
                     placeholder={x.label}
                     aria-invalid={!!err(x.id)}
+                    defaultValue={x.id === "birthDate" ? undefined : prefill[x.id]}
                     required
                     {...(x.id === "birthDate" ? { value: birth, onChange: (e: React.ChangeEvent<HTMLInputElement>) => setBirth(e.target.value) } : {})}
                   />

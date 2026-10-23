@@ -32,7 +32,7 @@ The RentCentric menus, vehicle page and customer page were re-read on Oct 20. No
 | Settings | 🟡 about 64 of RentCentric's ~100 setting pages built (section 7) |
 | Reports | ✅ 63 of 64 built; Repair Orders not in use (see section 8) |
 | Dashboard | ✅ |
-| Public website and online booking | ✅ (customer login and fleet filters 🟡) |
+| Public website and online booking | ✅ (with customer login) |
 | Email | ✅ built, 🔑 needs the client's email (SMTP) account |
 | Card payments (Stripe) | ✅ built, 🔑 needs Stripe keys |
 | Data migration from RentCentric | 🟡 setup data copied; customers / bookings history not yet. `sync-data.bat` copies the local setup data + the 23 RentCentric vehicles to the live server (no customers, bookings or test records; live database backed up first, then replaced) |
@@ -292,7 +292,7 @@ Not built yet:
 | Booking: dates and vehicle → options → details → confirmation, same prices as the live site | ✅ (home hero bar and results bar: Pick-up + Drop-off location, "Same as pick-up" by default; a different drop-off adds the one-way fee) |
 | Card at booking (Stripe) | ✅ 🔑 keys |
 | Fleet filters | ✅ type (Car / SUV / Minivan / Van / Truck, from the class name), seats, bags, doors |
-| Customer Login | ⬜ (ask the client) |
+| Customer Login | ✅ as mrrentacar.com (a Login link; booking still works for guests): Login in the header; Log In, Create account, Forgot / Reset password (email links, 🔑 SMTP), Confirm email; My Account (details, reservations and rentals). A logged-in customer's details are filled in on the booking's last step and the booking goes on their customer record. An account is linked to an existing customer (and its booking history) only once its email is confirmed. New routes: restart the server once |
 
 ## 11. Waiting on the client
 
