@@ -71,6 +71,7 @@ model User {
   /// Users form "Commission": None / Percentage % / Dollar Amount $
   commissionType         DiscountType?
   commissionAmount       Decimal?      @db.Decimal(10, 2)
+  reservationsBooked     Reservation[] @relation("ReservationBookedBy")
 
   @@map("user")
 }
@@ -1148,14 +1149,17 @@ model Reservation {
   excludedTaxIds          String[]  @default([]) /// taxes unticked in the options grid
   reservationChannel      String? /// legacy "Reservation Channel" (e.g. counter / website)
 
-  quoteId     String?
-  quote       Quote?    @relation(fields: [quoteId], references: [id])
-  createdById String?
-  createdBy   User?     @relation("ReservationCreatedBy", fields: [createdById], references: [id])
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  cancelledAt DateTime?
-  deletedAt   DateTime?
+  quoteId        String?
+  quote          Quote?    @relation(fields: [quoteId], references: [id])
+  /// the customer account (public site Login) that booked it online — shown in their My Account even before their email is confirmed
+  bookedByUserId String?
+  bookedByUser   User?     @relation("ReservationBookedBy", fields: [bookedByUserId], references: [id], onDelete: SetNull)
+  createdById    String?
+  createdBy      User?     @relation("ReservationCreatedBy", fields: [createdById], references: [id])
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  cancelledAt    DateTime?
+  deletedAt      DateTime?
 
   transports      Transport[]
   billSplits      BillSplit[]

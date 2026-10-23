@@ -363,6 +363,8 @@ export const customerRouter = router({
               enteredLocationId: s.pickupLocationId,
               registrationChannel: "Website",
               ...profile,
+              // a brand-new customer made by a logged-in account is theirs (nothing older to protect)
+              ...(me?.kind === "CUSTOMER" && !mine ? { userId: me.id } : {}),
             },
           });
 
@@ -390,6 +392,8 @@ export const customerRouter = router({
               ...(promo ? { promoCodeId: promo.id, ...promoDiscount(promo) } : {}),
               customerNotes: notes,
               reservationChannel: "Website",
+              // logged in: the booking shows in their My Account straight away
+              ...(me?.kind === "CUSTOMER" ? { bookedByUserId: me.id } : {}),
               chargeLines: { create: priced.lines },
             },
           });

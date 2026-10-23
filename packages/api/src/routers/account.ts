@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { hashPassword } from "@mrac/auth";
-import type { Prisma } from "@mrac/db";
+import { Prisma } from "@mrac/db";
 import { customerProcedure, publicProcedure, router } from "../trpc";
 import { consumeToken, issueToken, siteUrl } from "../lib/customer-account";
 import { sendMail } from "../lib/mailer";
@@ -119,16 +119,19 @@ export const accountRouter = router({
 
   /** My bookings: every reservation and rental of the linked customer, newest first, with status, total, paid and balance. */
   bookings: customerProcedure.query(async ({ ctx }) => {
-    const c = await myCustomer(ctx.prisma, ctx.session.user.id);
-    if (!c) return { reservations: [], rentals: [] };
+    const uid = ctx.session.user.id;
+    const c = await myCustomer(ctx.prisma, uid);
+    // my linked customer's bookings, plus what I booked online while logged in (even before my email is confirmed)
+    const resWhere: Prisma.ReservationWhereInput = { deletedAt: null, OR: [{ bookedByUserId: uid }, ...(c ? [{ customerId: c.id }] : [])] };
+    const raWhere: Prisma.RentalWhereInput = { deletedAt: null, OR: [{ reservation: { bookedByUserId: uid } }, ...(c ? [{ customerId: c.id }] : [])] };
     const money = { chargeLines: { select: { kind: true, total: true, tax: { select: { kind: true } } } }, payments: { select: { transactionType: true, amount: true } } } as const;
     const [reservations, rentals] = await Promise.all([
       ctx.prisma.reservation.findMany({
-        where: { customerId: c.id, deletedAt: null }, orderBy: { pickupAt: "desc" }, take: 500,
+        where: resWhere, orderBy: { pickupAt: "desc" }, take: 500,
         select: { number: true, status: true, pickupAt: true, returnAt: true, createdAt: true, vehicleType: { select: { name: true } }, pickupLocation: { select: { name: true, timeZone: true } }, returnLocation: { select: { name: true } }, rental: { select: { raNumber: true } }, ...money },
       }),
       ctx.prisma.rental.findMany({
-        where: { customerId: c.id, deletedAt: null }, orderBy: { checkOutAt: "desc" }, take: 500,
+        where: raWhere, orderBy: { checkOutAt: "desc" }, take: 500,
         select: {
           raNumber: true, status: true, checkOutAt: true, expectedReturnAt: true, checkedInAt: true, vehicleType: { select: { name: true } },
           vehicle: { select: { year: true, make: { select: { name: true } }, model: { select: { name: true } } } },
@@ -150,9 +153,9 @@ export const accountRouter = router({
   booking: customerProcedure
     .input(z.object({ kind: z.enum(["reservation", "rental"]), number: z.coerce.number().int().positive() }))
     .query(async ({ ctx, input }) => {
-      const c = await myCustomer(ctx.prisma, ctx.session.user.id);
+      const uid = ctx.session.user.id;
+      const c = await myCustomer(ctx.prisma, uid);
       const notFound = () => new TRPCError({ code: "NOT_FOUND", message: "Booking not found." });
-      if (!c) throw notFound();
       const lines = { orderBy: [{ sortOrder: "asc" as const }, { id: "asc" as const }], select: { kind: true, name: true, units: true, rate: true, total: true, tax: { select: { kind: true } } } };
       const pays = { where: { transactionType: { in: ["PAYMENT", "REFUND"] as ("PAYMENT" | "REFUND")[] } }, orderBy: { takenAt: "asc" as const }, select: { takenAt: true, method: true, methodName: true, transactionType: true, amount: true, cardLast4: true } };
       const loc = { select: { name: true, address1: true, city: true, phone: true, timeZone: true } };
@@ -166,7 +169,7 @@ export const accountRouter = router({
       };
       if (input.kind === "reservation") {
         const r = await ctx.prisma.reservation.findFirst({
-          where: { number: input.number, customerId: c.id, deletedAt: null },
+          where: { number: input.number, deletedAt: null, OR: [{ bookedByUserId: uid }, ...(c ? [{ customerId: c.id }] : [])] },
           select: {
             number: true, status: true, createdAt: true, pickupAt: true, returnAt: true, cancelledAt: true, vehicleType: { select: { name: true } },
             pickupLocation: loc, returnLocation: loc, rental: { select: { raNumber: true } }, chargeLines: lines, payments: pays,
@@ -177,7 +180,7 @@ export const accountRouter = router({
         return { kind: "reservation" as const, ...rest, ...shape({ chargeLines, payments }) };
       }
       const r = await ctx.prisma.rental.findFirst({
-        where: { raNumber: input.number, customerId: c.id, deletedAt: null },
+        where: { raNumber: input.number, deletedAt: null, OR: [{ reservation: { bookedByUserId: uid } }, ...(c ? [{ customerId: c.id }] : [])] },
         select: {
           raNumber: true, status: true, checkOutAt: true, expectedReturnAt: true, checkedInAt: true, voidedAt: true, odometerOut: true, odometerIn: true,
           vehicleType: { select: { name: true } }, vehicle: { select: { year: true, licenseNumber: true, make: { select: { name: true } }, model: { select: { name: true } } } },
