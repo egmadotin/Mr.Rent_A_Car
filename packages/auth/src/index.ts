@@ -15,6 +15,12 @@ const env =
 
 export const auth = betterAuth({
   baseURL: env.BETTER_AUTH_URL ?? "http://localhost:3001",
+  trustedOrigins: [
+    env.BETTER_AUTH_URL,
+    "https://mrrentacar.egma.in",
+    "http://mrrentacar.egma.in",
+    "http://145.223.18.134:3100",
+  ].filter(Boolean) as string[],
   secret: env.BETTER_AUTH_SECRET,
   database: prismaAdapter(prisma, { provider: "postgresql" }),
   emailAndPassword: {
