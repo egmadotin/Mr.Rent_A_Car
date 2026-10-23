@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { LinkRow } from "../../../_components/link-row";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { XIcon } from "lucide-react";
 import { useTRPC, useTRPCClient } from "@mrac/api/client";
@@ -90,7 +91,7 @@ export function QuotesList({ defaultLocationId }: { defaultLocationId?: string }
           <TableBody>
             <ListStatusRow colSpan={6} loading={isLoading} empty={data?.rows.length === 0} emptyText="No Records Found" />
             {data?.rows.map((q) => (
-              <TableRow key={q.id}>
+              <LinkRow key={q.id} href={`/admin/quotes/${q.id}`}>
                 <TableCell>
                   <Link href={`/admin/quotes/${q.id}`} className="font-medium text-primary hover:underline">{q.number}</Link>
                   {q.expired && <span className="ml-1 text-destructive">Expired</span>}
@@ -106,7 +107,7 @@ export function QuotesList({ defaultLocationId }: { defaultLocationId?: string }
                     </Button>
                   )}
                 </TableCell>
-              </TableRow>
+              </LinkRow>
             ))}
           </TableBody>
         </Table>

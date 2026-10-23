@@ -33,6 +33,7 @@ import { CheckField, Field, FormDialog, SelectField, TextareaField } from "../..
 import { PageHeader } from "../../../../_components/page-header";
 import { RentalStatusBadge } from "../../rentals/status-badge";
 import { ReservationStatusBadge } from "../../reservations/status";
+import { LinkRow } from "../../../../_components/link-row";
 
 type Data = Wire<RouterOutputs["staff"]["customer"]["byId"]>;
 
@@ -194,13 +195,13 @@ export function CustomerDetail({ customerId }: { customerId: string }) {
                 <TableBody>
                   {c.rentals.length === 0 && <TableRow><TableCell colSpan={5} className="py-6 text-center text-muted-foreground">No rentals.</TableCell></TableRow>}
                   {c.rentals.map((r) => (
-                    <TableRow key={r.id}>
+                    <LinkRow key={r.id} href={`/admin/rentals/${r.id}`}>
                       <TableCell><Link href={`/admin/rentals/${r.id}`} className="font-medium text-primary hover:underline">{r.raNumber}</Link></TableCell>
                       <TableCell>{r.vehicle.assignedId}</TableCell>
                       <TableCell>{dateTime(r.checkOutAt)}</TableCell>
                       <TableCell>{dateTime(r.checkedInAt ?? r.expectedReturnAt)}</TableCell>
                       <TableCell><RentalStatusBadge status={r.status} expectedReturnAt={r.expectedReturnAt} /></TableCell>
-                    </TableRow>
+                    </LinkRow>
                   ))}
                 </TableBody>
               </Table>
@@ -214,13 +215,13 @@ export function CustomerDetail({ customerId }: { customerId: string }) {
                 <TableBody>
                   {c.reservations.length === 0 && <TableRow><TableCell colSpan={5} className="py-6 text-center text-muted-foreground">No reservations.</TableCell></TableRow>}
                   {c.reservations.map((r) => (
-                    <TableRow key={r.id}>
+                    <LinkRow key={r.id} href={`/admin/reservations/${r.id}`}>
                       <TableCell><Link href={`/admin/reservations/${r.id}`} className="font-medium text-primary hover:underline">{r.number}</Link></TableCell>
                       <TableCell>{r.vehicleType.name}</TableCell>
                       <TableCell>{dateTime(r.pickupAt)}</TableCell>
                       <TableCell>{dateTime(r.returnAt)}</TableCell>
                       <TableCell><ReservationStatusBadge status={r.status} /></TableCell>
-                    </TableRow>
+                    </LinkRow>
                   ))}
                 </TableBody>
               </Table>

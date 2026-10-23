@@ -5,6 +5,7 @@ import { Button } from "@mrac/ui/components/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@mrac/ui/components/table";
 import { PageHeader } from "../../../../_components/page-header";
 import { api, requireStaff } from "../../../../_lib/session";
+import { LinkRow } from "../../../../_components/link-row";
 
 export const metadata = { title: "Rentals & Invoices" };
 
@@ -35,7 +36,7 @@ export default async function TemplatesPage() {
             </TableHeader>
             <TableBody>
               {rows.map((t) => (
-                <TableRow key={t.id}>
+                <LinkRow key={t.id} href={`/admin/settings/templates/${t.id}`}>
                   <TableCell>
                     <Link href={`/admin/settings/templates/${t.id}`} className="font-medium text-primary hover:underline">{t.name}</Link>
                   </TableCell>
@@ -43,7 +44,7 @@ export default async function TemplatesPage() {
                   <TableCell>{t.location?.name ?? "All locations"}</TableCell>
                   <TableCell>{t.isDefault ? <Badge variant="success">Yes</Badge> : "No"}</TableCell>
                   <TableCell>{t.isActive ? "Yes" : <span className="text-muted-foreground">No</span>}</TableCell>
-                </TableRow>
+                </LinkRow>
               ))}
               {!rows.length && (
                 <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">No templates yet.</TableCell></TableRow>

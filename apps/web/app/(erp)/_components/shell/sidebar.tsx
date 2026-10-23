@@ -112,7 +112,7 @@ export function Sidebar(props: Props) {
           <MenuIcon />
         </Button>
         <Link href="/admin" className="flex items-center gap-2">
-          <BrandLogo className="text-lg" />
+          <BrandLogo className="h-6" />
           <span className="type-code rounded-[6px] bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">ERP</span>
         </Link>
       </div>
@@ -170,7 +170,7 @@ function SidebarBody({ user, locations, currentLocationId, collapsed, permission
             <BrandMark />
           ) : (
             <>
-              <BrandLogo className="text-[19px]" />
+              <BrandLogo className="h-7" />
               <span className="type-code rounded-[6px] bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">ERP</span>
             </>
           )}

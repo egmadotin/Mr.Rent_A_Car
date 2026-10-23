@@ -20,6 +20,7 @@ import { RowActions } from "../../../../_components/row-actions";
 import { ConditionPanel, OwnershipPanel, VehicleClaimsPanel } from "./vehicle-ownership";
 import { VehicleChecklistPanel } from "../../../../_components/vehicle-checklist";
 import { InspectionComparisonPanel, InspectionsPanel, PhotoUploader, ReportedDamagesPanel, Thumbs } from "../../../../_components/inspections";
+import { LinkRow } from "../../../../_components/link-row";
 
 type Kind = "maintenance" | "repair" | "problem" | "carwash" | "damage" | "accident" | "service" | "insurance";
 type Panel = Kind | "status" | "history" | "rentals" | "reservations" | "reported" | "comparison" | "inspection" | "checklist" | "ownership" | "condition" | "claims";
@@ -518,13 +519,13 @@ function BookingsPanel({ vehicleId, show }: { vehicleId: string; show: "rentals"
           !q?.rentals.length ? <p className="px-4 text-sm text-muted-foreground">No records.</p> : (
             <Table>
               <TableHeader><TableRow><TableHead>Rental #</TableHead><TableHead>Customer</TableHead><TableHead>Pickup</TableHead><TableHead>Return</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
-              <TableBody>{q.rentals.map((r) => <TableRow key={r.id}><TableCell><Link className="text-primary hover:underline" href={`/admin/rentals/${r.id}`}>{r.raNumber}</Link></TableCell><TableCell>{name(r.customer)}</TableCell><TableCell>{dateTime(r.checkOutAt)}</TableCell><TableCell>{dateTime(r.checkedInAt ?? r.expectedReturnAt)}</TableCell><TableCell>{r.status.toLowerCase()}</TableCell></TableRow>)}</TableBody>
+              <TableBody>{q.rentals.map((r) => <LinkRow key={r.id} href={`/admin/rentals/${r.id}`}><TableCell><Link className="text-primary hover:underline" href={`/admin/rentals/${r.id}`}>{r.raNumber}</Link></TableCell><TableCell>{name(r.customer)}</TableCell><TableCell>{dateTime(r.checkOutAt)}</TableCell><TableCell>{dateTime(r.checkedInAt ?? r.expectedReturnAt)}</TableCell><TableCell>{r.status.toLowerCase()}</TableCell></LinkRow>)}</TableBody>
             </Table>
           )
         ) : !q?.reservations.length ? <p className="px-4 text-sm text-muted-foreground">No records.</p> : (
           <Table>
             <TableHeader><TableRow><TableHead>Reservation #</TableHead><TableHead>Customer</TableHead><TableHead>Pickup</TableHead><TableHead>Return</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
-            <TableBody>{q.reservations.map((r) => <TableRow key={r.id}><TableCell><Link className="text-primary hover:underline" href={`/admin/reservations/${r.id}`}>{r.number}</Link></TableCell><TableCell>{name(r.customer, r.firstName, r.lastName)}</TableCell><TableCell>{dateTime(r.pickupAt)}</TableCell><TableCell>{dateTime(r.returnAt)}</TableCell><TableCell>{r.status.toLowerCase().replace("_", " ")}</TableCell></TableRow>)}</TableBody>
+            <TableBody>{q.reservations.map((r) => <LinkRow key={r.id} href={`/admin/reservations/${r.id}`}><TableCell><Link className="text-primary hover:underline" href={`/admin/reservations/${r.id}`}>{r.number}</Link></TableCell><TableCell>{name(r.customer, r.firstName, r.lastName)}</TableCell><TableCell>{dateTime(r.pickupAt)}</TableCell><TableCell>{dateTime(r.returnAt)}</TableCell><TableCell>{r.status.toLowerCase().replace("_", " ")}</TableCell></LinkRow>)}</TableBody>
           </Table>
         )}
       </CardContent>

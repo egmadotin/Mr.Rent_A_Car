@@ -15,6 +15,7 @@ import { dateTime, money } from "@mrac/ui/lib/format";
 import { ConfirmAction } from "../../../../_components/confirm-action";
 import { errorMessage } from "../../../../_components/form";
 import { NO_PERMISSION, useCan } from "../../../../_components/permissions";
+import { LinkRow } from "../../../../_components/link-row";
 
 /** Settings > Commissions (CommissionsMain.aspx): Rental#, Amount, Date Entered, Referral, User, Entered By, Delete. */
 export function CommissionsList() {
@@ -43,7 +44,7 @@ export function CommissionsList() {
           <TableBody>
             {data?.length === 0 && <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">No Records Found</TableCell></TableRow>}
             {data?.map((c) => (
-              <TableRow key={c.id}>
+              <LinkRow key={c.id} href={`/admin/rentals/${c.rental.id}`}>
                 <TableCell><Link className="text-primary hover:underline" href={`/admin/rentals/${c.rental.id}`}>{c.rental.raNumber}</Link></TableCell>
                 <TableCell className="text-right tabular-nums">{money(c.amount)}</TableCell>
                 <TableCell>{dateTime(c.enteredAt)}</TableCell>
@@ -53,7 +54,7 @@ export function CommissionsList() {
                 <TableCell>
                   <Button size="icon-sm" variant="ghost" className="text-destructive hover:bg-destructive/10" aria-label="Delete commission" disabled={!can("CommissionsDelete")} title={can("CommissionsDelete") ? undefined : NO_PERMISSION} onClick={() => setDeleting(c.id)}><Trash2Icon /></Button>
                 </TableCell>
-              </TableRow>
+              </LinkRow>
             ))}
           </TableBody>
           {!!data?.length && (

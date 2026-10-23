@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { LinkRow } from "../../../_components/link-row";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useTRPC } from "@mrac/api/client";
 import { Card } from "@mrac/ui/components/card";
@@ -119,7 +120,7 @@ export function ReservationsList({ defaultLocationId }: { defaultLocationId?: st
           <TableBody>
             <ListStatusRow colSpan={10} loading={isLoading} empty={data?.rows.length === 0} emptyText="No Records Found" />
             {data?.rows.map((r) => (
-              <TableRow key={r.id}>
+              <LinkRow key={r.id} href={`/admin/reservations/${r.id}`}>
                 <TableCell><Link href={`/admin/reservations/${r.id}`} className="font-medium text-primary hover:underline">{r.number}</Link></TableCell>
                 <TableCell>{r.firstName}</TableCell>
                 <TableCell>{r.lastName}</TableCell>
@@ -130,7 +131,7 @@ export function ReservationsList({ defaultLocationId }: { defaultLocationId?: st
                 <TableCell>{r.vehicleType.name}</TableCell>
                 <TableCell>{r.vehicle?.assignedId}</TableCell>
                 <TableCell>{status(r.status)}</TableCell>
-              </TableRow>
+              </LinkRow>
             ))}
           </TableBody>
         </Table>

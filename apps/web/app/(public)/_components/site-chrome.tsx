@@ -59,7 +59,7 @@ export function SiteHeader() {
     >
       <div className="mx-auto flex h-(--header-height) max-w-[1280px] items-center gap-6 px-4 sm:px-8">
         <Link href="/" aria-label="Mr. Rent A Car home" className="shrink-0 rounded-control focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:outline-none">
-          <BrandLogo />
+          <BrandLogo className="h-8 sm:h-9" />
         </Link>
 
         <nav aria-label="Main" className="hidden h-full items-stretch gap-1 lg:flex">
@@ -153,7 +153,7 @@ export function SiteFooter() {
       <div className="mx-auto max-w-[1280px] px-4 pt-14 pb-8 sm:px-8">
         <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-12">
           <div className="space-y-4 lg:col-span-4">
-            <BrandLogo />
+            <BrandLogo className="h-9" />
             <p className="max-w-sm text-[15px] leading-relaxed text-muted-foreground">
               A locally owned car rental company serving Metro Vancouver and Calgary since 1996. Premium service at every price point.
             </p>

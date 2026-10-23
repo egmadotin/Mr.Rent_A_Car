@@ -14,6 +14,7 @@ import { NativeSelect } from "@mrac/ui/components/native-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@mrac/ui/components/table";
 import { ListSearch, ListStatusRow, useListState } from "../../../_components/list-kit";
 import { Pagination } from "../../../_components/pagination";
+import { LinkRow } from "../../../_components/link-row";
 
 type Status = VehicleStatusValue;
 
@@ -63,7 +64,7 @@ export function VehiclesList({ initialStatus }: { initialStatus?: string }) {
           <TableBody>
             <ListStatusRow colSpan={9} loading={isLoading} empty={data?.rows.length === 0} emptyText="No vehicles match." />
             {data?.rows.map((v) => (
-              <TableRow key={v.id}>
+              <LinkRow key={v.id} href={`/admin/vehicles/${v.id}`}>
                 <TableCell>
                   <Link href={`/admin/vehicles/${v.id}`} className="font-medium text-primary hover:underline">{v.assignedId}</Link>
                 </TableCell>
@@ -87,7 +88,7 @@ export function VehiclesList({ initialStatus }: { initialStatus?: string }) {
                     </span>
                   )}
                 </TableCell>
-              </TableRow>
+              </LinkRow>
             ))}
           </TableBody>
         </Table>

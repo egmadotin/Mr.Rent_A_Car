@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { LinkRow } from "../../../_components/link-row";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useTRPC } from "@mrac/api/client";
 import { Card } from "@mrac/ui/components/card";
@@ -173,10 +174,10 @@ export function RentalsList({ initialStatus, defaultLocationId }: { initialStatu
             {data?.rows.map((r) => {
               const c = row(r);
               return (
-                <TableRow key={r.id}>
+                <LinkRow key={r.id} href={`/admin/rentals/${r.id}`}>
                   <TableCell><Link href={`/admin/rentals/${r.id}`} className="font-medium text-primary hover:underline">{r.raNumber}</Link></TableCell>
                   {c.slice(1).map((v, i) => <TableCell key={i}>{v}</TableCell>)}
-                </TableRow>
+                </LinkRow>
               );
             })}
           </TableBody>

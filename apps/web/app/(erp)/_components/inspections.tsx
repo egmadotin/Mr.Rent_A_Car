@@ -14,6 +14,7 @@ import { dateTime, fromDateTimeLocal, toDateTimeLocal } from "@mrac/ui/lib/forma
 import { ConfirmAction } from "./confirm-action";
 import { Field, FormDialog, SelectField, TextareaField, errorMessage } from "./form";
 import { NO_PERMISSION, useCan } from "./permissions";
+import { LinkRow } from "./link-row";
 
 /**
  * Vehicle Inspection, Reservation Inspection, Inspection Comparison and Customer Reported Damages — RentCentric's list
@@ -246,7 +247,7 @@ export function InspectionComparisonPanel({ vehicleId, rentalId }: { vehicleId?:
             </TableHeader>
             <TableBody>
               {rows.map((r) => (
-                <TableRow key={r.rentalId}>
+                <LinkRow key={r.rentalId} href={`/admin/rentals/${r.rentalId}`}>
                   <TableCell className="align-top">{r.customer}</TableCell>
                   <TableCell className="align-top"><Link className="text-primary hover:underline" href={`/admin/rentals/${r.rentalId}`}>{r.raNumber}</Link></TableCell>
                   <TableCell className="align-top">{dateTime(r.pickup)}</TableCell>
@@ -258,7 +259,7 @@ export function InspectionComparisonPanel({ vehicleId, rentalId }: { vehicleId?:
                       {r.otherImages.length > 0 && <div className="md:col-span-2"><p className="mb-1 text-xs font-semibold text-muted-foreground">Other</p><Thumbs images={r.otherImages} /></div>}
                     </div>
                   </TableCell>
-                </TableRow>
+                </LinkRow>
               ))}
             </TableBody>
           </Table>

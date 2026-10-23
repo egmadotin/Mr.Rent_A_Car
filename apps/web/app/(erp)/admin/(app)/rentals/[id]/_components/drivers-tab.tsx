@@ -16,6 +16,7 @@ import { ConfirmAction } from "../../../../../_components/confirm-action";
 import { errorMessage } from "../../../../../_components/form";
 import { Empty, Section } from "./section-kit";
 import { useRentalActions, type RentalData } from "./use-rental";
+import { LinkRow } from "../../../../../_components/link-row";
 
 export function DriversTab({ data, show }: { data: RentalData; show?: string }) {
   const on = (k: string) => !show || show === k;
@@ -43,7 +44,7 @@ export function DriversTab({ data, show }: { data: RentalData; show?: string }) 
               </TableHeader>
               <TableBody>
                 {r.drivers.map((d) => (
-                  <TableRow key={d.id}>
+                  <LinkRow key={d.id} href={`/admin/customers/${d.customerId}`}>
                     <TableCell>
                       <Link href={`/admin/customers/${d.customerId}`} className="text-primary hover:underline">
                         {fullName(d.customer)}
@@ -63,7 +64,7 @@ export function DriversTab({ data, show }: { data: RentalData; show?: string }) 
                         <UserMinusIcon />
                       </Button>
                     </TableCell>
-                  </TableRow>
+                  </LinkRow>
                 ))}
               </TableBody>
             </Table>

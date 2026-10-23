@@ -12,6 +12,7 @@ import { Input } from "@mrac/ui/components/input";
 import { NativeSelect } from "@mrac/ui/components/native-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@mrac/ui/components/table";
 import { date } from "@mrac/ui/lib/format";
+import { LinkRow } from "../../../../_components/link-row";
 
 const CALC: Record<string, string> = { HOUR_24: "24Hour", CALENDAR_DAY: "CalenderDay", FLAT: "Flat" };
 
@@ -54,7 +55,7 @@ export function RatesList({ defaultLocationId }: { defaultLocationId?: string })
           <TableBody>
             {isLoading && <TableRow><TableCell colSpan={9} className="py-8 text-center text-muted-foreground">Loading…</TableCell></TableRow>}
             {data?.map((r) => (
-              <TableRow key={r.id}>
+              <LinkRow key={r.id} href={`/admin/settings/rates/${r.id}`}>
                 <TableCell><Link href={`/admin/settings/rates/${r.id}`} className="font-medium text-primary hover:underline">{r.code}</Link></TableCell>
                 <TableCell className="text-muted-foreground">{r.location.name}</TableCell>
                 <TableCell>{r.rateType}</TableCell>
@@ -66,7 +67,7 @@ export function RatesList({ defaultLocationId }: { defaultLocationId?: string })
                 <TableCell className="text-right tabular-nums">{r._count.values}</TableCell>
                 <TableCell>{r.displayOnline ? <Badge variant="info">Yes</Badge> : "No"}</TableCell>
                 <TableCell>{r.isActive ? "Yes" : <Badge variant="muted">No</Badge>}</TableCell>
-              </TableRow>
+              </LinkRow>
             ))}
           </TableBody>
         </Table>

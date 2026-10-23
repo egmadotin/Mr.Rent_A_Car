@@ -18,6 +18,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { FormAlert } from "../../../../_components/booking-kit";
 import { CheckField, Field, FormErrorsContext, SelectField, TextareaField, errorMessage, fieldErrorsOf, formToObject } from "../../../../_components/form";
 import { ListStatusRow } from "../../../../_components/list-kit";
+import { LinkRow } from "../../../../_components/link-row";
 
 /** Settings > Vehicle Setup > Vehicle Types: every class and the locations that offer it. */
 export function VehicleTypesList() {
@@ -58,7 +59,7 @@ export function VehicleTypesList() {
           <TableBody>
             <ListStatusRow colSpan={8} loading={isLoading} empty={!isLoading && shown.length === 0} emptyText="No vehicle types match." />
             {shown.map((t) => (
-              <TableRow key={t.id}>
+              <LinkRow key={t.id} href={`/admin/settings/vehicle-types/${t.id}`}>
                 <TableCell>{t.imageKey ? <img src={t.imageKey} alt="" className="h-8 w-14 rounded bg-white object-contain" /> : null}</TableCell>
                 <TableCell><Link href={`/admin/settings/vehicle-types/${t.id}`} className="font-medium text-primary hover:underline">{t.name}</Link></TableCell>
                 <TableCell>{t.code}</TableCell>
@@ -69,7 +70,7 @@ export function VehicleTypesList() {
                 </TableCell>
                 <TableCell className="text-right tabular-nums">{t._count.vehicles}</TableCell>
                 <TableCell>{t.isActive ? <Badge variant="success">Active</Badge> : <Badge variant="muted">Inactive</Badge>}</TableCell>
-              </TableRow>
+              </LinkRow>
             ))}
           </TableBody>
         </Table>

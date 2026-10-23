@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { date, fullName } from "@mrac/ui/lib/format";
 import { ListSearch, ListStatusRow, useListState } from "../../../_components/list-kit";
 import { Pagination } from "../../../_components/pagination";
+import { LinkRow } from "../../../_components/link-row";
 
 type Filter = "all" | "active" | "inactive" | "undesired";
 
@@ -58,7 +59,7 @@ export function CustomersList() {
           <TableBody>
             <ListStatusRow colSpan={9} loading={isLoading} empty={data?.rows.length === 0} emptyText="No customers match." />
             {data?.rows.map((c) => (
-              <TableRow key={c.id}>
+              <LinkRow key={c.id} href={`/admin/customers/${c.id}`}>
                 <TableCell>
                   <Link href={`/admin/customers/${c.id}`} className="font-medium text-primary hover:underline">{fullName(c)}</Link>
                   {c.isUndesired && <Badge variant="destructive" className="ml-2">Undesired</Badge>}
@@ -71,7 +72,7 @@ export function CustomersList() {
                 <TableCell>{c.postal ?? "—"}</TableCell>
                 <TableCell>{new Date(c.createdAt).toLocaleDateString("en-CA")}</TableCell>
                 <TableCell>{c.isActive ? "Yes" : <Badge variant="muted">No</Badge>}</TableCell>
-              </TableRow>
+              </LinkRow>
             ))}
           </TableBody>
         </Table>

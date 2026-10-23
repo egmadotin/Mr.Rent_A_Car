@@ -1,12 +1,14 @@
+/* eslint-disable @next/next/no-img-element -- static brand asset served from the app's public/ folder */
 import { cn } from "../lib/utils";
 
+const LOGO = "/legacy/logo.webp?v=4";
+const LOGO_WHITE = "/legacy/mrac-white-logo.png?v=4";
+
 /**
- * The Mr. Rent A Car wordmark, set in Inter ExtraBold with "Mr." in brand red
- * (champagne on onyx), per the design system until the logo files are added.
- * Size it with a text-* class; the default suits a 76px header.
+ * The Mr. Rent A Car logo (public/legacy/logo.webp). Size it with a height class (default h-9).
  *
- * variant: "auto"/"light" → ink on light grounds; "white" → white on dark grounds;
- * "signature" → on-onyx with a champagne "Mr.".
+ * variant: "auto" → colour logo, white version in dark mode; "light" → always the colour logo;
+ * "white" / "signature" → the white version, for dark grounds.
  */
 export function BrandLogo({
   className,
@@ -15,35 +17,24 @@ export function BrandLogo({
   className?: string;
   variant?: "auto" | "light" | "white" | "signature";
 }) {
+  const base = cn("h-9 w-auto max-w-full shrink-0 object-contain select-none", className);
+  if (variant === "white" || variant === "signature") return <img src={LOGO_WHITE} alt="Mr. Rent A Car" className={base} draggable={false} />;
+  if (variant === "light") return <img src={LOGO} alt="Mr. Rent A Car" className={base} draggable={false} />;
   return (
-    <span
-      role="img"
-      aria-label="Mr. Rent A Car"
-      className={cn(
-        "inline-flex items-baseline text-[22px] leading-none font-extrabold tracking-[-0.045em] whitespace-nowrap select-none",
-        variant === "white" ? "text-white" : variant === "signature" ? "text-on-onyx" : "text-foreground",
-        className,
-      )}
-    >
-      <span aria-hidden className={variant === "signature" ? "text-champagne" : variant === "white" ? "text-[#ff5b53]" : "text-brand"}>
-        Mr.
-      </span>
-      <span aria-hidden>&nbsp;Rent A Car</span>
-    </span>
+    <>
+      <img src={LOGO} alt="Mr. Rent A Car" className={cn(base, "dark:hidden")} draggable={false} />
+      <img src={LOGO_WHITE} alt="Mr. Rent A Car" className={cn(base, "hidden dark:block")} draggable={false} />
+    </>
   );
 }
 
-/** The badge alone (app icon / collapsed sidebar / favicon): a red rounded square with "M". */
+/** The badge alone (collapsed sidebar, app icon): the car badge at the right end of the logo. */
 export function BrandMark({ className }: { className?: string }) {
   return (
     <span
       aria-hidden
-      className={cn(
-        "grid size-9 shrink-0 place-items-center rounded-[10px] bg-brand text-[17px] leading-none font-extrabold tracking-[-0.06em] text-on-brand",
-        className,
-      )}
-    >
-      M
-    </span>
+      className={cn("block size-9 shrink-0 bg-no-repeat", className)}
+      style={{ backgroundImage: `url("${LOGO}")`, backgroundSize: "auto 100%", backgroundPosition: "right center" }}
+    />
   );
 }

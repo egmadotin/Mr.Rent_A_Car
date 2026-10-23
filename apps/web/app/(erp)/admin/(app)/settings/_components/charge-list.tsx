@@ -12,6 +12,7 @@ import { Input } from "@mrac/ui/components/input";
 import { NativeSelect } from "@mrac/ui/components/native-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@mrac/ui/components/table";
 import { money } from "@mrac/ui/lib/format";
+import { LinkRow } from "../../../../_components/link-row";
 
 const CALC_LABEL: Record<string, string> = { HOUR_24: "24Hour", CALENDAR_DAY: "CalenderDay", FLAT: "Flat", PERCENT: "Percentage" };
 
@@ -66,7 +67,7 @@ export function ChargeList({ kind, defaultLocationId }: { kind: "misc" | "insura
             {loading && <TableRow><TableCell colSpan={7} className="py-8 text-center text-muted-foreground">Loading…</TableCell></TableRow>}
             {!loading && rows.length === 0 && <TableRow><TableCell colSpan={7} className="py-8 text-center text-muted-foreground">Nothing matches.</TableCell></TableRow>}
             {rows.map((r) => (
-              <TableRow key={r.id}>
+              <LinkRow key={r.id} href={`${base}/${r.id}`}>
                 <TableCell><Link href={`${base}/${r.id}`} className="font-medium text-primary hover:underline">{r.name}</Link></TableCell>
                 <TableCell className="max-w-48 truncate text-muted-foreground">{r.code}</TableCell>
                 <TableCell className="text-right tabular-nums">{r.price}</TableCell>
@@ -79,7 +80,7 @@ export function ChargeList({ kind, defaultLocationId }: { kind: "misc" | "insura
                   {r.group && <Badge variant="outline">{r.group}</Badge>}
                 </TableCell>
                 <TableCell>{r.active ? "Yes" : <Badge variant="muted">No</Badge>}</TableCell>
-              </TableRow>
+              </LinkRow>
             ))}
           </TableBody>
         </Table>
