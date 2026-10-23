@@ -96,7 +96,7 @@ export function BookingWidget({
         variant === "hero" && "rounded-xl border bg-card/95 p-5 shadow-xl backdrop-blur md:p-6",
         variant === "panel" && "rounded-xl border bg-card p-5 shadow-sm",
         variant === "bar" && "rounded-2xl border bg-card p-4 shadow-[0_20px_50px_-20px_rgba(45,44,44,0.35)] md:p-5",
-        compact ? "sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_0.8fr_1fr_0.8fr_auto] lg:items-end" : "sm:grid-cols-2",
+        compact ? "sm:grid-cols-2 lg:grid-cols-[1.2fr_1.2fr_1fr_0.8fr_1fr_0.8fr_auto] lg:items-end" : "sm:grid-cols-2",
         className,
       )}
     >
@@ -113,6 +113,23 @@ export function BookingWidget({
           </label>
         )}
       </div>
+
+      {compact && (
+        <div className={field}>
+          <Label htmlFor="bw-return" className={label}><MapPinIcon className="size-3.5" /> Drop-off location</Label>
+          <NativeSelect
+            id="bw-return"
+            value={sameReturn ? "" : ret || pickup}
+            onChange={(e) => {
+              setSameReturn(e.target.value === "");
+              setRet(e.target.value);
+            }}
+          >
+            <option value="">Same as pick-up</option>
+            {locations?.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+          </NativeSelect>
+        </div>
+      )}
 
       {!sameReturn && !compact && (
         <div className={cn(field, "sm:col-span-2")}>
