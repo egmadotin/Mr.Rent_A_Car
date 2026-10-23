@@ -111,7 +111,7 @@ export default async function HomePage() {
       )}
 
       {/* ── Call to action, half over the dark footer ──────────────────────── */}
-      <section className="-mb-16 bg-[linear-gradient(to_bottom,white_55%,#2D2C2C_55%)] px-4 pb-16">
+      <section className="-mb-16 bg-[linear-gradient(to_bottom,white_55%,#242323_55%)] px-4 pb-16">
         <div className="relative mx-auto grid max-w-6xl items-center gap-6 overflow-hidden rounded-3xl bg-[#9D302D] bg-[linear-gradient(135deg,rgba(157,48,45,0.95),rgba(120,36,34,0.98)),url('/assest/pattern%20bg.png')] bg-[length:auto,280px_auto] p-8 text-white md:grid-cols-2 md:p-12">
           <img src={HERO_CAR} alt="" className="w-full max-w-md rounded-2xl bg-white/95 p-3 md:justify-self-start" />
           <div>

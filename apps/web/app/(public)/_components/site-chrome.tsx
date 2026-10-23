@@ -109,7 +109,7 @@ export function SiteFooter() {
       <div className="pointer-events-none absolute -top-40 left-1/2 h-80 w-[60rem] -translate-x-1/2 rounded-full bg-[#9D302D]/10 blur-3xl" />
 
       {/* Main Footer Content */}
-      <div className="relative mx-auto max-w-7xl px-4 pt-16 pb-8 sm:px-6 lg:px-8">
+      <div className="relative mx-auto max-w-7xl px-4 pt-28 pb-8 sm:px-6 md:pt-36 lg:px-8">
         <div className="grid grid-cols-1 gap-10 md:grid-cols-2 lg:grid-cols-12 lg:gap-8">
           {/* Col 1: Brand & Identity (4 cols) */}
           <div className="space-y-5 lg:col-span-4">
@@ -265,11 +265,16 @@ export function SiteFooter() {
           </div>
 
           <div
-            className="group relative select-none font-black tracking-tighter uppercase leading-[0.8] transition-all duration-700"
+            className="group relative select-none font-black tracking-tighter uppercase transition-all duration-700"
             style={{ fontFamily: "var(--font-sans), sans-serif" }}
           >
-            <span className="block text-[11.5vw] sm:text-[13vw] md:text-[14.5vw] lg:text-[15.5vw] bg-gradient-to-b from-white/[0.24] via-white/[0.09] to-white/[0.02] bg-clip-text text-transparent group-hover:from-white/[0.42] group-hover:via-white/[0.18] transition-all duration-700">
+            {/* Desktop & Tablet: Unbroken horizontal statement */}
+            <span className="hidden sm:block text-[9.5vw] md:text-[10.2vw] lg:text-[10.8vw] leading-none whitespace-nowrap bg-gradient-to-b from-white/[0.28] via-white/[0.12] to-white/[0.02] bg-clip-text text-transparent group-hover:from-white/[0.48] group-hover:via-white/[0.22] transition-all duration-700">
               MR. RENT A CAR
+            </span>
+            {/* Mobile: 2 stacked impactful lines */}
+            <span className="block sm:hidden text-[17vw] leading-[0.82] bg-gradient-to-b from-white/[0.28] via-white/[0.12] to-white/[0.02] bg-clip-text text-transparent">
+              MR. RENT<br />A CAR
             </span>
           </div>
         </div>
