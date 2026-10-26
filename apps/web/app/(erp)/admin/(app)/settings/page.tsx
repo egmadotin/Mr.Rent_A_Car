@@ -11,10 +11,10 @@ export const metadata = { title: "Settings" };
 const CATEGORIES: SettingsCategory[] = [
   { title: "Location Information", items: [
     { label: "Locations", href: "/admin/settings/locations", desc: "Location name, address, phone, active and on-website flags" },
-    { label: "Add Location" },
+    { label: "Add Location", href: "/admin/settings/locations", desc: "Add Location on the Locations page" },
     { label: "Offsite Locations", href: "/admin/settings/offsite-locations", desc: "Additional pickup/return points that are not full locations" },
     { label: "Hours Of Operation", href: "/admin/settings/hours", desc: "Opening hours per weekday" },
-    { label: "Upload Logo" },
+    { label: "Upload Logo", href: "/admin/settings/locations", desc: "The Logo field on each location" },
     { label: "Customer Areas/Regions", href: "/admin/settings/lists/regions" },
   ] },
   { title: "Users", items: [{ label: "Users", href: "/admin/settings/users", desc: "Staff accounts: group, default location, admin, active, password reset" }, { label: "User Groups & Permissions", href: "/admin/settings/user-groups", desc: "What each group may do (RentCentric's permission list), max discount, location" }] },
@@ -54,7 +54,7 @@ const CATEGORIES: SettingsCategory[] = [
   { title: "SMS Notification", items: [{ label: "SMS Notification" }] },
   { title: "Point Of Sale", items: [{ label: "Point Of Sale" }] },
   { title: "Email Marketing", items: [{ label: "Send Marketing Email", href: "/admin/settings/marketing-email", desc: "Email a group of customers (birthdays, new customers, on rent, …) with an unsubscribe link" }, { label: "Email Template" }] },
-  { title: "Tasks Messages", items: [{ label: "Tasks Messages" }] },
+  { title: "Tasks Messages", items: [{ label: "Tasks Messages", href: "/admin/tasks", desc: "My Tasks, Add Task and the Tasks List" }] },
 ];
 
 export default async function SettingsPage() {
