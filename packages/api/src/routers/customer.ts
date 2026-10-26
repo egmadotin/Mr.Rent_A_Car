@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { checkPromo, promoDiscount } from "../lib/promo";
 import { checkUnsubscribe } from "../lib/unsubscribe";
 import { sendReservationEmail } from "../lib/booking-emails";
+import { notifyNewReservation } from "../lib/sms-notify";
 import { Prisma } from "@mrac/db";
 import { router, publicProcedure } from "../trpc";
 import { onlineOptions, periodTotal, pickOnlineRate, priceBooking } from "../lib/pricing";
@@ -427,6 +428,7 @@ export const customerRouter = router({
       } catch (e) {
         await ctx.prisma.memo.create({ data: { reservationId: res.id, kind: "NOTE", body: `Reservation email to ${input.email} not sent: ${(e as Error).message}` } });
       }
+      await notifyNewReservation(ctx.prisma, res.id);
       return booked;
     }),
 });

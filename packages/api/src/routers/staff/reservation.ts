@@ -12,6 +12,7 @@ import { storedRateOverride } from "../../lib/rate-override";
 import { customerInput, upsertBookingCustomer } from "../../lib/customer-input";
 import { billSplitData, billSplitInput, transportInput } from "../../lib/bill-split";
 import { sendReservationEmail } from "../../lib/booking-emails";
+import { notifyNewReservation } from "../../lib/sms-notify";
 import { syncDrivers } from "../../lib/booking-drivers";
 
 const D = (n: number) => new Prisma.Decimal(n);
@@ -427,6 +428,7 @@ export const reservationRouter = router({
       await requireLocationAccess(ctx.prisma, ctx.user.id, input.locationId);
       const id = await ctx.prisma.$transaction((tx) => writeBooking(tx, ctx.user.id, input));
       if (input.sendConfirmationEmail) await sendConfirmation(ctx.prisma, id, input.customer.email, ctx.user.id);
+      await notifyNewReservation(ctx.prisma, id);
       return { id };
     }),
   ),

@@ -218,6 +218,7 @@ model Location {
   commissionStructures CommissionStructure[]
   reservationEmail     ReservationEmailSetup?
   offsiteLocations     OffsiteLocation[]
+  smsNotificationUsers SmsNotificationUser[]
 }
 
 /// Settings > Location Information > Hours Of Operation
@@ -1725,28 +1726,53 @@ model DocumentTemplate {
 
 /// Settings > Website & Email Setup > Email Setup: the SMTP account outgoing email is sent from. One row.
 model EmailSettings {
-  id                String   @id @default("default")
-  isActive          Boolean  @default(false)
-  host              String?
-  port              Int      @default(587)
+  id                  String   @id @default("default")
+  isActive            Boolean  @default(false)
+  host                String?
+  port                Int      @default(587)
   /// true = TLS from the start (port 465); false = STARTTLS when offered (587)
-  secure            Boolean  @default(false)
-  username          String?
-  passwordEnc       String?
-  fromName          String?  @default("Mr Rent A Car")
-  fromEmail         String?
+  secure              Boolean  @default(false)
+  username            String?
+  passwordEnc         String?
+  fromName            String?  @default("Mr Rent A Car")
+  fromEmail           String?
   /// copy every email sent to this address (optional)
-  bccEmail          String?
-  updatedAt         DateTime @updatedAt
-  updatedById       String?
+  bccEmail            String?
+  updatedAt           DateTime @updatedAt
+  updatedById         String?
   /// Settings > Inspection Email (InspectionCustomerEmail.aspx): the email that sends a customer their inspection photos
-  inspectionSubject String   @default("Inspection Info")
-  inspectionBody    String   @default("")
+  inspectionSubject   String   @default("Inspection Info")
+  inspectionBody      String   @default("")
   /// Settings > Rental Policies (WebCustomerRentalPolicies.aspx, "Master Policies"): shown to online customers before "I accept the rental policy" (HTML)
-  rentalPolicies    String   @default("")
+  rentalPolicies      String   @default("")
   /// Settings > Quote Email (QuoteCustomerEmail.aspx): Subject and body (HTML with RentCentric's web-email codes); an empty body emails the Quote template instead
-  quoteSubject      String   @default("Quote")
-  quoteBody         String   @default("")
+  quoteSubject        String   @default("Quote")
+  quoteBody           String   @default("")
+  /// Settings > SMS Notifications Setup (SMSNotificationMain.aspx): texts to staff (SMS Notification Users), sent as email to their carrier's gateway
+  smsNewResEnabled    Boolean  @default(false)
+  smsNewResMessage    String   @default("")
+  smsDashboardEnabled Boolean  @default(false)
+  smsDashboardMessage String   @default("")
+  /// "Add Notification Times" for the real-time dashboard text, "HH:mm"
+  smsDashboardTimes   String[] @default([])
+}
+
+/// Settings > SMS Notification Users (SMSNotificationUsersMain.aspx / SMSNotificationModify.aspx)
+model SmsNotificationUser {
+  id                String    @id @default(cuid())
+  name              String
+  /// mobile number, digits only
+  phone             String
+  /// carrier, as RentCentric's SMS Providers list ("Rogers Wireless(Canada)")
+  provider          String
+  email             String?
+  /// only reservations at this location (null = all)
+  locationId        String?
+  location          Location? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  newReservation    Boolean   @default(true)
+  realtimeDashboard Boolean   @default(false)
+  isActive          Boolean   @default(true)
+  createdAt         DateTime  @default(now())
 }
 
 /// Settings > Reservation Email (WebCustomerEmailSetup.aspx), per location: the email a customer gets for an online booking

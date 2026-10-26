@@ -5,6 +5,8 @@ import { audit } from "../../lib/audit";
 import { sendMail } from "../../lib/mailer";
 import { encryptSecret } from "../../lib/secrets";
 import { emailDocument } from "../../lib/email-document";
+import { SMS_GATEWAYS, sendSms, smsGateway } from "../../lib/sms";
+import { DASHBOARD_KEYWORDS, NEW_RES_KEYWORDS } from "../../lib/sms-notify";
 
 const optEmail = z.preprocess((v) => (v === "" ? null : v), z.string().trim().email("Enter a valid email").nullable());
 const KINDS = ["AGREEMENT", "RESERVATION", "QUOTE"] as const;
@@ -109,6 +111,60 @@ export const emailRouter = router({
     .mutation(async ({ ctx, input }) => {
       await ctx.prisma.emailSettings.upsert({ where: { id: "default" }, create: { id: "default", quoteSubject: input.subject, quoteBody: input.body }, update: { quoteSubject: input.subject, quoteBody: input.body } });
     }),
+
+  /** Settings > SMS Notifications Setup (SMSNotificationMain.aspx) and SMS Notification Users. */
+  smsSettings: staffProcedure.query(async ({ ctx }) => {
+    const s = await ctx.prisma.emailSettings.findUnique({ where: { id: "default" }, select: { smsNewResEnabled: true, smsNewResMessage: true, smsDashboardEnabled: true, smsDashboardMessage: true, smsDashboardTimes: true } });
+    const users = await ctx.prisma.smsNotificationUser.findMany({ orderBy: { name: "asc" }, include: { location: { select: { name: true } } } });
+    return {
+      newResEnabled: s?.smsNewResEnabled ?? false, newResMessage: s?.smsNewResMessage ?? "", dashboardEnabled: s?.smsDashboardEnabled ?? false,
+      dashboardMessage: s?.smsDashboardMessage ?? "", dashboardTimes: s?.smsDashboardTimes ?? [], users,
+      providers: SMS_GATEWAYS.map(([name, gateway]) => ({ name, gateway })), newResKeywords: NEW_RES_KEYWORDS, dashboardKeywords: DASHBOARD_KEYWORDS,
+    };
+  }),
+
+  smsSettingsSave: permitted("Settings")
+    .input(
+      z.object({
+        newResEnabled: z.boolean(), newResMessage: z.string().max(1000), dashboardEnabled: z.boolean(), dashboardMessage: z.string().max(1000),
+        dashboardTimes: z.array(z.string().regex(/^\d{2}:\d{2}$/, "Times as HH:MM")).max(24),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const data = { smsNewResEnabled: input.newResEnabled, smsNewResMessage: input.newResMessage, smsDashboardEnabled: input.dashboardEnabled, smsDashboardMessage: input.dashboardMessage, smsDashboardTimes: [...new Set(input.dashboardTimes)].sort() };
+      await ctx.prisma.emailSettings.upsert({ where: { id: "default" }, create: { id: "default", ...data }, update: data });
+    }),
+
+  smsUserSave: permitted("Settings")
+    .input(
+      z.object({
+        id: z.string().optional(),
+        name: z.string().trim().min(1, "Username is required").max(100),
+        phone: z.string().trim().transform((v) => v.replace(/\D/g, "")).refine((v) => v.length >= 10 && v.length <= 15, "Mobile Phone: numbers only, 10 digits or more"),
+        provider: z.string().refine((v) => !!smsGateway(v), "Choose a provider"),
+        email: optEmail.optional(),
+        locationId: z.string().optional().nullable().transform((v) => v || null),
+        newReservation: z.boolean(), realtimeDashboard: z.boolean(), isActive: z.boolean(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { id, ...data } = input;
+      const u = id ? await ctx.prisma.smsNotificationUser.update({ where: { id }, data }) : await ctx.prisma.smsNotificationUser.create({ data });
+      return { id: u.id };
+    }),
+
+  smsUserDelete: permitted("Settings").input(z.object({ id: z.string() })).mutation(async ({ ctx, input }) => {
+    await ctx.prisma.smsNotificationUser.delete({ where: { id: input.id } });
+  }),
+
+  /** SMSNotificationModify.aspx "Send SMS": a test text to the number. */
+  smsTest: permitted("Settings").input(z.object({ phone: z.string(), provider: z.string() })).mutation(async ({ ctx, input }) => {
+    try {
+      await sendSms(ctx.prisma, { phone: input.phone, provider: input.provider, text: "Test message from Mr Rent A Car.", entityType: "SmsTest", sentById: ctx.user.id });
+    } catch (e) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: (e as Error).message });
+    }
+  }),
 
   log: staffProcedure.input(z.object({ entityType: z.string(), entityId: z.string() })).query(({ ctx, input }) =>
     ctx.prisma.emailLog.findMany({ where: input, orderBy: { createdAt: "desc" }, take: 50 }),

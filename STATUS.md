@@ -52,7 +52,7 @@ The RentCentric menus, vehicle page and customer page were re-read on Oct 20. No
 | Quote view and actions | `/admin/quotes/[id]` | ✅ |
 | Make reservation, Start rental | | ✅ |
 | Email Quote | | ✅ 🔑 SMTP |
-| SMS Quote | | 🟡 logs only; needs an SMS provider |
+| SMS Quote | | ✅ as RentCentric: sent as an email to the carrier's SMS gateway (e.g. 6045551234@txt.bell.ca) — no SMS account needed 🔑 SMTP |
 | Print Quote | `/admin/print/quotes/[id]`, editable template | ✅ |
 
 ## 3. Reservations
@@ -259,6 +259,9 @@ RentCentric's Settings menu, item by item.
 | Email Marketing | Send Marketing Email | ✅ RentCentric's 7 "Select Email" groups (all customers, birthdays in a day/month range, new customers, by location, confirmed reservations, on rent, closed rentals), From Name / Email, Text or Html, Subject, attachment (5 MB), "Allow Customer To Unsubscribe" (signed link → `/unsubscribe`, ticks the customer's "Unsubscribed from email marketing"); shows the recipient count first; unsubscribed / no-email customers left out; 2,000 per send 🔑 SMTP. New routes: restart the server once |
 | Email Marketing | Email Template | ⏸ none in RentCentric (the template list is empty) |
 | Tasks & Messages | | ✅ My Tasks / Add Task / Tasks List (Email Task needs SMTP) |
+| SMS Notification | Notifications Setup, Notification Users, SMS Providers | ✅ `/admin/settings/sms-notifications`: New Reservation message (RentCentric's keywords, click to insert, Enable) texted to the Notification Users (name, mobile, provider, location, Res. Message / Real-Time Dashboard, Active, Send SMS test) on every new reservation (online or staff); RentCentric's 69 carrier gateways. Off in RentCentric (no messages set) 🔑 SMTP. Real-time dashboard message and its times are saved but not sent on a schedule yet |
+| Self Service & Car Share | Welcome Email, Welcome SMS, Registration Email, Car Share | ⏸ all blank in RentCentric (not in use) |
+| Point Of Sale | Merchandise Items, Orders | ⏸ not in use (as Merchandise above) |
 | Paperless Counter, Counter Agent Pro, Mobile Scanner | | ⬜ (hardware / integrations phase) |
 
 ## 8. Reports

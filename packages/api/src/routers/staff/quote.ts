@@ -4,6 +4,7 @@ import { Prisma } from "@mrac/db";
 import { router, staffProcedure, permitted } from "../../trpc";
 import { allowedLocationIds, requireAnyLocationAccess, requireLocationAccess } from "../../lib/location-access";
 import { sendQuoteEmail } from "../../lib/booking-emails";
+import { sendSms } from "../../lib/sms";
 import { audit } from "../../lib/audit";
 import { priceBooking } from "../../lib/pricing";
 import { bookingOptionsInput, staffPricingOptions } from "../../lib/booking-options";
@@ -223,7 +224,7 @@ export const quoteRouter = router({
   /**
    * Email Quote (EmailQuoteRW.aspx: First/Last name, Email, Cc, Phone, Notes) and SMS Quote (SMSQuoteRW.aspx:
    * First/Last name, Email, Cell phone, Provider, Message). Saves the contact on the quote and logs a memo.
-   * VERIFY: actual delivery waits for the client's email / SMS provider choice.
+   * Both go out through Settings > Email Setup (an SMS is an email to the carrier's gateway).
    */
   send: staffProcedure
     .input(
@@ -261,17 +262,19 @@ export const quoteRouter = router({
             contactPhone: input.phone || undefined,
           },
         });
-        if (input.channel === "EMAIL") return;
-        const to = `${input.phone}${input.provider ? ` via ${input.provider}` : ""}`;
-        await tx.memo.create({
-          data: {
-            quoteId: input.quoteId,
-            authorId: ctx.user.id,
-            body: `SMS quote to ${to} — queued; no SMS provider configured yet.${input.notes ? `
-${input.notes}` : ""}`,
-          },
-        });
       });
+      // SMS Quote (as RentCentric): the Message as an email to the carrier's SMS gateway; a failure is noted and shown
+      if (input.channel === "SMS") {
+        const to = `${input.phone}${input.provider ? ` via ${input.provider}` : ""}`;
+        try {
+          await sendSms(ctx.prisma, { phone: input.phone, provider: input.provider, text: input.notes ?? "", entityType: "QUOTE", entityId: input.quoteId, sentById: ctx.user.id });
+        } catch (e) {
+          await ctx.prisma.memo.create({ data: { quoteId: input.quoteId, authorId: ctx.user.id, body: `SMS quote to ${to} not sent: ${(e as Error).message}` } });
+          throw new TRPCError({ code: "BAD_REQUEST", message: (e as Error).message });
+        }
+        await ctx.prisma.memo.create({ data: { quoteId: input.quoteId, authorId: ctx.user.id, body: `Quote texted to ${to}${input.notes ? `
+${input.notes}` : ""}` } });
+      }
       // Email Quote: Settings > Quote Email (else the quote's template), Cc as a second recipient, Notes as the message
       if (input.channel === "EMAIL") {
         const to = [input.email!, input.cc].filter(Boolean).join(", ");

@@ -41,7 +41,7 @@ export function SendQuoteDialogs(c: Contact) {
       </FormDialog>
       <FormDialog
         title="SMS Quote"
-        description="No SMS provider is configured yet: the request is logged in the memo."
+        description="Sent as an email to the carrier's SMS gateway (needs Settings › Email Setup)."
         wide
         trigger={<Button variant="outline"><MessageSquareIcon /> SMS Quote</Button>}
         submitLabel="Send Message"
