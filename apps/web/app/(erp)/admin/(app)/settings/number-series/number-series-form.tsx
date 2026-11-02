@@ -96,8 +96,8 @@ export function NumberSeriesForm() {
                             onChange={(e) => setDrafts((all) => ({ ...all, [r.id]: { ...d, [field]: e.target.value } }))}
                           />
                           <p className="mt-1 text-xs text-muted-foreground tabular-nums">
-                            Next #{s.next}
-                            {s.end != null && <> · up to {s.end}</>}
+                            Next number: {s.next}
+                            {s.end != null && <> · block ends at {s.end}</>}
                           </p>
                         </td>
                       );
@@ -118,6 +118,8 @@ export function NumberSeriesForm() {
         </CardContent>
       </Card>
       <ul className="max-w-3xl list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+        <li>“Next number” is the number the next new quote / reservation / agreement at that location will get. The short name is the Location Code from Settings &gt; Locations.</li>
+        <li>Every location is listed, including inactive ones and any added later.</li>
         <li>Each location numbers from its start up to the next higher start of any location, so give each one its own block (e.g. 100001, 200001, 300001…).</li>
         <li>Blank (“Shared”) locations use the numbers below the lowest start, as before. Existing quotes, reservations and agreements keep their numbers.</li>
         <li>A start can’t be a number that’s already used in its block, so numbers never mix between locations.</li>

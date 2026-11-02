@@ -13,8 +13,8 @@ const start = z.number().int().min(1).max(2_000_000_000).nullable();
 export const numberSeriesRouter = router({
   list: staffProcedure.query(async ({ ctx }) => {
     const locs = await ctx.prisma.location.findMany({
-      where: { OR: [{ isActive: true }, { quoteNumberStart: { not: null } }, { reservationNumberStart: { not: null } }, { rentalNumberStart: { not: null } }] },
-      orderBy: { name: "asc" },
+      // every location in the database, so a location added later shows up here on its own; inactive ones last
+      orderBy: [{ isActive: "desc" }, { name: "asc" }],
       select: { id: true, name: true, code: true, isActive: true, quoteNumberStart: true, reservationNumberStart: true, rentalNumberStart: true },
     });
     const all = await ctx.prisma.location.findMany({ select: { quoteNumberStart: true, reservationNumberStart: true, rentalNumberStart: true } });
