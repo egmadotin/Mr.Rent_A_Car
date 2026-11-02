@@ -50,7 +50,8 @@ echo.
 
 :: 4. Choose the mode
 echo [4/5] How do you want to run it?
-echo     1 = FAST  - builds once (a few minutes), then every page opens instantly. Use this for testing.
+echo     1 = FAST  - builds once (about 8 minutes), then every page opens instantly. Use this for testing.
+echo                 After new code is pulled, run rebuild.bat to update it.
 echo     2 = DEV   - starts right away, code edits show live, but each page is slow the first time.
 choice /c 12 /n /t 15 /d 1 /m "Press 1 or 2 (FAST in 15 seconds): "
 set MODE=%ERRORLEVEL%
@@ -58,7 +59,7 @@ echo.
 
 if "%MODE%"=="1" (
     echo Building the app - this takes a few minutes...
-    docker compose exec -T dev sh -c "cd apps/web && npx next build --no-lint"
+    docker compose exec -T -e SKIP_TYPECHECK=1 -e NODE_OPTIONS=--max-old-space-size=3072 dev sh -c "cd apps/web && npx next build --no-lint"
     if errorlevel 1 (
         echo.
         echo [ERROR] Build failed - see the messages above.

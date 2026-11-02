@@ -10,6 +10,8 @@ const nextConfig: NextConfig = {
   transpilePackages: ["@mrac/ui", "@mrac/api", "@mrac/auth", "@mrac/db"],
   serverExternalPackages: ["@prisma/client"],
   devIndicators: { position: "bottom-right" },
+  // FAST mode (start.bat 1 / rebuild.bat): every change is already type-checked on its own, so the local build can skip it
+  typescript: { ignoreBuildErrors: process.env.SKIP_TYPECHECK === "1" },
   // Dev in Docker on Windows uses file polling: don't watch folders that never hold app code (they are large and slow it down)
   webpack(config, { dev }) {
     if (dev)

@@ -37,6 +37,7 @@ The RentCentric menus, vehicle page and customer page were re-read on Oct 20. No
 | Card payments (Stripe) | ✅ built, 🔑 needs Stripe keys |
 | Data migration from RentCentric | 🟡 setup data copied; customers / bookings history not yet. `sync-data.bat` copies the local setup data + the 23 RentCentric vehicles to the live server (no customers, bookings or test records; live database backed up first, then replaced) |
 | File storage (photos, documents) | ✅ staff-only `/api/files`; local disk (`.uploads/`) in dev, any S3-compatible bucket (AWS S3, Cloudflare R2 …) when `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` are set — to verify against the real bucket at deployment. New route: restart the server (start.bat) once to pick it up |
+| Local testing | ✅ start.bat 1 = FAST: a production build (about 8 minutes, type check skipped as every change is checked on its own) where every page opens in under a second; `rebuild.bat` stops the server, applies new migrations, rebuilds and restarts after new code. DEV mode (2) shows edits live but each page takes 10–90 s the first time (Docker on Windows reads D: slowly); Turbopack was tried and doesn't see edits there |
 | Hosting / deployment | 🟡 production Docker setup + deploy.bat ready (VPS 145.223.18.134, port 3100, pulls from GitHub via a read-only deploy key — key to add on GitHub); the client deploys. kawa stopped and archived in /opt/platform/archive |
 
 ---
