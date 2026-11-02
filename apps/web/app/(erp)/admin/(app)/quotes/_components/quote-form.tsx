@@ -25,14 +25,18 @@ export type QuoteFormInitial = { quoteId?: string; values: Values; options?: Boo
  * Add/Edit Quote — exactly the fields of RentCentric QuotesModify.aspx, in its order:
  * Pickup Date*, Return Date*, Pickup Location*, Return Location*, Company (search), Vehicle Type*, Rate*,
  * Discount % (blank / % / $ + value), Referral (+ Quick Referral Add), the Option Name / Type / Rate grid,
- * Add/Edit Other Charges, Generate. The customer's name / email / phone are entered on Email / SMS Quote,
- * as in RentCentric; an existing contact is kept when editing.
+ * Add/Edit Other Charges — plus the customer's First / Last Name, Email and Phone (client request: editable here, not
+ * only on Email / SMS Quote). Two buttons: Generate saves and stays here with the charges shown (options still
+ * editable, Generate again updates the same quote); Save saves and opens the quote.
  */
 export function QuoteForm({ initial, defaultLocationId }: { initial?: QuoteFormInitial; defaultLocationId?: string }) {
   const trpc = useTRPC();
   const client = useTRPCClient();
   const router = useRouter();
-  const editing = !!initial?.quoteId;
+  // the quote this form writes to: set by the first Generate on a new quote, then updated in place
+  const [quoteId, setQuoteId] = React.useState(initial?.quoteId);
+  const editing = !!quoteId;
+  const generated = useQuery({ ...trpc.staff.quote.byId.queryOptions({ quoteId: quoteId ?? "" }), enabled: !!quoteId });
   const o = useQuery(trpc.staff.reservation.formOptions.queryOptions()).data;
   const [v, setV] = React.useState<Values>(() => ({
     pickupLocationId: defaultLocationId ?? "",
@@ -67,8 +71,9 @@ export function QuoteForm({ initial, defaultLocationId }: { initial?: QuoteFormI
     if (bo.data && v.rateId && !bo.data.rates.some((r) => r.id === v.rateId)) set("rateId", "");
   }, [bo.data, v.rateId]);
 
-  async function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    const action = ((e.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null)?.value === "generate" ? "generate" : "save";
     setPending(true);
     setErrors({});
     setFormError(null);
@@ -83,7 +88,6 @@ export function QuoteForm({ initial, defaultLocationId }: { initial?: QuoteFormI
       discountType: v.discountType || null,
       discountValue: v.discountValue ?? "",
       referralId: v.referralId || null,
-      // the contact is maintained by Email / SMS Quote; editing keeps what is there
       customerId: v.customerId || null,
       firstName: v.firstName ?? "",
       lastName: v.lastName ?? "",
@@ -93,10 +97,20 @@ export function QuoteForm({ initial, defaultLocationId }: { initial?: QuoteFormI
     };
     try {
       const res = editing
-        ? await client.staff.quote.update.mutate({ quoteId: initial!.quoteId!, data: data as never })
+        ? await client.staff.quote.update.mutate({ quoteId: quoteId!, data: data as never })
         : await client.staff.quote.create.mutate(data as never);
-      toast.success(editing ? "Quote updated" : "Quote saved");
-      router.push(`/admin/quotes/${res.id}`);
+      if (action === "save") {
+        toast.success(editing ? "Quote saved" : "Quote created");
+        router.push(`/admin/quotes/${res.id}`);
+        return;
+      }
+      // Generate: stay on this form (now editing the generated quote) with its charges below
+      if (!editing) {
+        // the charges load once the new quote id is in place
+        setQuoteId(res.id);
+        window.history.replaceState(null, "", `/admin/quotes/${res.id}/edit`);
+      } else await generated.refetch();
+      toast.success("Quote generated");
     } catch (err) {
       const fe = fieldErrorsOf(err);
       setErrors(Object.fromEntries(Object.entries(fe).map(([k, val]) => [k.replace(/^data\./, ""), val])));
@@ -140,15 +154,57 @@ export function QuoteForm({ initial, defaultLocationId }: { initial?: QuoteFormI
           </CardContent>
         </Card>
 
-        <OptionsGrid data={bo.data} value={opts} onChange={setOpts} applyDefaults={!editing} paymentDetails={o.paymentDetails} />
+        <Card>
+          <CardContent className="grid gap-4 sm:grid-cols-2">
+            <p className="text-sm font-semibold sm:col-span-2">Customer information</p>
+            <F label="First Name" name="firstName"><Input autoComplete="off" {...bind("firstName")} /></F>
+            <F label="Last Name" name="lastName"><Input autoComplete="off" {...bind("lastName")} /></F>
+            <F label="Email" name="email"><Input type="email" autoComplete="off" {...bind("email")} /></F>
+            <F label="Phone" name="contactPhone"><Input type="tel" autoComplete="off" {...bind("contactPhone")} /></F>
+            {initial?.customerLabel && <p className="text-xs text-muted-foreground sm:col-span-2">Linked customer: {initial.customerLabel}</p>}
+          </CardContent>
+        </Card>
 
-        <div className="flex justify-end">
-          <Button type="submit" size="lg" disabled={pending}>
+        <OptionsGrid data={bo.data} value={opts} onChange={setOpts} applyDefaults={!initial?.quoteId} paymentDetails={o.paymentDetails} />
+
+        {generated.data && <GeneratedCharges number={generated.data.quote.number} lines={generated.data.quote.chargeLines} total={Number(generated.data.total)} updating={generated.isFetching} />}
+
+        <div className="flex justify-end gap-2">
+          <Button type="submit" name="action" value="generate" size="lg" variant="outline" disabled={pending}>
             {pending && <Loader2Icon className="animate-spin" />}
             Generate
           </Button>
+          <Button type="submit" name="action" value="save" size="lg" disabled={pending}>Save</Button>
         </div>
       </form>
     </FormErrorsContext.Provider>
+  );
+}
+
+/** The quote's charges after Generate (same lines as the quote page), so options can be changed and generated again. */
+function GeneratedCharges({ number, lines, total, updating }: { updating?: boolean; number: number; lines: { id: string; kind: string; name: string; units: unknown; rate: unknown; total: unknown }[]; total: number }) {
+  return (
+    <Card>
+      <CardContent className="space-y-2">
+        <p className="flex items-center gap-2 text-sm font-semibold">Quote #{number} — charges{updating && <span className="flex items-center gap-1 text-xs font-normal text-muted-foreground"><Loader2Icon className="size-3 animate-spin" /> Updating…</span>}</p>
+        <table className="w-full text-sm">
+          <thead className="text-left text-xs text-muted-foreground">
+            <tr><th className="py-1 font-medium">Charge</th><th className="py-1 text-right font-medium">Unit</th><th className="py-1 text-right font-medium">Rate</th><th className="py-1 text-right font-medium">Total</th></tr>
+          </thead>
+          <tbody className="divide-y">
+            {lines.map((l) => (
+              <tr key={l.id}>
+                <td className="py-1.5">{l.name}</td>
+                {/* a tax line's rate is its percentage, so only its amount is shown */}
+                <td className="py-1.5 text-right tabular-nums">{l.kind === "TAX" ? "" : Number(l.units)}</td>
+                <td className="py-1.5 text-right tabular-nums">{l.kind === "TAX" ? "" : money(Number(l.rate))}</td>
+                <td className="py-1.5 text-right tabular-nums">{money(Number(l.total))}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot><tr className="border-t font-semibold"><td className="py-2" colSpan={3}>Total</td><td className="py-2 text-right tabular-nums">{money(total)}</td></tr></tfoot>
+        </table>
+      </CardContent>
+    </Card>
   );
 }

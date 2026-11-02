@@ -46,7 +46,7 @@ The RentCentric menus, vehicle page and customer page were re-read on Oct 20. No
 | RentCentric | Ours | Status |
 |---|---|---|
 | QuotesSearch (search, advanced search, list, delete) | `/admin/quotes` | ✅ |
-| QuotesModify (add / edit) | `/admin/quotes/new`, `/[id]/edit` | ✅ |
+| QuotesModify (add / edit) | `/admin/quotes/new`, `/[id]/edit` | ✅ client changes: Customer information (First / Last Name, Email, Phone) on the form; Generate saves and stays on the form with the charges shown (options still editable, Generate again updates the same quote); Save saves and opens the quote |
 | Rate (i) per-booking rate | Rate Details dialog | ✅ |
 | Add/Edit Other Charges (4 lines) | options grid | ✅ |
 | Quote view and actions | `/admin/quotes/[id]` | ✅ |
