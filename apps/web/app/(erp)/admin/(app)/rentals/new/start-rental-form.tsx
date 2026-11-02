@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangleIcon, Loader2Icon, RefreshCwIcon } from "lucide-react";
+import { AlertTriangleIcon, Loader2Icon, RefreshCwIcon, SearchIcon } from "lucide-react";
 import { useTRPC, useTRPCClient } from "@mrac/api/client";
 import { Badge } from "@mrac/ui/components/badge";
 import { Button } from "@mrac/ui/components/button";
@@ -13,13 +13,13 @@ import { Input } from "@mrac/ui/components/input";
 import { Label } from "@mrac/ui/components/label";
 import { NativeSelect } from "@mrac/ui/components/native-select";
 import { toast } from "@mrac/ui/components/sonner";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@mrac/ui/components/tabs";
 import { Textarea } from "@mrac/ui/components/textarea";
 import { fromDateTimeLocal, money, toDateTimeLocal } from "@mrac/ui/lib/format";
 import { ChargeSummary, DiscountField, FormAlert, bookingWindow, initialBookingTimes } from "../../../../_components/booking-kit";
 import { DriversCard, withDriverCharges, type DriverPick } from "../../../../_components/booking-drivers";
 import { CUSTOMER_FIELDS, CustomerFields, CustomerNotes, MatchList, PaymentInfoCard, customerValues, type CustomerLayout } from "../../../../_components/booking-customer";
 import { CustomerSearchDialog, DriverChecks, driverChecks } from "../../../../_components/customer-checks";
+import { BookingSummaryBar, StepHeader, StepNav, StepPanel, shortWhen, type Step } from "../../../../_components/booking-steps";
 import { CompanySearch } from "../../../../_components/company-search";
 import { ConfirmAction } from "../../../../_components/confirm-action";
 import { FieldShell as F, FormErrorsContext, errorMessage, fieldErrorsOf } from "../../../../_components/form";
@@ -39,6 +39,12 @@ const RENTAL_CUSTOMER: CustomerLayout = [
   ["companyPhone", "Employer Phone"], ["licenseNumber", "Driver's Lic. #", true], ["licenseProvince", "Lic.State", true], ["birthDate", "Date Of Birth", true],
   ["licenseExpiry", "Driver's License Expiration", true], ["insuranceCompany", "Insurance Company"], ["insurancePolicyNumber", "Policy Number"], ["insuranceExpiry", "Insurance Exp."],
   ["insurancePhone", "Insurance Phone"], ["insuranceFax", "Insurance Fax"],
+];
+const STEPS: Step[] = [
+  { key: "customer", label: "Customer", hint: "Renter details" },
+  { key: "trip", label: "Trip & vehicle", hint: "Dates, rate, vehicle out" },
+  { key: "extras", label: "Extras", hint: "Insurance, charges" },
+  { key: "pay", label: "Summary & payment", hint: "Review and complete" },
 ];
 const REQUIRED = RENTAL_CUSTOMER.flatMap((c) => (typeof c !== "number" && c[2] ? [c] : []));
 
@@ -71,7 +77,9 @@ export function StartRentalForm({
   const { data: o } = useQuery(trpc.staff.reservation.formOptions.queryOptions());
   const { data: ro } = useQuery(trpc.staff.rental.formOptions.queryOptions());
 
-  const [tab, setTab] = React.useState(editing ? "rental" : "customer");
+  // steps (client request): 1 Customer, 2 Trip & vehicle, 3 Extras, 4 Summary & payment; editing opens on the trip
+  const [step, setStep] = React.useState(editing ? 1 : 0);
+  const [reached, setReached] = React.useState(editing ? 3 : 0);
   const [v, setV] = React.useState<Values>(() => ({
     country: "Canada",
     province: "British Columbia",
@@ -184,16 +192,35 @@ export function StartRentalForm({
   function customerMissing() {
     return REQUIRED.filter(([k]) => !str(k).trim());
   }
-  function saveCustomerTab() {
-    const missing = customerMissing();
+  function go(i: number) {
+    setStep(i);
+    setReached((r) => Math.max(r, i));
+    if (i === 3) setPreviewOn(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+  /** Next: check this step's required fields first. */
+  function next(from: number) {
+    const missing: [string, string][] =
+      from === 0
+        ? customerMissing().map(([k, label]) => [`customer.${k}`, label])
+        : from === 1
+          ? ([["pickupLocationId", "Pickup Location"], ["returnLocationId", "Return Location"], ["pickupAt", "Pickup Date"], ["returnAt", "Return Date"], ["vehicleTypeId", "Vehicle Type"], ["rateId", "Rate"], ...(editing ? [] : [["vehicleId", "Vehicle ID"], ["odometerOut", "Odometer Out"]])] as [string, string][]).filter(([k]) => !str(k))
+          : [];
     if (missing.length) {
-      setErrors(Object.fromEntries(missing.map(([k, label]) => [`customer.${k}`, [`${label} is required`]])));
-      toast.error("Fix the highlighted fields.");
+      setErrors(Object.fromEntries(missing.map(([k, l]) => [k, [`${l} is required`]])));
+      toast.error("Fill in the highlighted fields.");
+      return;
+    }
+    if (from === 1 && !validWindow) {
+      setErrors({ returnAt: ["Return must be after pickup"] });
+      toast.error("Return must be after pickup.");
       return;
     }
     setErrors({});
-    setTab("rental");
+    go(from + 1);
   }
+  const stepOf = (key: string) =>
+    key.startsWith("customer.") ? 0 : ["payMethod", "payAmount", "printout"].includes(key) ? 3 : key.startsWith("options") ? 2 : 1;
 
   function pickVehicle(id: string) {
     set("vehicleId", id);
@@ -205,8 +232,8 @@ export function StartRentalForm({
     const missing = customerMissing();
     if (missing.length) {
       setErrors(Object.fromEntries(missing.map(([k, label]) => [`customer.${k}`, [`${label} is required`]])));
-      setTab("customer");
-      toast.error("Complete the Customer tab first.");
+      go(0);
+      toast.error("Complete the customer details first.");
       return;
     }
     setPending(true);
@@ -248,6 +275,9 @@ export function StartRentalForm({
       if (msg === "UNDESIRED_COMPANY") return setUndesired("company");
       const fe = fieldErrorsOf(err);
       setErrors(fe);
+      // show the step that holds the first problem
+      const first = Object.keys(fe)[0];
+      if (first) go(stepOf(first));
       const m = Object.keys(fe).length ? "Fix the highlighted fields." : msg;
       setFormError(m);
       toast.error(m);
@@ -273,181 +303,201 @@ export function StartRentalForm({
     ? [editing.vehicle]
     : (available.data ?? []).map((x) => ({ id: x.id, label: `${x.assignedId} — ${x.year} ${x.make.name} ${x.model.name}` }));
 
+  const vt = o.vehicleTypes.find((x) => x.id === str("vehicleTypeId"))?.name;
+
   return (
     <FormErrorsContext.Provider value={errors}>
       <form
         noValidate
         onSubmit={(e) => {
           e.preventDefault();
-          submit();
+          if (step === 3) submit();
         }}
         className="space-y-4 p-4 md:p-6"
       >
+        <StepHeader steps={STEPS} current={step} reached={reached} onGo={go} />
+        <BookingSummaryBar
+          customer={[str("firstName"), str("lastName")].filter(Boolean).join(" ")}
+          from={shortWhen(str("pickupAt"))}
+          to={shortWhen(str("returnAt"))}
+          vehicle={vehicles.find((x) => x.id === str("vehicleId"))?.label ?? vt}
+          days={xDays}
+          total={preview.data ? Number(preview.data.total) : null}
+        />
         <FormAlert message={formError} />
-        <Tabs value={tab} onValueChange={setTab}>
-          <TabsList>
-            <TabsTrigger value="customer">Customer</TabsTrigger>
-            <TabsTrigger value="rental">Rental</TabsTrigger>
-          </TabsList>
 
-          {/* ── Customer tab ─────────────────────────────────────────────── */}
-          <TabsContent value="customer" forceMount className="data-[state=inactive]:hidden">
-            <Card>
-              <CardHeader className="flex-row items-center justify-between">
-                <CardTitle className="text-base">Customer</CardTitle>
+        {/* ── 1 · Customer ─────────────────────────────────────────────── */}
+        <StepPanel active={step === 0}>
+          <Card>
+            <CardHeader className="flex-row flex-wrap items-center justify-between gap-2">
+              <CardTitle className="text-base">Customer</CardTitle>
+              <div className="flex items-center gap-2">
                 {customerId && (
                   <Badge variant="success">
                     Existing customer
                     <button type="button" className="ml-1 underline" onClick={() => setCustomerId(null)}>unlink</button>
                   </Badge>
                 )}
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="max-w-xs space-y-1.5"><Label htmlFor="swipe">Swipe</Label><Input id="swipe" autoComplete="off" /></div>
-                <CustomerFields layout={RENTAL_CUSTOMER} bind={bind} onFind={checkMatching}><CustomerNotes bind={bind} customerId={customerId} /></CustomerFields>
-                <MatchList matches={customerId ? [] : matches.data} onUse={applyCustomer} />
-                <DriverChecks checks={checks} />
-                <CustomerSearchDialog<Parameters<typeof applyCustomer>[0]>
-                  open={searchOpen}
-                  onOpenChange={setSearchOpen}
-                  initial={{ firstName: mFirst, lastName: mLast, phone: mPhone, email: mEmail, licenseNumber: mLicence }}
-                  pickupAt={pickupAt}
-                  returnAt={returnAt}
-                  onUse={applyCustomer}
-                />
-                <div className="flex justify-end">
-                  <Button type="button" onClick={saveCustomerTab}>Save And Goto Rental Tab &gt;&gt;</Button>
-                </div>
-              </CardContent>
-            </Card>
-            <div className="mt-4">
-              <DriversCard drivers={drivers} primaryId={customerId} onChange={(d) => { setDrivers(d); setOpts((x) => withDriverCharges(x, bo.data, d.length)); }} />
-            </div>
-          </TabsContent>
-
-          {/* ── Rental tab ───────────────────────────────────────────────── */}
-          <TabsContent value="rental" forceMount className="data-[state=inactive]:hidden">
-            <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-              <div className="min-w-0 space-y-4">
-                <Card>
-                  <CardContent className="grid gap-4 sm:grid-cols-2">
-                    <F label="Rental #" name="raNumber" required><Input id="raNumber" value={editing ? String(editing.raNumber) : ""} placeholder="Auto" disabled /></F>
-                    <div className="grid grid-cols-[1fr_5.5rem] gap-2">
-                      <F label="Pickup Date" name="checkOutAt" required><Input type="datetime-local" {...bind("pickupAt")} id="checkOutAt" /></F>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="xDays">X Days</Label>
-                        <Input id="xDays" type="number" min={1} value={xDays} onChange={(e) => setXDays(Number(e.target.value))} />
-                      </div>
-                    </div>
-                    <F label={editing ? "Expected Return" : "Return Date"} name="returnAt" required={!editing}><Input type="datetime-local" {...bind("returnAt")} /></F>
-                    {editing?.closed ? (
-                      <F label="Return Date" name="checkedInAt" required><Input type="datetime-local" {...bind("checkedInAt")} /></F>
-                    ) : (
-                      <div className="hidden sm:block" />
-                    )}
-                    <F label="Pickup Location" name="checkOutLocationId" required><NativeSelect {...bind("pickupLocationId")} id="checkOutLocationId"><option value="">Please Select</option>{opt(o.locations)}</NativeSelect></F>
-                    <F label="Return Location" name="checkInLocationId" required><NativeSelect {...bind("returnLocationId")} id="checkInLocationId"><option value="">Please Select</option>{opt(o.locations)}</NativeSelect></F>
-                    <F label="Vehicle Type" name="vehicleTypeId" required>
-                      <NativeSelect {...bind("vehicleTypeId")}><option value="">Please Select</option>{opt(o.vehicleTypes)}</NativeSelect>
-                    </F>
-                    <div className="space-y-1.5">
-                      <div className="flex items-center gap-2">
-                        <Label htmlFor="companyId">Company</Label>
-                        {str("companyId") && <button type="button" className="text-sm text-primary hover:underline" onClick={() => set("companyId", "")}>Clear</button>}
-                      </div>
-                      <CompanySearch companies={o.companies} value={str("companyId")} onChange={(id) => set("companyId", id)} />
-                      {company?.isUndesired && <p className="flex items-center gap-1 text-xs text-destructive"><AlertTriangleIcon className="size-3.5" /> {company.name} is on the undesired list.</p>}
-                    </div>
-                    <F label="Rate" name="rateId" required>
-                      <div className="flex items-center gap-1">
-                        <NativeSelect {...bind("rateId")}>
-                          <option value="">Please Select</option>
-                          {rates.map((r) => <option key={r.id} value={r.id}>{r.code}{r.daily ? ` (${money(r.daily)})` : ""}</option>)}
-                        </NativeSelect>
-                        <RateDetailsButton rateValues={rates.find((r) => r.id === v.rateId)?.values} value={opts.rateOverride} onChange={(rateOverride) => setOpts((o) => ({ ...o, rateOverride }))} disabled={!v.rateId} />
-                      </div>
-                    </F>
-                    <div className="grid grid-cols-[1fr_1fr] gap-2">
-                      <DiscountField bind={bind} label="Discount" noBlank error={errors.discountValue?.[0]} />
-                      <F label="Reason" name="discountReasonId"><NativeSelect {...bind("discountReasonId")}><option value="">None</option>{opt(o.discountReasons)}</NativeSelect></F>
-                    </div>
-                    <F label="Deposit:" name="deposit"><Input type="number" min={0} step="0.01" {...bind("deposit")} disabled={!!editing} /></F>
-                    <F label="Vehicle ID" name="vehicleId" required>
-                      <SearchPicker id="vehicleId" items={vehicles} value={str("vehicleId")} onChange={pickVehicle} disabled={!!editing || !validWindow || !str("vehicleTypeId")} emptyText="No free vehicle of this type for these dates" />
-                    </F>
-                    <F label="Odometer Out" name="odometerOut" required><Input type="number" min={0} step={1} {...bind("odometerOut")} /></F>
-                    {editing?.closed && <F label="Odometer In" name="odometerIn" required><Input type="number" min={0} step={1} {...bind("odometerIn")} /></F>}
-                    <label className="flex items-center gap-2 self-end text-sm sm:col-span-2">
-                      <Checkbox checked={v.prepaidFuel === true} onChange={(e) => set("prepaidFuel", e.target.checked)} /> Buy Prepaid Fuel @ $2.00 Per Gallon
-                    </label>
-                    <FuelSlider id="fuelOut" label="Fuel Out" required value={str("fuelOut")} onChange={(x) => set("fuelOut", x)} />
-                    {editing?.closed && <FuelSlider id="fuelIn" label="Fuel In" value={str("fuelIn")} onChange={(x) => set("fuelIn", x)} />}
-                    {editing && (
-                      <>
-                        <F label="Fuel Charge" name="fuelCharge"><Input type="number" min={0} step="0.01" {...bind("fuelCharge")} /></F>
-                        <div className="hidden sm:block" />
-                        <F label="Upgrade Type" name="upgradeType">
-                          <NativeSelect {...bind("upgradeType")}><option value="">Upgrade Type</option><option value="FLAT">Flat</option><option value="DAILY">Daily</option></NativeSelect>
-                        </F>
-                        <F label="Upgrade Amount" name="upgradeAmount"><Input type="number" min={0} step="0.01" {...bind("upgradeAmount")} disabled={!str("upgradeType")} /></F>
-                        <Button type="button" variant="secondary" disabled title="Available once vehicle damage records are built">Damage</Button>
-                      </>
-                    )}
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardContent className="grid gap-4 sm:grid-cols-2">
-                    <F label="Referral" name="referralId"><ReferralField referrals={o.referrals} value={str("referralId")} onChange={(id) => set("referralId", id)} /></F>
-                    <F label="Claim#" name="claimNumber"><Input {...bind("claimNumber")} /></F>
-                    <F label="AirPort" name="airport"><Input {...bind("airport")} /></F>
-                    <F label="Airline" name="airline"><Input {...bind("airline")} /></F>
-                    <F label="Flight #" name="flightNumber"><Input {...bind("flightNumber")} /></F>
-                    <F label="PO#" name="poNumber"><Input {...bind("poNumber")} /></F>
-                    <F label="RO#" name="roNumber"><Input {...bind("roNumber")} /></F>
-                    <F label="Rental Reason" name="rentalReasonId"><NativeSelect {...bind("rentalReasonId")}><option value="">None</option>{opt(ro.rentalReasons)}</NativeSelect></F>
-                    <F label="Opened By" name="openedById">
-                      <NativeSelect {...bind("openedById")}><option value="">None</option>{ro.staff.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}</NativeSelect>
-                    </F>
-                    <F label="Memo" name="memo"><Textarea rows={3} {...bind("memo")} /></F>
-                    <label className="flex items-center gap-2 text-sm"><Checkbox checked={v.isNonRevenue === true} onChange={(e) => set("isNonRevenue", e.target.checked)} /> Non-Revenue</label>
-                    <label className="flex items-center gap-2 text-sm"><Checkbox checked={v.memoShowAsPopup === true} onChange={(e) => set("memoShowAsPopup", e.target.checked)} /> Always display this memo as a popup for system users</label>
-                  </CardContent>
-                </Card>
-
-                <OptionsGrid data={bo.data} value={opts} onChange={setOpts} applyDefaults={!editing} paymentDetails={o.paymentDetails} />
+                <Button type="button" variant="outline" size="sm" onClick={checkMatching}><SearchIcon /> Check Matching</Button>
               </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <CustomerFields layout={RENTAL_CUSTOMER} bind={bind} onFind={checkMatching}><CustomerNotes bind={bind} customerId={customerId} /></CustomerFields>
+              <MatchList matches={customerId ? [] : matches.data} onUse={applyCustomer} />
+              <DriverChecks checks={checks} />
+              <CustomerSearchDialog<Parameters<typeof applyCustomer>[0]>
+                open={searchOpen}
+                onOpenChange={setSearchOpen}
+                initial={{ firstName: mFirst, lastName: mLast, phone: mPhone, email: mEmail, licenseNumber: mLicence }}
+                pickupAt={pickupAt}
+                returnAt={returnAt}
+                onUse={applyCustomer}
+              />
+            </CardContent>
+          </Card>
+          <DriversCard drivers={drivers} primaryId={customerId} onChange={(d) => { setDrivers(d); setOpts((x) => withDriverCharges(x, bo.data, d.length)); }} />
+          <StepNav onNext={() => next(0)} nextLabel="Next: trip & vehicle" />
+        </StepPanel>
 
-              {/* ── right: charges + Payment Information ─────────────────────── */}
-              <aside className="space-y-4 xl:sticky xl:top-4 xl:self-start">
-                <Button type="button" variant="ghost" className="text-primary" onClick={() => { setPreviewOn(true); void preview.refetch(); }}>
-                  <RefreshCwIcon /> Update Charges Summary
-                </Button>
-                <ChargeSummary title="Charges" preview={previewOn ? preview.data : undefined} emptyText="Choose dates, location, vehicle type and rate, then Update Charges Summary." />
-                {!editing && (
-                <PaymentInfoCard
-                  set={set}
-                  locationId={str("pickupLocationId")}
-                  bind={bind}
-                  onSubmit={submitPayment}
-                  transactionTypes={[["AUTHORIZATION", "Authorization"], ["PAYMENT", "Payment (Credit)"], ["REFUND", "Refund -(Credit)"]]}
-                  codeLabels={["Auth Code", "Trans Code"]}
-                  pendingNote={paymentReady ? Number(str("payAmount")) : null}
-                />
-                )}
-              </aside>
-            </div>
+        {/* ── 2 · Trip & vehicle ───────────────────────────────────────── */}
+        <StepPanel active={step === 1}>
+          <Card>
+            <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <F label="Rental #" name="raNumber" required><Input id="raNumber" value={editing ? String(editing.raNumber) : ""} placeholder="Auto" disabled /></F>
+              <F label="Pickup Location" name="checkOutLocationId" required><NativeSelect {...bind("pickupLocationId")} id="checkOutLocationId"><option value="">Please Select</option>{opt(o.locations)}</NativeSelect></F>
+              <F label="Return Location" name="checkInLocationId" required><NativeSelect {...bind("returnLocationId")} id="checkInLocationId"><option value="">Please Select</option>{opt(o.locations)}</NativeSelect></F>
+              <F label="Pickup Date" name="checkOutAt" required><Input type="datetime-local" {...bind("pickupAt")} id="checkOutAt" /></F>
+              <div className="grid grid-cols-[1fr_5.5rem] gap-2">
+                <F label={editing ? "Expected Return" : "Return Date"} name="returnAt" required={!editing}><Input type="datetime-local" {...bind("returnAt")} /></F>
+                <div className="space-y-1.5">
+                  <Label htmlFor="xDays">X Days</Label>
+                  <Input id="xDays" type="number" min={1} value={xDays} onChange={(e) => setXDays(Number(e.target.value))} />
+                </div>
+              </div>
+              {editing?.closed ? <F label="Return Date" name="checkedInAt" required><Input type="datetime-local" {...bind("checkedInAt")} /></F> : <div className="hidden lg:block" />}
+              <F label="Vehicle Type" name="vehicleTypeId" required>
+                <NativeSelect {...bind("vehicleTypeId")}><option value="">Please Select</option>{opt(o.vehicleTypes)}</NativeSelect>
+              </F>
+              <F label="Rate" name="rateId" required>
+                <div className="flex items-center gap-1">
+                  <NativeSelect {...bind("rateId")}>
+                    <option value="">Please Select</option>
+                    {rates.map((r) => <option key={r.id} value={r.id}>{r.code}{r.daily ? ` (${money(r.daily)})` : ""}</option>)}
+                  </NativeSelect>
+                  <RateDetailsButton rateValues={rates.find((r) => r.id === v.rateId)?.values} value={opts.rateOverride} onChange={(rateOverride) => setOpts((o) => ({ ...o, rateOverride }))} disabled={!v.rateId} />
+                </div>
+              </F>
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="companyId">Company</Label>
+                  {str("companyId") && <button type="button" className="text-sm text-primary hover:underline" onClick={() => set("companyId", "")}>Clear</button>}
+                </div>
+                <CompanySearch companies={o.companies} value={str("companyId")} onChange={(id) => set("companyId", id)} />
+                {company?.isUndesired && <p className="flex items-center gap-1 text-xs text-destructive"><AlertTriangleIcon className="size-3.5" /> {company.name} is on the undesired list.</p>}
+              </div>
+              <div className="grid grid-cols-[1fr_1fr] gap-2">
+                <DiscountField bind={bind} label="Discount" noBlank error={errors.discountValue?.[0]} />
+                <F label="Reason" name="discountReasonId"><NativeSelect {...bind("discountReasonId")}><option value="">None</option>{opt(o.discountReasons)}</NativeSelect></F>
+              </div>
+              <F label="Deposit:" name="deposit"><Input type="number" min={0} step="0.01" {...bind("deposit")} disabled={!!editing} /></F>
+              <F label="Referral" name="referralId"><ReferralField referrals={o.referrals} value={str("referralId")} onChange={(id) => set("referralId", id)} /></F>
+            </CardContent>
+          </Card>
 
-            <div className="mt-6 flex flex-wrap items-end justify-end gap-4 border-t pt-4">
-              {!editing && (
-                <F label="Please Select Rental Printout" name="printout" required className="w-64">
-                  <PrintoutSelect locationId={str("pickupLocationId")} value={str("printout")} onChange={setPrintout} />
-                </F>
+          <Card>
+            <CardHeader><CardTitle className="text-base">Vehicle out</CardTitle></CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <F label="Vehicle ID" name="vehicleId" required>
+                <SearchPicker id="vehicleId" items={vehicles} value={str("vehicleId")} onChange={pickVehicle} disabled={!!editing || !validWindow || !str("vehicleTypeId")} emptyText="No free vehicle of this type for these dates" />
+              </F>
+              <F label="Odometer Out" name="odometerOut" required><Input type="number" min={0} step={1} {...bind("odometerOut")} /></F>
+              {editing?.closed ? <F label="Odometer In" name="odometerIn" required><Input type="number" min={0} step={1} {...bind("odometerIn")} /></F> : <div className="hidden lg:block" />}
+              <FuelSlider id="fuelOut" label="Fuel Out" required value={str("fuelOut")} onChange={(x) => set("fuelOut", x)} />
+              {editing?.closed && <FuelSlider id="fuelIn" label="Fuel In" value={str("fuelIn")} onChange={(x) => set("fuelIn", x)} />}
+              <label className="flex items-center gap-2 self-end text-sm">
+                <Checkbox checked={v.prepaidFuel === true} onChange={(e) => set("prepaidFuel", e.target.checked)} /> Buy Prepaid Fuel @ $2.00 Per Gallon
+              </label>
+              {editing && (
+                <>
+                  <F label="Fuel Charge" name="fuelCharge"><Input type="number" min={0} step="0.01" {...bind("fuelCharge")} /></F>
+                  <F label="Upgrade Type" name="upgradeType">
+                    <NativeSelect {...bind("upgradeType")}><option value="">Upgrade Type</option><option value="FLAT">Flat</option><option value="DAILY">Daily</option></NativeSelect>
+                  </F>
+                  <F label="Upgrade Amount" name="upgradeAmount"><Input type="number" min={0} step="0.01" {...bind("upgradeAmount")} disabled={!str("upgradeType")} /></F>
+                </>
               )}
-              <Button type="submit" size="lg" disabled={pending}>{pending && <Loader2Icon className="animate-spin" />}{editing ? "Save" : "Complete And Print Rental"}</Button>
+            </CardContent>
+          </Card>
+
+          <details className="rounded-xl border bg-card">
+            <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold">
+              More details <span className="font-normal text-muted-foreground">— claim #, airport / flight, PO / RO #, rental reason, opened by, memo</span>
+            </summary>
+            <div className="grid gap-4 border-t p-4 sm:grid-cols-2 lg:grid-cols-3">
+              <F label="Claim#" name="claimNumber"><Input {...bind("claimNumber")} /></F>
+              <F label="AirPort" name="airport"><Input {...bind("airport")} /></F>
+              <F label="Airline" name="airline"><Input {...bind("airline")} /></F>
+              <F label="Flight #" name="flightNumber"><Input {...bind("flightNumber")} /></F>
+              <F label="PO#" name="poNumber"><Input {...bind("poNumber")} /></F>
+              <F label="RO#" name="roNumber"><Input {...bind("roNumber")} /></F>
+              <F label="Rental Reason" name="rentalReasonId"><NativeSelect {...bind("rentalReasonId")}><option value="">None</option>{opt(ro.rentalReasons)}</NativeSelect></F>
+              <F label="Opened By" name="openedById">
+                <NativeSelect {...bind("openedById")}><option value="">None</option>{ro.staff.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}</NativeSelect>
+              </F>
+              <F label="Memo" name="memo"><Textarea rows={3} {...bind("memo")} /></F>
+              <div className="space-y-2 pt-6">
+                <label className="flex items-center gap-2 text-sm"><Checkbox checked={v.isNonRevenue === true} onChange={(e) => set("isNonRevenue", e.target.checked)} /> Non-Revenue</label>
+                <label className="flex items-center gap-2 text-sm"><Checkbox checked={v.memoShowAsPopup === true} onChange={(e) => set("memoShowAsPopup", e.target.checked)} /> Always display this memo as a popup for system users</label>
+              </div>
             </div>
-          </TabsContent>
-        </Tabs>
+          </details>
+          <StepNav onBack={() => go(0)} onNext={() => next(1)} nextLabel="Next: extras" />
+        </StepPanel>
+
+        {/* ── 3 · Extras ───────────────────────────────────────────────── */}
+        <StepPanel active={step === 2}>
+          <OptionsGrid data={bo.data} value={opts} onChange={setOpts} applyDefaults={!editing} paymentDetails={o.paymentDetails} />
+          <StepNav onBack={() => go(1)} onNext={() => next(2)} nextLabel="Next: summary & payment" />
+        </StepPanel>
+
+        {/* ── 4 · Summary & payment ────────────────────────────────────── */}
+        <StepPanel active={step === 3}>
+          <div className="grid gap-4 xl:grid-cols-2">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold">Charges</p>
+                <Button type="button" variant="ghost" size="sm" className="text-primary" onClick={() => void preview.refetch()}>
+                  <RefreshCwIcon className={preview.isFetching ? "animate-spin" : undefined} /> Refresh
+                </Button>
+              </div>
+              <ChargeSummary title="Charges" preview={preview.data} emptyText="Choose dates, location, vehicle type and rate (step 2)." />
+            </div>
+            {!editing && (
+              <PaymentInfoCard
+                set={set}
+                locationId={str("pickupLocationId")}
+                bind={bind}
+                onSubmit={submitPayment}
+                transactionTypes={[["AUTHORIZATION", "Authorization"], ["PAYMENT", "Payment (Credit)"], ["REFUND", "Refund -(Credit)"]]}
+                codeLabels={["Auth Code", "Trans Code"]}
+                pendingNote={paymentReady ? Number(str("payAmount")) : null}
+              />
+            )}
+          </div>
+          <StepNav
+            onBack={() => go(2)}
+            next={
+              <div className="flex flex-wrap items-end gap-3">
+                {!editing && (
+                  <F label="Please Select Rental Printout" name="printout" required className="w-64">
+                    <PrintoutSelect locationId={str("pickupLocationId")} value={str("printout")} onChange={setPrintout} />
+                  </F>
+                )}
+                <Button type="submit" size="lg" disabled={pending}>{pending && <Loader2Icon className="animate-spin" />}{editing ? "Save" : "Complete And Print Rental"}</Button>
+              </div>
+            }
+          />
+        </StepPanel>
       </form>
 
       <ConfirmAction

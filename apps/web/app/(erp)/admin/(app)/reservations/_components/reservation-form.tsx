@@ -13,13 +13,13 @@ import { Input } from "@mrac/ui/components/input";
 import { Label } from "@mrac/ui/components/label";
 import { NativeSelect } from "@mrac/ui/components/native-select";
 import { toast } from "@mrac/ui/components/sonner";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@mrac/ui/components/tabs";
 import { Textarea } from "@mrac/ui/components/textarea";
 import { money } from "@mrac/ui/lib/format";
 import { ChargeSummary, DiscountField, FormAlert, bookingWindow, initialBookingTimes } from "../../../../_components/booking-kit";
 import { DriversCard, withDriverCharges, type DriverPick } from "../../../../_components/booking-drivers";
 import { CUSTOMER_FIELDS, CustomerFields, CustomerNotes, MatchList, PaymentInfoCard, customerValues, type CustomerLayout } from "../../../../_components/booking-customer";
 import { CustomerSearchDialog, DriverChecks, driverChecks } from "../../../../_components/customer-checks";
+import { BookingSummaryBar, StepHeader, StepNav, StepPanel, shortWhen, type Step } from "../../../../_components/booking-steps";
 import { CompanySearch } from "../../../../_components/company-search";
 import { ConfirmAction } from "../../../../_components/confirm-action";
 import { FieldShell as F, FormErrorsContext, errorMessage, fieldErrorsOf } from "../../../../_components/form";
@@ -46,6 +46,12 @@ const RESERVE_CUSTOMER: CustomerLayout = [
   ["email", "Email", true], 3,
   ["insurancePolicyNumber", "Policy Number"], ["insuranceCompany", "Insurance Company"], ["insuranceExpiry", "Insurance Expiration"], ["insurancePhone", "Insurance Phone"],
   ["insuranceFax", "Insurance Fax"],
+];
+const STEPS: Step[] = [
+  { key: "customer", label: "Customer", hint: "Driver details" },
+  { key: "trip", label: "Trip & vehicle", hint: "Dates, vehicle, rate" },
+  { key: "extras", label: "Extras", hint: "Insurance, charges" },
+  { key: "pay", label: "Summary & payment", hint: "Review and save" },
 ];
 /** Status tick boxes of the Reserve form (they behave as one choice); Rented / Checked In come from the rental. */
 const STATUSES = [
@@ -74,7 +80,9 @@ export function ReservationForm({
   const editing = !!initial?.reservationId;
   const { data: o } = useQuery(trpc.staff.reservation.formOptions.queryOptions());
 
-  const [tab, setTab] = React.useState("reservation");
+  // steps (client request): 1 Customer, 2 Trip & vehicle, 3 Extras, 4 Summary & payment; editing opens on the trip
+  const [step, setStep] = React.useState(editing ? 1 : 0);
+  const [reached, setReached] = React.useState(editing ? 3 : 0);
   const [v, setV] = React.useState<Values>(() => ({
     status: "CONFIRMED",
     saveCustomer: false,
@@ -185,17 +193,41 @@ export function ReservationForm({
     if (c.isUndesired) toast.warning("This customer is on the undesired (do-not-rent) list.");
   }
 
-  function saveCustomerTab() {
-    const missing = CUSTOMER_REQUIRED.filter(([k]) => !str(k).trim());
+  function go(i: number) {
+    setStep(i);
+    setReached((r) => Math.max(r, i));
+    if (i === 3) setPreviewOn(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+  /** Next: check this step's required fields first. */
+  function next(from: number) {
+    const missing: [string, string][] =
+      from === 0
+        ? ([["firstName", "First Name"], ["lastName", "Last Name"], ["phone", "Phone"]] as [string, string][]).filter(([k]) => !str(k).trim()).map(([k, l]) => [`customer.${k}`, l])
+        : from === 1
+          ? ([["locationId", "Location"], ["pickupLocationId", "Pickup Location"], ["pickupAt", "Pickup Date"], ["returnAt", "Return Date"], ["vehicleTypeId", "Vehicle Type"], ["rateId", "Rate"]] as [string, string][]).filter(([k]) => !str(k))
+          : [];
     if (missing.length) {
-      setErrors(Object.fromEntries(missing.map(([k, label]) => [`customer.${k}`, [`${label} is required`]])));
-      toast.error("Fix the highlighted fields.");
+      setErrors(Object.fromEntries(missing.map(([k, l]) => [k, [`${l} is required`]])));
+      toast.error("Fill in the highlighted fields.");
+      return;
+    }
+    if (from === 1 && !validWindow) {
+      setErrors({ returnAt: ["Return must be after pickup"] });
+      toast.error("Return must be after pickup.");
       return;
     }
     setErrors({});
-    set("saveCustomer", true);
-    setTab("reservation");
+    // a full profile (as RentCentric's "Save and Goto Reservation Tab") is saved to the customer as well
+    if (from === 0) set("saveCustomer", CUSTOMER_REQUIRED.every(([k]) => !!str(k).trim()));
+    go(from + 1);
   }
+
+  const stepOf = (key: string) =>
+    key.startsWith("customer.") || ["firstName", "lastName", "phone", "email"].includes(key) ? 0
+      : ["payMethod", "payAmount"].includes(key) ? 3
+      : key.startsWith("options") ? 2
+      : 1;
 
   async function submit(allowUndesired = false) {
     setPending(true);
@@ -257,6 +289,9 @@ export function ReservationForm({
       if (msg === "UNDESIRED_COMPANY") return setUndesired("company");
       const fe = Object.fromEntries(Object.entries(fieldErrorsOf(err)).map(([k, val]) => [k.replace(/^data\./, ""), val]));
       setErrors(fe);
+      // show the step that holds the first problem
+      const first = Object.keys(fe)[0];
+      if (first) go(stepOf(first));
       const m = Object.keys(fe).length ? "Fix the highlighted fields." : msg;
       setFormError(m);
       toast.error(m);
@@ -297,9 +332,10 @@ export function ReservationForm({
   const opt = (xs: { id: string; name: string }[]) => xs.map((x) => <option key={x.id} value={x.id}>{x.name}</option>);
   const company = o.companies.find((c) => c.id === str("companyId"));
   const rates = bo.data?.rates ?? [];
-  const cust = (k: string) => `customer.${k}`;
   const vehicles = (available.data ?? []).map((x) => ({ id: x.id, label: `${x.assignedId} — ${x.year} ${x.make.name} ${x.model.name}` }));
   if (str("vehicleId") && !vehicles.some((x) => x.id === str("vehicleId"))) vehicles.unshift({ id: str("vehicleId"), label: "Currently assigned vehicle" });
+
+  const vt = o.vehicleTypes.find((x) => x.id === str("vehicleTypeId"))?.name;
 
   return (
     <FormErrorsContext.Provider value={errors}>
@@ -307,181 +343,174 @@ export function ReservationForm({
         noValidate
         onSubmit={(e) => {
           e.preventDefault();
-          submit();
+          if (step === 3) submit();
         }}
         className="space-y-4 p-4 md:p-6"
       >
+        <StepHeader steps={STEPS} current={step} reached={reached} onGo={go} />
+        <BookingSummaryBar
+          customer={[str("firstName"), str("lastName")].filter(Boolean).join(" ")}
+          from={shortWhen(str("pickupAt"))}
+          to={shortWhen(str("returnAt"))}
+          vehicle={vt}
+          days={xDays}
+          total={preview.data ? Number(preview.data.total) : null}
+        />
         <FormAlert message={formError} />
-        <Tabs value={tab} onValueChange={setTab}>
-          <TabsList>
-            <TabsTrigger value="customer">Customer</TabsTrigger>
-            <TabsTrigger value="reservation">Reservation</TabsTrigger>
-          </TabsList>
 
-          {/* ── Customer tab: the primary driver ─────────────────────────── */}
-          <TabsContent value="customer" forceMount className="data-[state=inactive]:hidden">
-            <Card>
-              <CardHeader><CardTitle className="text-base">Primary Driver</CardTitle></CardHeader>
-              <CardContent className="space-y-4">
-                <div className="max-w-xs space-y-1.5"><Label htmlFor="swipe">Swipe</Label><Input id="swipe" autoComplete="off" /></div>
-                <CustomerFields layout={RESERVE_CUSTOMER} bind={bind} onFind={checkMatching}><CustomerNotes bind={bind} customerId={customerId} /></CustomerFields>
-                <MatchList matches={customerId ? [] : matches.data} onUse={applyCustomer} />
-                <DriverChecks checks={checks} />
-                <CustomerSearchDialog<Parameters<typeof applyCustomer>[0]>
-                  open={searchOpen}
-                  onOpenChange={setSearchOpen}
-                  initial={{ firstName: mFirst, lastName: mLast, phone: mPhone, email: mEmail, licenseNumber: mLicence }}
-                  pickupAt={pickupAt}
-                  returnAt={returnAt}
-                  onUse={applyCustomer}
-                />
-                <div className="flex justify-end">
-                  <Button type="button" onClick={saveCustomerTab}>Save and Goto Reservation Tab &gt;&gt;</Button>
-                </div>
-              </CardContent>
-            </Card>
-            <div className="mt-4">
-              <DriversCard drivers={drivers} primaryId={customerId} onChange={(d) => { setDrivers(d); setOpts((x) => withDriverCharges(x, bo.data, d.length)); }} />
-            </div>
-          </TabsContent>
+        {/* ── 1 · Customer ─────────────────────────────────────────────── */}
+        <StepPanel active={step === 0}>
+          <Card>
+            <CardHeader className="flex-row flex-wrap items-center justify-between gap-2">
+              <CardTitle className="text-base">Primary driver</CardTitle>
+              <div className="flex items-center gap-2">
+                {customerId && (
+                  <Badge variant="success">
+                    Existing customer
+                    <button type="button" className="ml-1 underline" onClick={() => setCustomerId(null)}>unlink</button>
+                  </Badge>
+                )}
+                <Button type="button" variant="outline" size="sm" onClick={checkMatching}><SearchIcon /> Check Matching</Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <CustomerFields layout={RESERVE_CUSTOMER} bind={bind} onFind={checkMatching}><CustomerNotes bind={bind} customerId={customerId} /></CustomerFields>
+              <MatchList matches={customerId ? [] : matches.data} onUse={applyCustomer} />
+              <DriverChecks checks={checks} />
+              <CustomerSearchDialog<Parameters<typeof applyCustomer>[0]>
+                open={searchOpen}
+                onOpenChange={setSearchOpen}
+                initial={{ firstName: mFirst, lastName: mLast, phone: mPhone, email: mEmail, licenseNumber: mLicence }}
+                pickupAt={pickupAt}
+                returnAt={returnAt}
+                onUse={applyCustomer}
+              />
+            </CardContent>
+          </Card>
+          <DriversCard drivers={drivers} primaryId={customerId} onChange={(d) => { setDrivers(d); setOpts((x) => withDriverCharges(x, bo.data, d.length)); }} />
+          <StepNav onNext={() => next(0)} nextLabel="Next: trip & vehicle" />
+        </StepPanel>
 
-          {/* ── Reservation tab ──────────────────────────────────────────── */}
-          <TabsContent value="reservation" forceMount className="data-[state=inactive]:hidden">
-            <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-              <div className="min-w-0 space-y-4">
-                <p className="text-sm text-muted-foreground">Reservation Date : {legacyDate(initial?.createdAt ?? new Date(), { timeZone: o.locations.find((l) => l.id === str("locationId"))?.timeZone })}</p>
-                <Card>
-                  <CardContent className="grid gap-4 sm:grid-cols-2">
-                    <F label="Reservation #" name="number"><Input id="number" value={initial?.number ? String(initial.number) : ""} placeholder="Auto" disabled /></F>
-                    <F label="First Name" name="firstName" errorKey={cust("firstName")} required>
-                      <div className="relative">
-                        <Input {...bind("firstName")} autoComplete="off" className="pr-8" />
-                        <button type="button" aria-label="Find customer" onClick={checkMatching} className="absolute top-1/2 right-2.5 -translate-y-1/2 text-muted-foreground hover:text-foreground"><SearchIcon className="size-4" /></button>
-                      </div>
-                    </F>
-                    <F label="Middle Name" name="middleName"><Input {...bind("middleName")} autoComplete="off" /></F>
-                    <div className="space-y-1.5">
-                      <div className="flex items-center gap-2">
-                        <Label htmlFor="lastName">Last Name<span className="text-destructive" aria-hidden>*</span></Label>
-                        <button type="button" onClick={checkMatching} className="text-sm text-primary hover:underline">Check Matching</button>
-                        {customerId && (
-                          <Badge variant="success" className="ml-auto">
-                            Existing customer
-                            <button type="button" className="ml-1 underline" onClick={() => setCustomerId(null)}>unlink</button>
-                          </Badge>
-                        )}
-                      </div>
-                      <Input {...bind("lastName")} autoComplete="off" />
-                      {errors[cust("lastName")] && <p className="text-xs text-destructive">{errors[cust("lastName")]![0]}</p>}
-                    </div>
-                    <F label="Email" name="email" errorKey={cust("email")}><Input type="email" {...bind("email")} /></F>
-                    <F label="Phone" name="phone" errorKey={cust("phone")} required><Input type="tel" {...bind("phone")} /></F>
-                    <div className="sm:col-span-2 space-y-2"><MatchList matches={customerId ? [] : matches.data} onUse={applyCustomer} /><DriverChecks checks={checks} /></div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardContent className="grid gap-4 sm:grid-cols-2">
-                    <F label="Location" name="locationId" required><NativeSelect {...bind("locationId")}>{opt(o.locations)}</NativeSelect></F>
-                    <F label="Pickup Location" name="pickupLocationId" required><NativeSelect {...bind("pickupLocationId")}>{opt(o.locations)}</NativeSelect></F>
-                    <F label="Return Location" name="returnLocationId"><NativeSelect {...bind("returnLocationId")}>{opt(o.locations)}</NativeSelect></F>
-                    <div className="grid grid-cols-[1fr_5.5rem] gap-2">
-                      <F label="Pickup Date" name="pickupAt" required><Input type="datetime-local" {...bind("pickupAt")} /></F>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="xDays">X Days</Label>
-                        <Input id="xDays" type="number" min={1} value={xDays} onChange={(e) => setXDays(Number(e.target.value))} />
-                      </div>
-                    </div>
-                    <F label="Return Date" name="returnAt" required><Input type="datetime-local" {...bind("returnAt")} /></F>
-                    <F label="Vehicle Type" name="vehicleTypeId" required>
-                      <NativeSelect {...bind("vehicleTypeId")}><option value="">Please select</option>{opt(o.vehicleTypes)}</NativeSelect>
-                    </F>
-                    <div className="space-y-1.5">
-                      <div className="flex items-center gap-2">
-                        <Label htmlFor="companyId">Company</Label>
-                        {str("companyId") && <button type="button" className="text-sm text-primary hover:underline" onClick={() => set("companyId", "")}>Clear</button>}
-                      </div>
-                      <CompanySearch companies={o.companies} value={str("companyId")} onChange={(id) => set("companyId", id)} />
-                      {company?.isUndesired && <p className="flex items-center gap-1 text-xs text-destructive"><AlertTriangleIcon className="size-3.5" /> {company.name} is on the undesired list.</p>}
-                    </div>
-                    <F label="Rate" name="rateId" required>
-                      <div className="flex items-center gap-1">
-                        <NativeSelect {...bind("rateId")}>
-                          <option value="" />
-                          {rates.map((r) => <option key={r.id} value={r.id}>{r.code}{r.daily ? ` (${money(r.daily)})` : ""}</option>)}
-                        </NativeSelect>
-                        <RateDetailsButton rateValues={rates.find((r) => r.id === v.rateId)?.values} value={opts.rateOverride} onChange={(rateOverride) => setOpts((o) => ({ ...o, rateOverride }))} disabled={!v.rateId} />
-                      </div>
-                    </F>
-                    <F label="Vehicle" name="vehicleId">
-                      <SearchPicker id="vehicleId" items={vehicles} value={str("vehicleId")} onChange={(id) => set("vehicleId", id)} disabled={!validWindow || !str("vehicleTypeId")} emptyText="No free vehicle of this type for these dates" />
-                    </F>
-                    <div className="grid grid-cols-[1fr_1fr] gap-2">
-                      <DiscountField bind={bind} label="Discount" noBlank error={errors.discountValue?.[0]} />
-                      <F label="Reason" name="discountReasonId"><NativeSelect {...bind("discountReasonId")}><option value="" />{opt(o.discountReasons)}</NativeSelect></F>
-                    </div>
-                    <F label="Deposit:" name="deposit"><Input type="number" min={0} step="0.01" {...bind("deposit")} /></F>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardContent className="grid gap-4 sm:grid-cols-2">
-                    <F label="Delivery Address" name="deliveryAddress"><Input {...bind("deliveryAddress")} placeholder="Enter a location" /></F>
-                    <F label="Referral" name="referralId"><ReferralField referrals={o.referrals} value={str("referralId")} onChange={(id) => set("referralId", id)} /></F>
-                    <F label="Driver" name="driver"><NativeSelect id="driver" value="" onChange={() => {}}><option value="" /></NativeSelect></F>
-                    <F label="Airline" name="airline"><Input {...bind("airline")} /></F>
-                    <F label="Flight #" name="flightNumber"><Input {...bind("flightNumber")} /></F>
-                    <F label="Hotel" name="hotel"><Input {...bind("hotel")} /></F>
-                    <F label="Arrival Aiport" name="arrivalAirport"><Input {...bind("arrivalAirport")} /></F>
-                    <F label="Prefered Language" name="preferredLanguage">
-                      <NativeSelect {...bind("preferredLanguage")}><option value="" />{str("preferredLanguage") && <option>{str("preferredLanguage")}</option>}</NativeSelect>
-                    </F>
-                    <F label="PO#" name="poNumber"><Input {...bind("poNumber")} /></F>
-                    <F label="RO#" name="roNumber"><Input {...bind("roNumber")} /></F>
-                    <F label="Customer Notes" name="customerNotes"><Textarea rows={3} {...bind("customerNotes")} /></F>
-                    <F label={editing ? "Add Memo" : "Memo"} name="memo"><Textarea rows={3} {...bind("memo")} /></F>
-                    <label className="flex items-center gap-2 text-sm"><Checkbox checked={v.memoShowAsPopup === true} onChange={(e) => set("memoShowAsPopup", e.target.checked)} /> Always display this memo as a popup for system users</label>
-                    <label className="flex items-center gap-2 text-sm"><Checkbox checked={v.isNonRevenue === true} onChange={(e) => set("isNonRevenue", e.target.checked)} /> Non-Revenue</label>
-                  </CardContent>
-                </Card>
-
-                <OptionsGrid data={bo.data} value={opts} onChange={setOpts} applyDefaults={!editing} paymentDetails={o.paymentDetails} />
-
-                <div className="flex flex-wrap items-center justify-between gap-4 border-t pt-4">
-                  <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
-                    {STATUSES.map(([value, label]) => {
-                      const settable = value === "CONFIRMED" || value === "TENTATIVE" || (value === "CANCELLED" && editing);
-                      return (
-                        <label key={value} className="flex items-center gap-2">
-                          <Checkbox checked={str("status") === value} disabled={!settable} onChange={(e) => e.target.checked && set("status", value)} /> {label}
-                        </label>
-                      );
-                    })}
-                    <label className="flex items-center gap-2"><Checkbox checked={v.sendConfirmationEmail === true} onChange={(e) => set("sendConfirmationEmail", e.target.checked)} /> Send Confirmation Email</label>
-                    <label className="flex items-center gap-2"><Checkbox checked={v.isLoaner === true} onChange={(e) => set("isLoaner", e.target.checked)} /> Is Loaner</label>
-                  </div>
-                  <Button type="submit" size="lg" disabled={pending}>{pending && <Loader2Icon className="animate-spin" />}Save</Button>
+        {/* ── 2 · Trip & vehicle ───────────────────────────────────────── */}
+        <StepPanel active={step === 1}>
+          <p className="text-sm text-muted-foreground">
+            {initial?.number ? `Reservation #${initial.number} · ` : ""}Reservation Date : {legacyDate(initial?.createdAt ?? new Date(), { timeZone: o.locations.find((l) => l.id === str("locationId"))?.timeZone })}
+          </p>
+          <Card>
+            <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <F label="Location" name="locationId" required><NativeSelect {...bind("locationId")}>{opt(o.locations)}</NativeSelect></F>
+              <F label="Pickup Location" name="pickupLocationId" required><NativeSelect {...bind("pickupLocationId")}>{opt(o.locations)}</NativeSelect></F>
+              <F label="Return Location" name="returnLocationId"><NativeSelect {...bind("returnLocationId")}>{opt(o.locations)}</NativeSelect></F>
+              <F label="Pickup Date" name="pickupAt" required><Input type="datetime-local" {...bind("pickupAt")} /></F>
+              <div className="grid grid-cols-[1fr_5.5rem] gap-2">
+                <F label="Return Date" name="returnAt" required><Input type="datetime-local" {...bind("returnAt")} /></F>
+                <div className="space-y-1.5">
+                  <Label htmlFor="xDays">X Days</Label>
+                  <Input id="xDays" type="number" min={1} value={xDays} onChange={(e) => setXDays(Number(e.target.value))} />
                 </div>
               </div>
+              <F label="Vehicle Type" name="vehicleTypeId" required>
+                <NativeSelect {...bind("vehicleTypeId")}><option value="">Please select</option>{opt(o.vehicleTypes)}</NativeSelect>
+              </F>
+              <F label="Rate" name="rateId" required>
+                <div className="flex items-center gap-1">
+                  <NativeSelect {...bind("rateId")}>
+                    <option value="" />
+                    {rates.map((r) => <option key={r.id} value={r.id}>{r.code}{r.daily ? ` (${money(r.daily)})` : ""}</option>)}
+                  </NativeSelect>
+                  <RateDetailsButton rateValues={rates.find((r) => r.id === v.rateId)?.values} value={opts.rateOverride} onChange={(rateOverride) => setOpts((o) => ({ ...o, rateOverride }))} disabled={!v.rateId} />
+                </div>
+              </F>
+              <F label="Vehicle" name="vehicleId">
+                <SearchPicker id="vehicleId" items={vehicles} value={str("vehicleId")} onChange={(id) => set("vehicleId", id)} disabled={!validWindow || !str("vehicleTypeId")} emptyText="No free vehicle of this type for these dates" />
+              </F>
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="companyId">Company</Label>
+                  {str("companyId") && <button type="button" className="text-sm text-primary hover:underline" onClick={() => set("companyId", "")}>Clear</button>}
+                </div>
+                <CompanySearch companies={o.companies} value={str("companyId")} onChange={(id) => set("companyId", id)} />
+                {company?.isUndesired && <p className="flex items-center gap-1 text-xs text-destructive"><AlertTriangleIcon className="size-3.5" /> {company.name} is on the undesired list.</p>}
+              </div>
+              <div className="grid grid-cols-[1fr_1fr] gap-2">
+                <DiscountField bind={bind} label="Discount" noBlank error={errors.discountValue?.[0]} />
+                <F label="Reason" name="discountReasonId"><NativeSelect {...bind("discountReasonId")}><option value="" />{opt(o.discountReasons)}</NativeSelect></F>
+              </div>
+              <F label="Deposit:" name="deposit"><Input type="number" min={0} step="0.01" {...bind("deposit")} /></F>
+              <F label="Referral" name="referralId"><ReferralField referrals={o.referrals} value={str("referralId")} onChange={(id) => set("referralId", id)} /></F>
+            </CardContent>
+          </Card>
 
-              {/* ── right: charges + Payment Information ─────────────────────── */}
-              <aside className="space-y-4 xl:sticky xl:top-4 xl:self-start">
-                <Button type="button" variant="ghost" className="text-primary" onClick={() => { setPreviewOn(true); void preview.refetch(); }}>
-                  <RefreshCwIcon /> Update Charges Summary
-                </Button>
-                <ChargeSummary title="Charges" preview={previewOn ? preview.data : undefined} emptyText="Choose dates, location, vehicle type and rate, then Update Charges Summary." />
-                <PaymentInfoCard
-                  set={set}
-                  locationId={str("pickupLocationId")}
-                  bind={bind}
-                  onSubmit={submitPayment}
-                  transactionTypes={[["PAYMENT", "Payment (Credit)"], ["AUTHORIZATION", "Authorization"], ["REFUND", "Refund"]]}
-                  pendingNote={paymentReady && !editing ? Number(str("payAmount")) : null}
-                />
-              </aside>
+          <details className="group rounded-xl border bg-card">
+            <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold">
+              More details <span className="font-normal text-muted-foreground">— delivery, flight, hotel, PO / RO #, notes, memo</span>
+            </summary>
+            <div className="grid gap-4 border-t p-4 sm:grid-cols-2 lg:grid-cols-3">
+              <F label="Delivery Address" name="deliveryAddress"><Input {...bind("deliveryAddress")} placeholder="Enter a location" /></F>
+              <F label="Driver" name="driver"><NativeSelect id="driver" value="" onChange={() => {}}><option value="" /></NativeSelect></F>
+              <F label="Airline" name="airline"><Input {...bind("airline")} /></F>
+              <F label="Flight #" name="flightNumber"><Input {...bind("flightNumber")} /></F>
+              <F label="Hotel" name="hotel"><Input {...bind("hotel")} /></F>
+              <F label="Arrival Aiport" name="arrivalAirport"><Input {...bind("arrivalAirport")} /></F>
+              <F label="Prefered Language" name="preferredLanguage">
+                <NativeSelect {...bind("preferredLanguage")}><option value="" />{str("preferredLanguage") && <option>{str("preferredLanguage")}</option>}</NativeSelect>
+              </F>
+              <F label="PO#" name="poNumber"><Input {...bind("poNumber")} /></F>
+              <F label="RO#" name="roNumber"><Input {...bind("roNumber")} /></F>
+              <F label="Customer Notes" name="customerNotes"><Textarea rows={3} {...bind("customerNotes")} /></F>
+              <F label={editing ? "Add Memo" : "Memo"} name="memo"><Textarea rows={3} {...bind("memo")} /></F>
+              <div className="space-y-2 pt-6">
+                <label className="flex items-center gap-2 text-sm"><Checkbox checked={v.memoShowAsPopup === true} onChange={(e) => set("memoShowAsPopup", e.target.checked)} /> Always display this memo as a popup for system users</label>
+                <label className="flex items-center gap-2 text-sm"><Checkbox checked={v.isNonRevenue === true} onChange={(e) => set("isNonRevenue", e.target.checked)} /> Non-Revenue</label>
+              </div>
             </div>
-          </TabsContent>
-        </Tabs>
+          </details>
+          <StepNav onBack={() => go(0)} onNext={() => next(1)} nextLabel="Next: extras" />
+        </StepPanel>
+
+        {/* ── 3 · Extras ───────────────────────────────────────────────── */}
+        <StepPanel active={step === 2}>
+          <OptionsGrid data={bo.data} value={opts} onChange={setOpts} applyDefaults={!editing} paymentDetails={o.paymentDetails} />
+          <StepNav onBack={() => go(1)} onNext={() => next(2)} nextLabel="Next: summary & payment" />
+        </StepPanel>
+
+        {/* ── 4 · Summary & payment ────────────────────────────────────── */}
+        <StepPanel active={step === 3}>
+          <div className="grid gap-4 xl:grid-cols-2">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold">Charges</p>
+                <Button type="button" variant="ghost" size="sm" className="text-primary" onClick={() => void preview.refetch()}>
+                  <RefreshCwIcon className={preview.isFetching ? "animate-spin" : undefined} /> Refresh
+                </Button>
+              </div>
+              <ChargeSummary title="Charges" preview={preview.data} emptyText="Choose dates, location, vehicle type and rate (step 2)." />
+            </div>
+            <PaymentInfoCard
+              set={set}
+              locationId={str("pickupLocationId")}
+              bind={bind}
+              onSubmit={submitPayment}
+              transactionTypes={[["PAYMENT", "Payment (Credit)"], ["AUTHORIZATION", "Authorization"], ["REFUND", "Refund"]]}
+              pendingNote={paymentReady && !editing ? Number(str("payAmount")) : null}
+            />
+          </div>
+          <Card>
+            <CardContent className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
+              {STATUSES.map(([value, label]) => {
+                const settable = value === "CONFIRMED" || value === "TENTATIVE" || (value === "CANCELLED" && editing);
+                return (
+                  <label key={value} className="flex items-center gap-2">
+                    <Checkbox checked={str("status") === value} disabled={!settable} onChange={(e) => e.target.checked && set("status", value)} /> {label}
+                  </label>
+                );
+              })}
+              <label className="flex items-center gap-2"><Checkbox checked={v.sendConfirmationEmail === true} onChange={(e) => set("sendConfirmationEmail", e.target.checked)} /> Send Confirmation Email</label>
+              <label className="flex items-center gap-2"><Checkbox checked={v.isLoaner === true} onChange={(e) => set("isLoaner", e.target.checked)} /> Is Loaner</label>
+            </CardContent>
+          </Card>
+          <StepNav onBack={() => go(2)} next={<Button type="submit" size="lg" disabled={pending}>{pending && <Loader2Icon className="animate-spin" />}{editing ? "Save reservation" : "Reserve"}</Button>} />
+        </StepPanel>
       </form>
 
       <ConfirmAction
