@@ -15,6 +15,7 @@ import { REGION_OPTIONS } from "@mrac/ui/lib/regions";
 import { CUSTOMER_FIELDS, customerValues, type CustomerField } from "./booking-values";
 import { FieldShell as F } from "./form";
 import { usePaymentMethods } from "./payment-methods";
+import { cardExpired, parseCardSwipe, type SwipedCard } from "./customer-checks";
 
 // server-safe customer helpers live in booking-values.ts; re-exported for the client forms
 export { CUSTOMER_FIELDS, customerValues, type CustomerField };
@@ -126,8 +127,11 @@ export function PaymentInfoCard({
   codeLabels = ["Authorization Code", "Transaction Code"],
   pendingNote,
   locationId,
+  set,
 }: {
   bind: Bind;
+  /** sets a form value: the card swipe fills Payment Method and the card's last 4 digits */
+  set?: (name: string, value: string) => void;
   onSubmit: () => void;
   transactionTypes: [string, string][];
   codeLabels?: [string, string];
@@ -136,14 +140,54 @@ export function PaymentInfoCard({
   locationId?: string | null;
 }) {
   const pm = usePaymentMethods(locationId);
+  const [swipe, setSwipe] = React.useState("");
+  const [card, setCard] = React.useState<SwipedCard | null>(null);
+  const [swipeError, setSwipeError] = React.useState<string | null>(null);
+  // a reader types the stripe then Enter; the raw text (with the full number) is dropped straight away
+  const readSwipe = (raw: string) => {
+    const c = parseCardSwipe(raw);
+    setSwipe("");
+    if (!c) return setSwipeError("Couldn't read the card — swipe again, or enter the details by hand.");
+    setSwipeError(null);
+    setCard(c);
+    set?.("payLast4", c.last4);
+    if (c.brand !== "OTHER" && pm.options.some((o) => o.value === c.brand)) set?.("payMethod", c.brand);
+  };
+  const expired = card ? cardExpired(card.expMonth, card.expYear) : false;
   return (
     <Card className="gap-3">
       <CardHeader><CardTitle>Payment Information</CardTitle></CardHeader>
       <CardContent className="grid gap-3 sm:grid-cols-2">
-        <div className="space-y-1.5 sm:col-span-2"><Label htmlFor="ccSwipe">Swipe Credit Card Here Or</Label><Input id="ccSwipe" className="max-w-24" autoComplete="off" /></div>
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label htmlFor="ccSwipe">Swipe Credit Card Here Or</Label>
+          <Input
+            id="ccSwipe"
+            className="max-w-xs"
+            autoComplete="off"
+            placeholder="Click here, then swipe the card"
+            value={swipe}
+            onChange={(e) => {
+              const t = e.target.value;
+              setSwipe(t);
+              // some readers end with "?" and no Enter
+              if (/\?\s*$/.test(t) && /[\^=]/.test(t) && parseCardSwipe(t)) readSwipe(t);
+            }}
+            onKeyDown={(e) => {
+              if (e.key !== "Enter") return;
+              e.preventDefault();
+              if (swipe) readSwipe(swipe);
+            }}
+          />
+          {swipeError && <p className="text-xs text-destructive">{swipeError}</p>}
+          {card && (
+            <p className={expired ? "text-xs font-semibold text-destructive" : "text-xs text-muted-foreground"}>
+              {card.label} •••• {card.last4} · Exp {String(card.expMonth).padStart(2, "0")}/{card.expYear}{card.holder ? ` · ${card.holder}` : ""}{expired ? " — this card has EXPIRED" : ""}
+            </p>
+          )}
+        </div>
         <div className="space-y-1.5">
-          <div className="flex items-center gap-1"><Label htmlFor="cc">Credit Card</Label><PlusCircleIcon className="size-3.5 text-primary" aria-hidden /></div>
-          <NativeSelect id="cc" value="" onChange={() => {}}><option value="" /></NativeSelect>
+          <div className="flex items-center gap-1"><Label htmlFor="payLast4">Credit Card (last 4)</Label><PlusCircleIcon className="size-3.5 text-primary" aria-hidden /></div>
+          <Input {...bind("payLast4")} id="payLast4" inputMode="numeric" maxLength={4} placeholder="1234" autoComplete="off" />
         </div>
         <div className="space-y-1.5"><Label htmlFor="cvv">CVV</Label><Input id="cvv" inputMode="numeric" maxLength={4} autoComplete="off" /></div>
         <F label="Payment Method" name="payMethod" required><NativeSelect {...bind("payMethod")}><option value="">Please select</option>{pm.options.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}</NativeSelect></F>

@@ -19,6 +19,7 @@ import { fromDateTimeLocal, money, toDateTimeLocal } from "@mrac/ui/lib/format";
 import { ChargeSummary, DiscountField, FormAlert, bookingWindow, initialBookingTimes } from "../../../../_components/booking-kit";
 import { DriversCard, withDriverCharges, type DriverPick } from "../../../../_components/booking-drivers";
 import { CUSTOMER_FIELDS, CustomerFields, CustomerNotes, MatchList, PaymentInfoCard, customerValues, type CustomerLayout } from "../../../../_components/booking-customer";
+import { CustomerSearchDialog, DriverChecks, driverChecks } from "../../../../_components/customer-checks";
 import { CompanySearch } from "../../../../_components/company-search";
 import { ConfirmAction } from "../../../../_components/confirm-action";
 import { FieldShell as F, FormErrorsContext, errorMessage, fieldErrorsOf } from "../../../../_components/form";
@@ -159,9 +160,22 @@ export function StartRentalForm({
   });
 
   const matches = useQuery({ ...trpc.staff.reservation.checkMatching.queryOptions(matchKey ?? {}), enabled: !!matchKey && !customerId });
-  const checkMatching = () => setMatchKey({ firstName: str("firstName"), lastName: str("lastName"), phone: str("phone"), email: str("email"), licenseNumber: str("licenseNumber") });
+  // "Check Matching" / the search icon open the customer search; matches are also suggested as the details are typed
+  const [searchOpen, setSearchOpen] = React.useState(false);
+  const checkMatching = () => setSearchOpen(true);
+  const [mFirst, mLast, mPhone, mEmail, mLicence] = [str("firstName"), str("lastName"), str("phone"), str("email"), str("licenseNumber")];
+  React.useEffect(() => {
+    if (customerId) return;
+    if (!(mLast.trim().length >= 2 || mPhone.replace(/\D/g, "").length >= 7 || mEmail.includes("@") || mLicence.trim().length >= 4)) return;
+    const t = setTimeout(() => setMatchKey({ firstName: mFirst, lastName: mLast, phone: mPhone, email: mEmail, licenseNumber: mLicence }), 500);
+    return () => clearTimeout(t);
+  }, [customerId, mFirst, mLast, mPhone, mEmail, mLicence]);
+  // always-on checks (client request): licence expiry, under 25, and the chosen customer's expired cards
+  const [cards, setCards] = React.useState<{ brand: string; last4: string; expMonth: number; expYear: number }[]>([]);
+  const checks = driverChecks({ birthDate: str("birthDate"), licenseExpiry: str("licenseExpiry"), cards }, pickupAt, returnAt);
   function applyCustomer(c: NonNullable<typeof matches.data>[number]) {
     setCustomerId(c.id);
+    setCards("creditCards" in c ? (c as { creditCards: typeof cards }).creditCards : []);
     setV((s) => ({ ...s, ...customerValues(c) }));
     setMatchKey(null);
     if (c.isUndesired) toast.warning("This customer is on the undesired (do-not-rent) list.");
@@ -223,7 +237,7 @@ export function StartRentalForm({
         vehicleId: str("vehicleId"),
         // CVV is never stored
         payment: pay
-          ? { method: str("payMethod") as "CASH", transactionType: (str("payType") || "AUTHORIZATION") as "AUTHORIZATION", amount: Number(str("payAmount")), authorizationCode: str("payAuth"), transactionCode: str("payTxn") }
+          ? { method: str("payMethod") as "CASH", transactionType: (str("payType") || "AUTHORIZATION") as "AUTHORIZATION", amount: Number(str("payAmount")), authorizationCode: str("payAuth"), transactionCode: str("payTxn"), cardLast4: str("payLast4") }
           : null,
       });
       toast.success("Rental started");
@@ -292,6 +306,15 @@ export function StartRentalForm({
                 <div className="max-w-xs space-y-1.5"><Label htmlFor="swipe">Swipe</Label><Input id="swipe" autoComplete="off" /></div>
                 <CustomerFields layout={RENTAL_CUSTOMER} bind={bind} onFind={checkMatching}><CustomerNotes bind={bind} customerId={customerId} /></CustomerFields>
                 <MatchList matches={customerId ? [] : matches.data} onUse={applyCustomer} />
+                <DriverChecks checks={checks} />
+                <CustomerSearchDialog<Parameters<typeof applyCustomer>[0]>
+                  open={searchOpen}
+                  onOpenChange={setSearchOpen}
+                  initial={{ firstName: mFirst, lastName: mLast, phone: mPhone, email: mEmail, licenseNumber: mLicence }}
+                  pickupAt={pickupAt}
+                  returnAt={returnAt}
+                  onUse={applyCustomer}
+                />
                 <div className="flex justify-end">
                   <Button type="button" onClick={saveCustomerTab}>Save And Goto Rental Tab &gt;&gt;</Button>
                 </div>
@@ -403,6 +426,7 @@ export function StartRentalForm({
                 <ChargeSummary title="Charges" preview={previewOn ? preview.data : undefined} emptyText="Choose dates, location, vehicle type and rate, then Update Charges Summary." />
                 {!editing && (
                 <PaymentInfoCard
+                  set={set}
                   locationId={str("pickupLocationId")}
                   bind={bind}
                   onSubmit={submitPayment}

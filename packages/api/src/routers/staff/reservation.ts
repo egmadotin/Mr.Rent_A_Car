@@ -353,6 +353,37 @@ export const reservationRouter = router({
   }),
 
   /** "Check Matching": possible duplicates of the customer being typed in. */
+  /**
+   * "Check Matching" search (client request): customers filtered by any of First / Last Name, Phone, Email, Licence #
+   * (all given filters must match, partial text), with what the booking checks need: licence expiry, birth date, cards.
+   */
+  customerSearch: staffProcedure
+    .input(z.object({ firstName: z.string().trim().max(80).optional(), lastName: z.string().trim().max(80).optional(), phone: z.string().trim().max(30).optional(), email: z.string().trim().max(120).optional(), licenseNumber: z.string().trim().max(40).optional() }))
+    .query(({ ctx, input }) => {
+      const ci = (v: string) => ({ contains: v, mode: "insensitive" as const });
+      const digits = (input.phone ?? "").replace(/\D/g, "");
+      const and: Prisma.CustomerWhereInput[] = [
+        ...(input.firstName ? [{ firstName: ci(input.firstName) }] : []),
+        ...(input.lastName ? [{ lastName: ci(input.lastName) }] : []),
+        ...(digits.length >= 3 ? [{ OR: [{ phone: { contains: digits } }, { cellPhone: { contains: digits } }, { localPhone: { contains: digits } }] }] : []),
+        ...(input.email ? [{ email: ci(input.email) }] : []),
+        ...(input.licenseNumber ? [{ licenseNumber: ci(input.licenseNumber) }] : []),
+      ];
+      if (!and.length) return [];
+      return ctx.prisma.customer.findMany({
+        where: { AND: and },
+        take: 50,
+        orderBy: [{ isActive: "desc" }, { updatedAt: "desc" }],
+        select: {
+          id: true, firstName: true, middleName: true, lastName: true, phone: true, localPhone: true, email: true, licenseNumber: true,
+          licenseExpiry: true, licenseProvince: true, birthDate: true, address1: true, address2: true, city: true, province: true,
+          postal: true, country: true, insuranceCompany: true, insurancePolicyNumber: true, insuranceExpiry: true, insurancePhone: true,
+          insuranceFax: true, isUndesired: true, isActive: true,
+          creditCards: { where: { isActive: true }, select: { id: true, brand: true, last4: true, expMonth: true, expYear: true } },
+        },
+      });
+    }),
+
   checkMatching: staffProcedure
     .input(
       z.object({

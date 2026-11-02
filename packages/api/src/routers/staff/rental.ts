@@ -426,6 +426,8 @@ export const rentalRouter = router({
               amount: z.coerce.number().positive("Amount must be more than 0"),
               authorizationCode: optStr,
               transactionCode: optStr,
+              /** from a card swipe (only the last 4 digits are ever kept) */
+              cardLast4: z.preprocess((v) => (v === "" ? null : v), z.string().regex(/^\d{4}$/, "Last 4 digits only").nullable().optional()),
             })
             .nullable()
             .optional(),

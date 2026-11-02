@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronDownIcon, XIcon } from "lucide-react";
+import { ChevronDownIcon, SearchIcon, XIcon } from "lucide-react";
 import { useTRPC } from "@mrac/api/client";
 import { Input } from "@mrac/ui/components/input";
 import { NativeSelect } from "@mrac/ui/components/native-select";
@@ -37,6 +37,8 @@ export type BookingOptionsData = NonNullable<ReturnType<typeof useBookingOptions
  * - taxes are listed ticked; untick to make the booking tax-exempt
  * - "Default" charges are pre-ticked when the grid first loads for a new booking
  * - "Add/Edit Other Charges": four free lines (amount, detail, description)
+ * - client request: a search box, Insurance / Misc. / Taxes / Selected tabs with counts, and the chosen options as
+ *   removable chips, so a long list needs no scrolling to find or check a charge
  */
 export function OptionsGrid({
   data,
@@ -54,6 +56,8 @@ export function OptionsGrid({
   applyDefaults: boolean;
 }) {
   const [showOther, setShowOther] = React.useState(value.otherCharges.length > 0);
+  const [search, setSearch] = React.useState("");
+  const [tab, setTab] = React.useState<"all" | "Insurance" | "Misc. Charge" | "Tax" | "selected">("all");
   // RentCentric re-ticks the defaults whenever the location / vehicle type (and so the option list) changes
   const applied = React.useRef("");
   React.useEffect(() => {
@@ -159,6 +163,24 @@ export function OptionsGrid({
     })),
   ];
 
+  const words = search.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const shown = rows.filter(
+    (r) => (tab === "all" || (tab === "selected" ? r.on && r.type !== "Tax" : r.type === tab)) && words.every((w) => r.name.toLowerCase().includes(w)),
+  );
+  const chosen = rows.filter((r) => r.on && r.type !== "Tax");
+  const remove = (key: string) => {
+    const id = key.slice(1);
+    if (key.startsWith("i")) toggleIns(id, false);
+    else if (key.startsWith("m")) setMisc(id, false);
+  };
+  const tabs = [
+    { key: "all" as const, label: "All", n: rows.length },
+    { key: "Insurance" as const, label: "Insurance", n: d.insurances.length },
+    { key: "Misc. Charge" as const, label: "Misc. charges", n: d.misc.length },
+    { key: "Tax" as const, label: "Taxes", n: d.taxes.length },
+    { key: "selected" as const, label: "Selected", n: chosen.length },
+  ];
+
   const other = [0, 1, 2, 3].map((i) => value.otherCharges[i] ?? { amount: 0, detail: "", description: "" });
   const setOther = (i: number, patch: Partial<(typeof other)[number]>) => {
     const next = other.map((o, k) => (k === i ? { ...o, ...patch } : o));
@@ -167,6 +189,31 @@ export function OptionsGrid({
 
   return (
     <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative min-w-48 flex-1">
+          <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input aria-label="Search options" placeholder="Search options (e.g. seat, waiver, GPS)" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8" />
+        </div>
+        <div className="flex flex-wrap gap-1 rounded-md bg-muted p-1" role="tablist" aria-label="Option type">
+          {tabs.map((t) => (
+            <button key={t.key} type="button" role="tab" aria-selected={tab === t.key} onClick={() => setTab(t.key)}
+              className={cn("rounded px-2.5 py-1 text-xs font-medium", tab === t.key ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground")}>
+              {t.label} <span className="tabular-nums opacity-70">{t.n}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+      {chosen.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 text-xs">
+          <span className="text-muted-foreground">Selected:</span>
+          {chosen.map((c) => (
+            <span key={c.key} className="inline-flex items-center gap-1 rounded-full border bg-accent/40 py-0.5 pr-1 pl-2.5">
+              {c.name} <span className="text-muted-foreground">{c.rate}</span>
+              <button type="button" aria-label={`Remove ${c.name}`} onClick={() => remove(c.key)} className="rounded-full p-0.5 hover:bg-muted"><XIcon className="size-3" /></button>
+            </span>
+          ))}
+        </div>
+      )}
       <div className="max-h-96 overflow-y-auto rounded-md border">
         <table className="w-full text-sm">
           <thead className="sticky top-0 bg-muted text-left text-xs text-muted-foreground">
@@ -179,7 +226,10 @@ export function OptionsGrid({
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => {
+            {shown.length === 0 && (
+              <tr><td colSpan={5} className="px-3 py-4 text-center text-sm text-muted-foreground">{rows.length ? "No options match." : "Choose a vehicle type to see the options."}</td></tr>
+            )}
+            {shown.map((r) => {
               const id = r.key.slice(1);
               const m = r.key.startsWith("m") ? d.misc.find((x) => x.id === id) : null;
               return (

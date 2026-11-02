@@ -47,6 +47,7 @@ The RentCentric menus, vehicle page and customer page were re-read on Oct 20. No
 |---|---|---|
 | QuotesSearch (search, advanced search, list, delete) | `/admin/quotes` | ✅ |
 | QuotesModify (add / edit) | `/admin/quotes/new`, `/[id]/edit` | ✅ client changes: Customer information (First / Last Name, Email, Phone) on the form; Generate saves and stays on the form with the charges shown (options still editable, Generate again updates the same quote); Save saves and opens the quote |
+| Client improvements (Nov 2) | Reserve / Start Rental / Quote forms | ✅ Options list: search box, All / Insurance / Misc. charges / Taxes / Selected tabs with counts, chosen options as removable chips. Card swipe (magnetic stripe reader, track 1 / 2): fills Payment Method (Visa / Mastercard / Amex) and Credit Card (last 4), shows expiry and name, warns if expired — the full number is never kept. Check Matching opens a customer search (any of last / first name, phone, email, licence #, partial) — pick one to fill the form; matches are also suggested while typing. Always-on checks on the form and in the search: under 25 at pick-up, licence expired / expiring during the rental, missing birth date or licence expiry, expired saved cards |
 | Rate (i) per-booking rate | Rate Details dialog | ✅ |
 | Add/Edit Other Charges (4 lines) | options grid | ✅ |
 | Quote view and actions | `/admin/quotes/[id]` | ✅ |
