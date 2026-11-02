@@ -221,9 +221,9 @@ export function QuoteForm({ initial, defaultLocationId }: { initial?: QuoteFormI
 
         {/* ── 3 · Extras & charges: Generate stays here, Save opens the quote ── */}
         <StepPanel active={step === 2}>
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+          <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_22rem] 2xl:grid-cols-[minmax(0,1fr)_26rem]">
             <OptionsGrid data={bo.data} value={opts} onChange={setOpts} applyDefaults={!initial?.quoteId} paymentDetails={o.paymentDetails} />
-            <div>
+            <div className="lg:sticky lg:top-4">
               {generated.data
                 ? <GeneratedCharges number={generated.data.quote.number} lines={generated.data.quote.chargeLines} total={Number(generated.data.total)} updating={generated.isFetching} />
                 : <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">Choose the options, then Generate to see the charges here.</p>}

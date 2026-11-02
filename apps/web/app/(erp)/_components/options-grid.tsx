@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronDownIcon, SearchIcon, XIcon } from "lucide-react";
+import { CheckIcon, ChevronDownIcon, SearchIcon, XIcon } from "lucide-react";
 import { useTRPC } from "@mrac/api/client";
 import { Input } from "@mrac/ui/components/input";
 import { NativeSelect } from "@mrac/ui/components/native-select";
@@ -18,6 +18,49 @@ export type BookingOptions = {
   /** "Rate (i)" Rate Details (see rate-details.tsx) */
   rateOverride?: RateOverride | null;
 };
+type Opt = {
+  key: string;
+  type: "Insurance" | "Misc. Charge" | "Tax";
+  name: string;
+  rate: string;
+  on: boolean;
+  /** pick-one group name (only for groups with two or more members) */
+  group: string | null;
+  toggle: () => void;
+  /** quantity box for multi-select charges */
+  extra?: React.ReactNode;
+};
+
+/** One option as a click-anywhere tile: tick box (or radio for a pick-one group), name, rate. */
+function OptionTile({ r }: { r: Opt }) {
+  return (
+    <div className={cn("flex min-h-8 items-center rounded-md border bg-background text-[13px] transition-colors", r.on ? "border-primary/60 bg-primary/10" : "hover:bg-muted/60")}>
+      <button
+        type="button"
+        role={r.group ? "radio" : "checkbox"}
+        aria-checked={r.on}
+        aria-label={r.name}
+        title={r.name}
+        onClick={r.toggle}
+        className="flex min-h-8 min-w-0 flex-1 items-center gap-2 px-2.5 py-1 text-left leading-tight"
+      >
+        <span
+          className={cn(
+            "grid size-4 shrink-0 place-items-center border",
+            r.group ? "rounded-full" : "rounded-[4px]",
+            r.on ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground/50",
+          )}
+        >
+          {r.on && (r.group ? <span className="size-1.5 rounded-full bg-current" /> : <CheckIcon className="size-3" strokeWidth={3} />)}
+        </span>
+        <span className="line-clamp-2 min-w-0 flex-1">{r.name}</span>
+        <span className="shrink-0 text-muted-foreground tabular-nums">{r.rate}</span>
+      </button>
+      {r.extra}
+    </div>
+  );
+}
+
 export const emptyOptions = (): BookingOptions => ({ insuranceIds: [], miscCharges: [], excludedTaxIds: [], otherCharges: [] });
 
 /** Rate dropdown + options grid data for the chosen location / vehicle type / pickup date. */
@@ -39,6 +82,8 @@ export type BookingOptionsData = NonNullable<ReturnType<typeof useBookingOptions
  * - "Add/Edit Other Charges": four free lines (amount, detail, description)
  * - client request: a search box, Insurance / Misc. / Taxes / Selected tabs with counts, and the chosen options as
  *   removable chips, so a long list needs no scrolling to find or check a charge
+ * - laid out as tiles across the whole width (no inner scroll box); pick-one groups are small cards, click a picked
+ *   one again (or Clear) to unpick
  */
 export function OptionsGrid({
   data,
@@ -117,50 +162,48 @@ export function OptionsGrid({
     [...xs].sort((a, b) => Number(!!a.group) - Number(!!b.group) || cmp(a.group ?? "", b.group ?? "") || cmp(a.name, b.name));
   // a group with a single member is shown as a plain tick box
   const count = (xs: { group: string | null }[], g: string | null) => (g ? xs.filter((x) => x.group === g).length : 0);
-  const rows: { key: string; control: React.ReactNode; name: string; type: string; rate: string; on: boolean }[] = [
-    ...byGroup(d.insurances).map((i) => ({
-      key: `i${i.id}`,
-      on: value.insuranceIds.includes(i.id),
-      control: count(d.insurances, i.group) > 1 ? (
-        <span className="flex items-center gap-1">
-          <input type="radio" className="accent-primary" name={`ins-${i.group}`} checked={value.insuranceIds.includes(i.id)} onChange={() => toggleIns(i.id, true, i.group)} aria-label={i.name} />
-          <button type="button" className="text-muted-foreground hover:text-destructive" title="Clear this group" onClick={() => clearInsGroup(i.group!)}>
-            <XIcon className="size-3.5" />
-          </button>
-        </span>
-      ) : (
-        <input type="checkbox" className="accent-primary" checked={value.insuranceIds.includes(i.id)} onChange={(e) => toggleIns(i.id, e.target.checked)} aria-label={i.name} />
-      ),
+  const qtyInput = (m: BookingOptionsData["misc"][number]) =>
+    has(m.id) && (m.multiSelect || m.autoWhenAdditionalDriver) ? (
+      <Input
+        type="number"
+        min={1}
+        max={20}
+        aria-label={`${m.name} quantity`}
+        className="mr-1 h-7 w-12 shrink-0 px-1 text-right"
+        value={qty(m.id)}
+        onChange={(e) =>
+          onChange({ ...value, miscCharges: value.miscCharges.map((x) => (x.miscChargeId === m.id ? { ...x, quantity: Math.max(1, Number(e.target.value) || 1) } : x)) })
+        }
+      />
+    ) : null;
+  const rows: Opt[] = [
+    ...byGroup(d.insurances).map((i): Opt => {
+      const on = value.insuranceIds.includes(i.id);
+      const group = count(d.insurances, i.group) > 1 ? i.group : null;
       // RentCentric shows name / type / rate only
-      name: i.name,
-      type: "Insurance",
-      rate: money(i.dailyRate),
-    })),
-    ...byGroup(d.misc).map((m) => ({
-      key: `m${m.id}`,
-      on: has(m.id),
-      control: count(d.misc, m.group) > 1 ? (
-        <span className="flex items-center gap-1">
-          <input type="radio" className="accent-primary" name={`grp-${m.group}`} checked={has(m.id)} onChange={() => setMisc(m.id, true, m.group)} aria-label={m.name} />
-          <button type="button" className="text-muted-foreground hover:text-destructive" title="Clear this group" onClick={() => clearGroup(m.group!)}>
-            <XIcon className="size-3.5" />
-          </button>
-        </span>
-      ) : (
-        <input type="checkbox" className="accent-primary" checked={has(m.id)} onChange={(e) => setMisc(m.id, e.target.checked)} aria-label={m.name} />
-      ),
-      name: m.name,
-      type: "Misc. Charge",
-      rate: m.calculationBy === "PERCENT" ? `${Number(m.rate)}%` : money(m.rate),
-    })),
-    ...d.taxes.map((t) => ({
-      key: `t${t.id}`,
-      on: !value.excludedTaxIds.includes(t.id),
-      control: <input type="checkbox" className="accent-primary" checked={!value.excludedTaxIds.includes(t.id)} onChange={(e) => toggleTax(t.id, e.target.checked)} aria-label={t.name} />,
-      name: t.name,
-      type: "Tax",
-      rate: t.kind === "PERCENT" ? `${Number(t.value)}%` : money(t.value),
-    })),
+      return {
+        key: `i${i.id}`, on, group, name: i.name, type: "Insurance", rate: money(i.dailyRate),
+        toggle: () => (group ? (on ? clearInsGroup(group) : toggleIns(i.id, true, group)) : toggleIns(i.id, !on)),
+      };
+    }),
+    ...byGroup(d.misc).map((m): Opt => {
+      const on = has(m.id);
+      const group = count(d.misc, m.group) > 1 ? m.group : null;
+      return {
+        key: `m${m.id}`, on, group, name: m.name, type: "Misc. Charge",
+        rate: m.calculationBy === "PERCENT" ? `${Number(m.rate)}%` : money(m.rate),
+        toggle: () => (group ? (on ? clearGroup(group) : setMisc(m.id, true, group)) : setMisc(m.id, !on)),
+        extra: qtyInput(m),
+      };
+    }),
+    ...d.taxes.map((t): Opt => {
+      const on = !value.excludedTaxIds.includes(t.id);
+      return {
+        key: `t${t.id}`, on, group: null, name: t.name, type: "Tax",
+        rate: t.kind === "PERCENT" ? `${Number(t.value)}%` : money(t.value),
+        toggle: () => toggleTax(t.id, !on),
+      };
+    }),
   ];
 
   const words = search.trim().toLowerCase().split(/\s+/).filter(Boolean);
@@ -180,6 +223,42 @@ export function OptionsGrid({
     { key: "Tax" as const, label: "Taxes", n: d.taxes.length },
     { key: "selected" as const, label: "Selected", n: chosen.length },
   ];
+
+  const section = (type: Opt["type"], title: string) => {
+    const items = shown.filter((r) => r.type === type);
+    if (!items.length) return null;
+    const loose = items.filter((r) => !r.group);
+    const groups = [...new Set(items.filter((r) => r.group).map((r) => r.group!))];
+    return (
+      <section key={type} className="space-y-2">
+        <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+          {title} <span className="font-normal tabular-nums">· {items.filter((r) => r.on).length} of {items.length} on</span>
+        </h3>
+        {/* balanced columns (as many as fit): pick-one cards first, then the tick boxes */}
+        <div className="columns-[15rem] gap-2 *:mb-1.5 *:break-inside-avoid">
+          {groups.map((g) => {
+            const members = items.filter((r) => r.group === g);
+            const picked = members.find((r) => r.on);
+            return (
+              <div key={g} className="space-y-1 rounded-lg border bg-muted/20 p-1.5">
+                <div className="flex items-center justify-between gap-2 px-1 text-xs">
+                  <span className="truncate font-medium" title={g}>{g} <span className="font-normal text-muted-foreground">· pick one</span></span>
+                  {picked && (
+                    <button type="button" onClick={picked.toggle} className="shrink-0 text-muted-foreground hover:text-destructive">Clear</button>
+                  )}
+                </div>
+                {members.map((r) => <OptionTile key={r.key} r={r} />)}
+              </div>
+            );
+          })}
+          {loose.map((r) => <OptionTile key={r.key} r={r} />)}
+        </div>
+      </section>
+    );
+  };
+  const ins = section("Insurance", "Insurance");
+  const misc = section("Misc. Charge", "Misc. charges");
+  const tax = section("Tax", "Taxes");
 
   const other = [0, 1, 2, 3].map((i) => value.otherCharges[i] ?? { amount: 0, detail: "", description: "" });
   const setOther = (i: number, patch: Partial<(typeof other)[number]>) => {
@@ -203,7 +282,7 @@ export function OptionsGrid({
           ))}
         </div>
       </div>
-      {chosen.length > 0 && (
+      {chosen.length > 0 && (words.length > 0 || (tab !== "all" && tab !== "selected")) && (
         <div className="flex flex-wrap items-center gap-1.5 text-xs">
           <span className="text-muted-foreground">Selected:</span>
           {chosen.map((c) => (
@@ -214,50 +293,17 @@ export function OptionsGrid({
           ))}
         </div>
       )}
-      <div className="max-h-96 overflow-y-auto rounded-md border">
-        <table className="w-full text-sm">
-          <thead className="sticky top-0 bg-muted text-left text-xs text-muted-foreground">
-            <tr>
-              <th className="w-12 px-3 py-2" />
-              <th className="px-2 py-2 font-medium">Option Name</th>
-              <th className="px-2 py-2 font-medium">Type</th>
-              <th className="px-3 py-2 text-right font-medium">Rate</th>
-              <th className="w-16 px-2 py-2" />
-            </tr>
-          </thead>
-          <tbody>
-            {shown.length === 0 && (
-              <tr><td colSpan={5} className="px-3 py-4 text-center text-sm text-muted-foreground">{rows.length ? "No options match." : "Choose a vehicle type to see the options."}</td></tr>
-            )}
-            {shown.map((r) => {
-              const id = r.key.slice(1);
-              const m = r.key.startsWith("m") ? d.misc.find((x) => x.id === id) : null;
-              return (
-                <tr key={r.key} className={cn("border-t", r.on && "bg-accent/40")}>
-                  <td className="px-3 py-1.5">{r.control}</td>
-                  <td className="px-2 py-1.5">{r.name}</td>
-                  <td className="px-2 py-1.5 text-muted-foreground">{r.type}</td>
-                  <td className="px-3 py-1.5 text-right tabular-nums">{r.rate}</td>
-                  <td className="px-2 py-1">
-                    {m && has(m.id) && (m.multiSelect || m.autoWhenAdditionalDriver) && (
-                      <Input
-                        type="number"
-                        min={1}
-                        max={20}
-                        aria-label={`${m.name} quantity`}
-                        className="h-7 w-14 px-1 text-right"
-                        value={qty(m.id)}
-                        onChange={(e) =>
-                          onChange({ ...value, miscCharges: value.miscCharges.map((x) => (x.miscChargeId === m.id ? { ...x, quantity: Math.max(1, Number(e.target.value) || 1) } : x)) })
-                        }
-                      />
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+      {shown.length === 0 && (
+        <p className="rounded-md border border-dashed px-3 py-6 text-center text-sm text-muted-foreground">
+          {rows.length ? "No options match." : "Choose a vehicle type to see the options."}
+        </p>
+      )}
+      {/* wide screens: Insurance and Taxes in a narrow pane, the long Misc. charges list across the rest */}
+      <div className="@container">
+        <div className={cn("grid items-start gap-4", (ins || tax) && misc && "@4xl:grid-cols-[17rem_minmax(0,1fr)] @6xl:grid-cols-[19rem_minmax(0,1fr)]")}>
+          {(ins || tax) && <div className="space-y-4">{ins}{tax}</div>}
+          {misc}
+        </div>
       </div>
 
       <button type="button" onClick={() => setShowOther((x) => !x)} aria-expanded={showOther} className="flex items-center gap-1 text-sm font-medium text-primary">
