@@ -14,6 +14,7 @@ import { billSplitData, billSplitInput, transportInput } from "../../lib/bill-sp
 import { sendReservationEmail } from "../../lib/booking-emails";
 import { notifyNewReservation } from "../../lib/sms-notify";
 import { syncDrivers } from "../../lib/booking-drivers";
+import { nextDocNumber } from "../../lib/doc-numbers";
 
 const D = (n: number) => new Prisma.Decimal(n);
 const optStr = z.string().trim().max(2000).optional().nullable().transform((v) => v || null);
@@ -189,7 +190,7 @@ async function writeBooking(
     });
     reservationId = existingId;
   } else {
-    const r = await tx.reservation.create({ data: { ...data, quoteId: input.quoteId, reservationChannel: "Staff ERP", createdById: userId } });
+    const r = await tx.reservation.create({ data: { ...data, number: await nextDocNumber(tx, "reservation", data.locationId), quoteId: input.quoteId, reservationChannel: "Staff ERP", createdById: userId } });
     await audit(tx, "Reservation", r.id, userId, { ReservationNumber: [null, r.number] });
     reservationId = r.id;
   }
@@ -561,7 +562,7 @@ export const reservationRouter = router({
     ctx.prisma.$transaction(async (tx) => {
       const r = await tx.reservation.findFirstOrThrow({ where: { id: input.reservationId }, include: { chargeLines: true } });
       const { id: _id, number: _n, legacyId: _l, createdAt: _c, updatedAt: _u, cancelledAt: _x, deletedAt: _d, quoteId: _q, chargeLines, vehicleId: _v, status: _s, confirmationEmailSentAt: _e, ...copy } = r;
-      const dup = await tx.reservation.create({ data: { ...copy, rateOverride: copy.rateOverride ?? Prisma.DbNull, status: "TENTATIVE", vehicleId: null, createdById: ctx.user.id } });
+      const dup = await tx.reservation.create({ data: { ...copy, number: await nextDocNumber(tx, "reservation", copy.locationId), rateOverride: copy.rateOverride ?? Prisma.DbNull, status: "TENTATIVE", vehicleId: null, createdById: ctx.user.id } });
       await tx.chargeLine.createMany({
         data: chargeLines.map(({ id: _i, quoteId: _qq, rentalId: _r, reservationId: _rr, ...l }) => ({ ...l, reservationId: dup.id })),
       });
@@ -613,6 +614,7 @@ export const reservationRouter = router({
           await tx.vehicleBlock.deleteMany({ where: { reservationId: r.id } });
           const rental = await tx.rental.create({
             data: {
+              raNumber: await nextDocNumber(tx, "rental", r.pickupLocationId),
               reservationId: r.id,
               quoteId: r.quoteId,
               customerId: r.customerId,

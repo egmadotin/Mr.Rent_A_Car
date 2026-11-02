@@ -9,6 +9,7 @@ import { audit } from "../../lib/audit";
 import { priceBooking } from "../../lib/pricing";
 import { bookingOptionsInput, staffPricingOptions } from "../../lib/booking-options";
 import { storedRateOverride } from "../../lib/rate-override";
+import { nextDocNumber } from "../../lib/doc-numbers";
 
 const D = (n: number) => new Prisma.Decimal(n);
 const optStr = z.string().trim().max(500).optional().nullable().transform((v) => v || null);
@@ -86,7 +87,7 @@ async function writeQuote(tx: Prisma.TransactionClient, userId: string, input: z
     await tx.chargeLine.deleteMany({ where: { quoteId: id } });
     await audit(tx, "Quote", id, userId, { Updated: [null, "yes"] });
   } else {
-    const q = await tx.quote.create({ data: { ...data, createdById: userId } });
+    const q = await tx.quote.create({ data: { ...data, number: await nextDocNumber(tx, "quote", data.pickupLocationId), createdById: userId } });
     id = q.id;
     await audit(tx, "Quote", id, userId, { QuoteNumber: [null, q.number] });
   }

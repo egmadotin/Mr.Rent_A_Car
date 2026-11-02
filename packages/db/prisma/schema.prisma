@@ -176,6 +176,11 @@ model Location {
   legalName              String? /// "Legal Name" on Location settings; heads the printed contract
   gstNumber              String? /// "GST Number" on Location settings; printed under the address on the Customer Invoice
   quoteExpiresAfter      Int           @default(0) /// days; a quote shows "Expired" after this (0 = never)
+  /// Number Series (client request): each location's quotes / reservations / rental agreements are numbered from its
+  /// own start, e.g. Burnaby 100001…, Richmond 200001…; null = the shared series below every location's start
+  quoteNumberStart       Int?
+  reservationNumberStart Int?
+  rentalNumberStart      Int?
   /// Location settings fuel prices (per litre): "Convenience ReFuel" (printed as ReFuel on the contract) and prepaid, gas / diesel
   /// Settings > Default Payment Method: a built-in method (VISA, CASH …) or "OTHER:<name>"
   defaultPaymentMethod   String?

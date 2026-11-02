@@ -13,6 +13,7 @@ import { methodData, paymentMethodInput } from "../../lib/payment-methods";
 import { storedRateOverride } from "../../lib/rate-override";
 import { syncDrivers } from "../../lib/booking-drivers";
 import { customerInput, upsertBookingCustomer } from "../../lib/customer-input";
+import { nextDocNumber } from "../../lib/doc-numbers";
 
 const D = (n: number) => new Prisma.Decimal(n);
 const id = z.object({ rentalId: z.string() });
@@ -465,6 +466,7 @@ export const rentalRouter = router({
           });
           const rental = await tx.rental.create({
             data: {
+              raNumber: await nextDocNumber(tx, "rental", input.checkOutLocationId),
               customerId,
               companyId: input.companyId,
               checkOutLocationId: input.checkOutLocationId,

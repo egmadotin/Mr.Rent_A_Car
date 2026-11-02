@@ -9,6 +9,7 @@ import { router, publicProcedure } from "../trpc";
 import { onlineOptions, periodTotal, pickOnlineRate, priceBooking } from "../lib/pricing";
 import { withBookingGuard } from "../lib/errors";
 import { cardOf, requireStripe, stripeGateway } from "../lib/payments";
+import { nextDocNumber } from "../lib/doc-numbers";
 
 /**
  * Customer-facing surface: public booking site today, Expo app later.
@@ -377,6 +378,7 @@ export const customerRouter = router({
 
           const r = await tx.reservation.create({
             data: {
+              number: await nextDocNumber(tx, "reservation", s.pickupLocationId),
               status: "TENTATIVE",
               customerId: customer.id,
               firstName: input.firstName,
