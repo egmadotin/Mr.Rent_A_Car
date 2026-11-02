@@ -102,7 +102,7 @@ export function OptionsGrid({
 }) {
   const [showOther, setShowOther] = React.useState(value.otherCharges.length > 0);
   const [search, setSearch] = React.useState("");
-  const [tab, setTab] = React.useState<"all" | "Insurance" | "Misc. Charge" | "Tax" | "selected">("all");
+  const [onlySelected, setOnlySelected] = React.useState(false);
   // RentCentric re-ticks the defaults whenever the location / vehicle type (and so the option list) changes
   const applied = React.useRef("");
   React.useEffect(() => {
@@ -208,7 +208,7 @@ export function OptionsGrid({
 
   const words = search.trim().toLowerCase().split(/\s+/).filter(Boolean);
   const shown = rows.filter(
-    (r) => (tab === "all" || (tab === "selected" ? r.on && r.type !== "Tax" : r.type === tab)) && words.every((w) => r.name.toLowerCase().includes(w)),
+    (r) => (!onlySelected || r.on) && words.every((w) => r.name.toLowerCase().includes(w)),
   );
   const chosen = rows.filter((r) => r.on && r.type !== "Tax");
   const remove = (key: string) => {
@@ -216,13 +216,6 @@ export function OptionsGrid({
     if (key.startsWith("i")) toggleIns(id, false);
     else if (key.startsWith("m")) setMisc(id, false);
   };
-  const tabs = [
-    { key: "all" as const, label: "All", n: rows.length },
-    { key: "Insurance" as const, label: "Insurance", n: d.insurances.length },
-    { key: "Misc. Charge" as const, label: "Misc. charges", n: d.misc.length },
-    { key: "Tax" as const, label: "Taxes", n: d.taxes.length },
-    { key: "selected" as const, label: "Selected", n: chosen.length },
-  ];
 
   const section = (type: Opt["type"], title: string) => {
     const items = shown.filter((r) => r.type === type);
@@ -273,16 +266,16 @@ export function OptionsGrid({
           <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input aria-label="Search options" placeholder="Search options (e.g. seat, waiver, GPS)" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8" />
         </div>
-        <div className="flex flex-wrap gap-1 rounded-md bg-muted p-1" role="tablist" aria-label="Option type">
-          {tabs.map((t) => (
-            <button key={t.key} type="button" role="tab" aria-selected={tab === t.key} onClick={() => setTab(t.key)}
-              className={cn("rounded px-2.5 py-1 text-xs font-medium", tab === t.key ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground")}>
-              {t.label} <span className="tabular-nums opacity-70">{t.n}</span>
-            </button>
-          ))}
-        </div>
+        <button
+          type="button"
+          aria-pressed={onlySelected}
+          onClick={() => setOnlySelected((x) => !x)}
+          className={cn("h-9 shrink-0 rounded-md border px-3 text-sm font-medium transition-colors", onlySelected ? "border-primary/60 bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground")}
+        >
+          Selected only <span className="tabular-nums opacity-70">{chosen.length}</span>
+        </button>
       </div>
-      {chosen.length > 0 && (words.length > 0 || (tab !== "all" && tab !== "selected")) && (
+      {chosen.length > 0 && words.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5 text-xs">
           <span className="text-muted-foreground">Selected:</span>
           {chosen.map((c) => (

@@ -12,7 +12,7 @@ import { NativeSelect } from "@mrac/ui/components/native-select";
 import { toast } from "@mrac/ui/components/sonner";
 import { BookingSummaryBar, StepHeader, StepNav, StepPanel, shortWhen, type Step } from "../../../../_components/booking-steps";
 import { money } from "@mrac/ui/lib/format";
-import { DiscountField, FormAlert, bookingWindow, initialBookingTimes } from "../../../../_components/booking-kit";
+import { DiscountField, EstimatePanel, FormAlert, bookingWindow, initialBookingTimes } from "../../../../_components/booking-kit";
 import { CompanySearch } from "../../../../_components/company-search";
 import { FieldShell as F, FormErrorsContext, errorMessage, fieldErrorsOf } from "../../../../_components/form";
 import { OptionsGrid, emptyOptions, useBookingOptions, type BookingOptions } from "../../../../_components/options-grid";
@@ -80,6 +80,22 @@ export function QuoteForm({ initial, defaultLocationId }: { initial?: QuoteFormI
 
   const { pickupAt, returnAt } = bookingWindow(o?.locations, v.pickupLocationId ?? "", v.pickupAt ?? "", v.returnAt ?? "");
   const bo = useBookingOptions(v.pickupLocationId ?? "", v.vehicleTypeId ?? "", pickupAt, returnAt);
+  // live estimate on the extras step (the same pricing as Generate, nothing saved)
+  const preview = useQuery({
+    ...trpc.staff.booking.preview.queryOptions({
+      returnLocationId: v.returnLocationId || null,
+      pickupAt: pickupAt ?? new Date(),
+      returnAt: returnAt ?? new Date(),
+      locationId: v.pickupLocationId ?? "",
+      vehicleTypeId: v.vehicleTypeId ?? "",
+      rateId: v.rateId || null,
+      discountType: (v.discountValue ? v.discountType || null : null) as "PERCENT" | null,
+      discountValue: v.discountValue ? Number(v.discountValue) : null,
+      options: opts,
+    }),
+    enabled: reached >= 2 && !!pickupAt && !!returnAt && +returnAt > +pickupAt && !!v.vehicleTypeId && !!v.pickupLocationId && !!v.rateId,
+    placeholderData: (p) => p,
+  });
   // changing location / type / date resets the rate if it no longer applies
   React.useEffect(() => {
     if (bo.data && v.rateId && !bo.data.rates.some((r) => r.id === v.rateId)) set("rateId", "");
@@ -172,7 +188,7 @@ export function QuoteForm({ initial, defaultLocationId }: { initial?: QuoteFormI
           to={shortWhen(v.returnAt ?? "")}
           vehicle={vt}
           days={days}
-          total={generated.data ? Number(generated.data.total) : null}
+          total={preview.data ? Number(preview.data.total) : generated.data ? Number(generated.data.total) : null}
         />
         <FormAlert message={formError} />
 
@@ -221,12 +237,15 @@ export function QuoteForm({ initial, defaultLocationId }: { initial?: QuoteFormI
 
         {/* ── 3 · Extras & charges: Generate stays here, Save opens the quote ── */}
         <StepPanel active={step === 2}>
-          <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_22rem] 2xl:grid-cols-[minmax(0,1fr)_26rem]">
+          <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_20rem] 2xl:grid-cols-[minmax(0,1fr)_24rem]">
             <OptionsGrid data={bo.data} value={opts} onChange={setOpts} applyDefaults={!initial?.quoteId} paymentDetails={o.paymentDetails} />
-            <div className="lg:sticky lg:top-4">
-              {generated.data
-                ? <GeneratedCharges number={generated.data.quote.number} lines={generated.data.quote.chargeLines} total={Number(generated.data.total)} updating={generated.isFetching} />
-                : <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">Choose the options, then Generate to see the charges here.</p>}
+            <div className="xl:sticky xl:top-4">
+              <EstimatePanel
+                preview={preview.data}
+                fetching={preview.isFetching}
+                emptyText="Pricing the options…"
+                badge={generated.data && <span className="rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary">Quote #{generated.data.quote.number} saved</span>}
+              />
             </div>
           </div>
           <StepNav
@@ -244,33 +263,5 @@ export function QuoteForm({ initial, defaultLocationId }: { initial?: QuoteFormI
         </StepPanel>
       </form>
     </FormErrorsContext.Provider>
-  );
-}
-
-/** The quote's charges after Generate (same lines as the quote page), so options can be changed and generated again. */
-function GeneratedCharges({ number, lines, total, updating }: { updating?: boolean; number: number; lines: { id: string; kind: string; name: string; units: unknown; rate: unknown; total: unknown }[]; total: number }) {
-  return (
-    <Card>
-      <CardContent className="space-y-2">
-        <p className="flex items-center gap-2 text-sm font-semibold">Quote #{number} — charges{updating && <span className="flex items-center gap-1 text-xs font-normal text-muted-foreground"><Loader2Icon className="size-3 animate-spin" /> Updating…</span>}</p>
-        <table className="w-full text-sm">
-          <thead className="text-left text-xs text-muted-foreground">
-            <tr><th className="py-1 font-medium">Charge</th><th className="py-1 text-right font-medium">Unit</th><th className="py-1 text-right font-medium">Rate</th><th className="py-1 text-right font-medium">Total</th></tr>
-          </thead>
-          <tbody className="divide-y">
-            {lines.map((l) => (
-              <tr key={l.id}>
-                <td className="py-1.5">{l.name}</td>
-                {/* a tax line's rate is its percentage, so only its amount is shown */}
-                <td className="py-1.5 text-right tabular-nums">{l.kind === "TAX" ? "" : Number(l.units)}</td>
-                <td className="py-1.5 text-right tabular-nums">{l.kind === "TAX" ? "" : money(Number(l.rate))}</td>
-                <td className="py-1.5 text-right tabular-nums">{money(Number(l.total))}</td>
-              </tr>
-            ))}
-          </tbody>
-          <tfoot><tr className="border-t font-semibold"><td className="py-2" colSpan={3}>Total</td><td className="py-2 text-right tabular-nums">{money(total)}</td></tr></tfoot>
-        </table>
-      </CardContent>
-    </Card>
   );
 }

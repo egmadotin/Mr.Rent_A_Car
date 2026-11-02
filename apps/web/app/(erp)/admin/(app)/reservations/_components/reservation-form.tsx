@@ -15,7 +15,7 @@ import { NativeSelect } from "@mrac/ui/components/native-select";
 import { toast } from "@mrac/ui/components/sonner";
 import { Textarea } from "@mrac/ui/components/textarea";
 import { money } from "@mrac/ui/lib/format";
-import { ChargeSummary, DiscountField, FormAlert, bookingWindow, initialBookingTimes } from "../../../../_components/booking-kit";
+import { ChargeSummary, EstimatePanel, DiscountField, FormAlert, bookingWindow, initialBookingTimes } from "../../../../_components/booking-kit";
 import { DriversCard, withDriverCharges, type DriverPick } from "../../../../_components/booking-drivers";
 import { CUSTOMER_FIELDS, CustomerFields, CustomerNotes, MatchList, PaymentInfoCard, customerValues, type CustomerLayout } from "../../../../_components/booking-customer";
 import { CustomerSearchDialog, DriverChecks, driverChecks } from "../../../../_components/customer-checks";
@@ -196,7 +196,7 @@ export function ReservationForm({
   function go(i: number) {
     setStep(i);
     setReached((r) => Math.max(r, i));
-    if (i === 3) setPreviewOn(true);
+    if (i >= 2) setPreviewOn(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
   /** Next: check this step's required fields first. */
@@ -470,7 +470,12 @@ export function ReservationForm({
 
         {/* ── 3 · Extras ───────────────────────────────────────────────── */}
         <StepPanel active={step === 2}>
-          <OptionsGrid data={bo.data} value={opts} onChange={setOpts} applyDefaults={!editing} paymentDetails={o.paymentDetails} />
+          <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_20rem] 2xl:grid-cols-[minmax(0,1fr)_24rem]">
+            <OptionsGrid data={bo.data} value={opts} onChange={setOpts} applyDefaults={!editing} paymentDetails={o.paymentDetails} />
+            <div className="xl:sticky xl:top-4">
+              <EstimatePanel preview={preview.data} fetching={preview.isFetching} emptyText="Pricing the options…" />
+            </div>
+          </div>
           <StepNav onBack={() => go(1)} onNext={() => next(2)} nextLabel="Next: summary & payment" />
         </StepPanel>
 

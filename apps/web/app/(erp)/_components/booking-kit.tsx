@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { AlertCircleIcon, AlertTriangleIcon } from "lucide-react";
+import { AlertCircleIcon, AlertTriangleIcon, Loader2Icon } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@mrac/ui/components/card";
 import { Input } from "@mrac/ui/components/input";
 import { Label } from "@mrac/ui/components/label";
@@ -73,6 +73,55 @@ export function DiscountField({ bind, error, label = "Discount %", noBlank }: { 
 }
 
 type Preview = { lines: { name: string; units: unknown; kind: string; rate?: unknown; total: unknown; sortOrder?: number }[]; total: unknown; warnings: string[] };
+
+/**
+ * Live estimate beside the options (extras step): every priced line with its unit × rate underneath, and a large
+ * total. Updates as options are ticked, nothing is saved.
+ */
+export function EstimatePanel({ preview, fetching, emptyText, badge }: { preview: Preview | null | undefined; fetching?: boolean; emptyText: string; badge?: React.ReactNode }) {
+  return (
+    <aside className="rounded-xl border bg-card p-4 text-sm shadow-xs">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="font-semibold">Estimate</h3>
+        <span className="flex items-center gap-2 text-xs text-muted-foreground">
+          {fetching && <Loader2Icon className="size-3.5 animate-spin" aria-label="Updating" />}
+          {badge}
+        </span>
+      </div>
+      {!preview ? (
+        <p className="mt-2 text-muted-foreground">{emptyText}</p>
+      ) : (
+        <>
+          <ul className="mt-2 divide-y divide-border/50">
+            {preview.lines.map((l, i) => {
+              const units = Number(l.units) || 0;
+              const detail =
+                l.kind === "MILEAGE" ? "" : l.rate == null ? "" : isPercentLine(l) ? `${Number(l.rate)}%` : units > 1 ? `${units} × ${money(Number(l.rate))}` : "";
+              return (
+                <li key={i} className="flex items-baseline justify-between gap-3 py-1.5">
+                  <span className="min-w-0">
+                    {l.name}
+                    {detail && <span className="block text-xs text-muted-foreground tabular-nums">{detail}</span>}
+                  </span>
+                  <span className="shrink-0 tabular-nums">{l.kind === "MILEAGE" ? <span className="text-muted-foreground">{units ? `${units} km` : "Unlimited"}</span> : money(l.total as number)}</span>
+                </li>
+              );
+            })}
+          </ul>
+          <div className="mt-2 flex items-baseline justify-between border-t pt-3">
+            <span className="font-medium">Total</span>
+            <span className="text-2xl font-semibold tabular-nums">{money(preview.total as number)}</span>
+          </div>
+          {preview.warnings.map((w) => (
+            <p key={w} className="mt-2 flex gap-1.5 text-xs text-warning-foreground dark:text-warning">
+              <AlertTriangleIcon className="size-3.5 shrink-0" /> {w}
+            </p>
+          ))}
+        </>
+      )}
+    </aside>
+  );
+}
 
 /** Live priced charge lines + total, as shown beside the booking forms. */
 export function ChargeSummary({ title, preview, emptyText }: { title: string; preview: Preview | null | undefined; emptyText: string }) {
