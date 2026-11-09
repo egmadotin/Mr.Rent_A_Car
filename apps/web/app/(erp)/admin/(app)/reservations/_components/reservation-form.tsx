@@ -19,7 +19,7 @@ import { ChargeSummary, EstimatePanel, DiscountField, FormAlert, bookingWindow, 
 import { DriversCard, withDriverCharges, type DriverPick } from "../../../../_components/booking-drivers";
 import { CUSTOMER_FIELDS, CustomerFields, CustomerNotes, MatchList, PaymentInfoCard, customerValues, type CustomerLayout } from "../../../../_components/booking-customer";
 import { CustomerSearchDialog, DriverChecks, driverChecks } from "../../../../_components/customer-checks";
-import { BookingSummaryBar, StepHeader, StepNav, StepPanel, shortWhen, type Step } from "../../../../_components/booking-steps";
+import { BookingSummaryBar, BookingTopBar, StepNav, StepPanel, blockEnterSubmit, scrollToStep, shortWhen, type Step } from "../../../../_components/booking-steps";
 import { CompanySearch } from "../../../../_components/company-search";
 import { ConfirmAction } from "../../../../_components/confirm-action";
 import { FieldShell as F, FormErrorsContext, errorMessage, fieldErrorsOf } from "../../../../_components/form";
@@ -80,9 +80,6 @@ export function ReservationForm({
   const editing = !!initial?.reservationId;
   const { data: o } = useQuery(trpc.staff.reservation.formOptions.queryOptions());
 
-  // steps (client request): 1 Customer, 2 Trip & vehicle, 3 Extras, 4 Summary & payment; editing opens on the trip
-  const [step, setStep] = React.useState(editing ? 1 : 0);
-  const [reached, setReached] = React.useState(editing ? 3 : 0);
   const [v, setV] = React.useState<Values>(() => ({
     status: "CONFIRMED",
     saveCustomer: false,
@@ -141,7 +138,6 @@ export function ReservationForm({
   }
 
   // "Update Charges Summary"
-  const [previewOn, setPreviewOn] = React.useState(editing);
   const preview = useQuery({
     ...trpc.staff.booking.preview.queryOptions({
       returnLocationId: str("returnLocationId") || null,
@@ -154,7 +150,7 @@ export function ReservationForm({
       discountValue: str("discountValue") ? Number(str("discountValue")) : null,
       options: opts,
     }),
-    enabled: previewOn && validWindow && !!str("vehicleTypeId") && !!str("pickupLocationId") && !!str("rateId"),
+    enabled: validWindow && !!str("vehicleTypeId") && !!str("pickupLocationId") && !!str("rateId"),
     placeholderData: (p) => p,
   });
 
@@ -193,14 +189,10 @@ export function ReservationForm({
     if (c.isUndesired) toast.warning("This customer is on the undesired (do-not-rent) list.");
   }
 
-  function go(i: number) {
-    setStep(i);
-    setReached((r) => Math.max(r, i));
-    if (i >= 2) setPreviewOn(true);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }
-  /** Next: check this step's required fields first. */
-  function next(from: number) {
+  // one page (client request): every section visible; go() scrolls to one
+  const go = (i: number) => scrollToStep(STEPS[i]?.key ?? "customer");
+  /** Required fields of a section; shows the section when something is missing. */
+  function checkSection(from: number): boolean {
     const missing: [string, string][] =
       from === 0
         ? ([["firstName", "First Name"], ["lastName", "Last Name"], ["phone", "Phone"]] as [string, string][]).filter(([k]) => !str(k).trim()).map(([k, l]) => [`customer.${k}`, l])
@@ -210,17 +202,17 @@ export function ReservationForm({
     if (missing.length) {
       setErrors(Object.fromEntries(missing.map(([k, l]) => [k, [`${l} is required`]])));
       toast.error("Fill in the highlighted fields.");
-      return;
+      go(from);
+      return false;
     }
     if (from === 1 && !validWindow) {
       setErrors({ returnAt: ["Return must be after pickup"] });
       toast.error("Return must be after pickup.");
-      return;
+      go(from);
+      return false;
     }
     setErrors({});
-    // a full profile (as RentCentric's "Save and Goto Reservation Tab") is saved to the customer as well
-    if (from === 0) set("saveCustomer", CUSTOMER_REQUIRED.every(([k]) => !!str(k).trim()));
-    go(from + 1);
+    return true;
   }
 
   const stepOf = (key: string) =>
@@ -230,6 +222,7 @@ export function ReservationForm({
       : 1;
 
   async function submit(allowUndesired = false) {
+    if (!checkSection(0) || !checkSection(1)) return;
     setPending(true);
     setErrors({});
     setFormError(null);
@@ -240,7 +233,8 @@ export function ReservationForm({
       sendConfirmationEmail: v.sendConfirmationEmail === true,
       quoteId: str("quoteId") || null,
       customerId,
-      saveCustomer: v.saveCustomer === true,
+      // a full profile (as RentCentric's "Save and Goto Reservation Tab") is saved to the customer as well
+      saveCustomer: CUSTOMER_REQUIRED.every(([k]) => !!str(k).trim()),
       allowUndesired,
       customer: { ...customer, memo: str("customerMemo") },
       locationId: str("locationId"),
@@ -341,25 +335,27 @@ export function ReservationForm({
     <FormErrorsContext.Provider value={errors}>
       <form
         noValidate
+        onKeyDown={blockEnterSubmit}
         onSubmit={(e) => {
           e.preventDefault();
-          if (step === 3) submit();
+          submit();
         }}
         className="space-y-4 p-4 md:p-6"
       >
-        <StepHeader steps={STEPS} current={step} reached={reached} onGo={go} />
-        <BookingSummaryBar
-          customer={[str("firstName"), str("lastName")].filter(Boolean).join(" ")}
-          from={shortWhen(str("pickupAt"))}
-          to={shortWhen(str("returnAt"))}
-          vehicle={vt}
-          days={xDays}
-          total={preview.data ? Number(preview.data.total) : null}
-        />
+        <BookingTopBar steps={STEPS}>
+          <BookingSummaryBar
+            customer={[str("firstName"), str("lastName")].filter(Boolean).join(" ")}
+            from={shortWhen(str("pickupAt"))}
+            to={shortWhen(str("returnAt"))}
+            vehicle={vt}
+            days={xDays}
+            total={preview.data ? Number(preview.data.total) : null}
+          />
+        </BookingTopBar>
         <FormAlert message={formError} />
 
         {/* ── 1 · Customer ─────────────────────────────────────────────── */}
-        <StepPanel active={step === 0}>
+        <StepPanel step={STEPS[0]!} n={1}>
           <Card>
             <CardHeader className="flex-row flex-wrap items-center justify-between gap-2">
               <CardTitle className="text-base">Primary driver</CardTitle>
@@ -388,11 +384,10 @@ export function ReservationForm({
             </CardContent>
           </Card>
           <DriversCard drivers={drivers} primaryId={customerId} onChange={(d) => { setDrivers(d); setOpts((x) => withDriverCharges(x, bo.data, d.length)); }} />
-          <StepNav onNext={() => next(0)} nextLabel="Next: trip & vehicle" />
         </StepPanel>
 
         {/* ── 2 · Trip & vehicle ───────────────────────────────────────── */}
-        <StepPanel active={step === 1}>
+        <StepPanel step={STEPS[1]!} n={2}>
           <p className="text-sm text-muted-foreground">
             {initial?.number ? `Reservation #${initial.number} · ` : ""}Reservation Date : {legacyDate(initial?.createdAt ?? new Date(), { timeZone: o.locations.find((l) => l.id === str("locationId"))?.timeZone })}
           </p>
@@ -465,22 +460,20 @@ export function ReservationForm({
               </div>
             </div>
           </details>
-          <StepNav onBack={() => go(0)} onNext={() => next(1)} nextLabel="Next: extras" />
         </StepPanel>
 
         {/* ── 3 · Extras ───────────────────────────────────────────────── */}
-        <StepPanel active={step === 2}>
+        <StepPanel step={STEPS[2]!} n={3}>
           <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_20rem] 2xl:grid-cols-[minmax(0,1fr)_24rem]">
             <OptionsGrid data={bo.data} value={opts} onChange={setOpts} applyDefaults={!editing} paymentDetails={o.paymentDetails} />
-            <div className="xl:sticky xl:top-4">
+            <div className="xl:sticky xl:top-32">
               <EstimatePanel preview={preview.data} fetching={preview.isFetching} emptyText="Pricing the options…" />
             </div>
           </div>
-          <StepNav onBack={() => go(1)} onNext={() => next(2)} nextLabel="Next: summary & payment" />
         </StepPanel>
 
         {/* ── 4 · Summary & payment ────────────────────────────────────── */}
-        <StepPanel active={step === 3}>
+        <StepPanel step={STEPS[3]!} n={4}>
           <div className="grid gap-4 xl:grid-cols-2">
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-2">
@@ -489,7 +482,7 @@ export function ReservationForm({
                   <RefreshCwIcon className={preview.isFetching ? "animate-spin" : undefined} /> Refresh
                 </Button>
               </div>
-              <ChargeSummary title="Charges" preview={preview.data} emptyText="Choose dates, location, vehicle type and rate (step 2)." />
+              <ChargeSummary title="Charges" preview={preview.data} emptyText="Choose dates, location, vehicle type and rate (Trip & vehicle)." />
             </div>
             <PaymentInfoCard
               set={set}
@@ -514,7 +507,7 @@ export function ReservationForm({
               <label className="flex items-center gap-2"><Checkbox checked={v.isLoaner === true} onChange={(e) => set("isLoaner", e.target.checked)} /> Is Loaner</label>
             </CardContent>
           </Card>
-          <StepNav onBack={() => go(2)} next={<Button type="submit" size="lg" disabled={pending}>{pending && <Loader2Icon className="animate-spin" />}{editing ? "Save reservation" : "Reserve"}</Button>} />
+          <StepNav next={<Button type="submit" size="lg" disabled={pending}>{pending && <Loader2Icon className="animate-spin" />}{editing ? "Save reservation" : "Reserve"}</Button>} />
         </StepPanel>
       </form>
 

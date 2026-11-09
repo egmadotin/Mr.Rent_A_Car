@@ -10,7 +10,7 @@ import { Card, CardContent } from "@mrac/ui/components/card";
 import { Input } from "@mrac/ui/components/input";
 import { NativeSelect } from "@mrac/ui/components/native-select";
 import { toast } from "@mrac/ui/components/sonner";
-import { BookingSummaryBar, StepHeader, StepNav, StepPanel, shortWhen, type Step } from "../../../../_components/booking-steps";
+import { BookingSummaryBar, BookingTopBar, StepNav, StepPanel, blockEnterSubmit, scrollToStep, shortWhen, type Step } from "../../../../_components/booking-steps";
 import { money } from "@mrac/ui/lib/format";
 import { DiscountField, EstimatePanel, FormAlert, bookingWindow, initialBookingTimes } from "../../../../_components/booking-kit";
 import { CompanySearch } from "../../../../_components/company-search";
@@ -54,14 +54,8 @@ export function QuoteForm({ initial, defaultLocationId }: { initial?: QuoteFormI
   const [errors, setErrors] = React.useState<Record<string, string[] | undefined>>({});
   const [formError, setFormError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
-  // steps (client request): 1 Customer, 2 Trip & vehicle, 3 Extras & charges; editing opens on the extras
-  const [step, setStep] = React.useState(initial?.quoteId ? 2 : 0);
-  const [reached, setReached] = React.useState(initial?.quoteId ? 2 : 0);
-  function go(i: number) {
-    setStep(i);
-    setReached((x) => Math.max(x, i));
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }
+  // one page (client request): every section visible; go() scrolls to one
+  const go = (i: number) => scrollToStep(STEPS[i]?.key ?? "customer");
 
   React.useEffect(() => {
     if (!o) return;
@@ -93,7 +87,7 @@ export function QuoteForm({ initial, defaultLocationId }: { initial?: QuoteFormI
       discountValue: v.discountValue ? Number(v.discountValue) : null,
       options: opts,
     }),
-    enabled: reached >= 2 && !!pickupAt && !!returnAt && +returnAt > +pickupAt && !!v.vehicleTypeId && !!v.pickupLocationId && !!v.rateId,
+    enabled: !!pickupAt && !!returnAt && +returnAt > +pickupAt && !!v.vehicleTypeId && !!v.pickupLocationId && !!v.rateId,
     placeholderData: (p) => p,
   });
   // changing location / type / date resets the rate if it no longer applies
@@ -101,23 +95,24 @@ export function QuoteForm({ initial, defaultLocationId }: { initial?: QuoteFormI
     if (bo.data && v.rateId && !bo.data.rates.some((r) => r.id === v.rateId)) set("rateId", "");
   }, [bo.data, v.rateId]);
 
-  /** Next: the trip step needs its required fields (the customer is optional on a quote). */
-  function next(from: number) {
+  /** Required fields of a section (the customer is optional on a quote); shows the section when something is missing. */
+  function checkSection(from: number): boolean {
     if (from === 1) {
       const missing = ([["pickupLocationId", "Pickup Location"], ["returnLocationId", "Return Location"], ["pickupAt", "Pickup Date"], ["returnAt", "Return Date"], ["vehicleTypeId", "Vehicle Type"], ["rateId", "Rate"]] as [string, string][]).filter(([k]) => !v[k]);
       if (missing.length) {
         setErrors(Object.fromEntries(missing.map(([k, l]) => [k, [`${l} is required`]])));
         toast.error("Fill in the highlighted fields.");
-        return;
+        go(from);
+        return false;
       }
     }
     setErrors({});
-    go(from + 1);
+    return true;
   }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (step !== 2) return;
+    if (!checkSection(1)) return;
     const action = ((e.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null)?.value === "generate" ? "generate" : "save";
     setPending(true);
     setErrors({});
@@ -180,20 +175,21 @@ export function QuoteForm({ initial, defaultLocationId }: { initial?: QuoteFormI
 
   return (
     <FormErrorsContext.Provider value={errors}>
-      <form onSubmit={onSubmit} noValidate className="space-y-4 p-4 md:p-6">
-        <StepHeader steps={STEPS} current={step} reached={reached} onGo={go} />
-        <BookingSummaryBar
-          customer={[v.firstName, v.lastName].filter(Boolean).join(" ")}
-          from={shortWhen(v.pickupAt ?? "")}
-          to={shortWhen(v.returnAt ?? "")}
-          vehicle={vt}
-          days={days}
-          total={preview.data ? Number(preview.data.total) : generated.data ? Number(generated.data.total) : null}
-        />
+      <form onSubmit={onSubmit} onKeyDown={blockEnterSubmit} noValidate className="space-y-4 p-4 md:p-6">
+        <BookingTopBar steps={STEPS}>
+          <BookingSummaryBar
+            customer={[v.firstName, v.lastName].filter(Boolean).join(" ")}
+            from={shortWhen(v.pickupAt ?? "")}
+            to={shortWhen(v.returnAt ?? "")}
+            vehicle={vt}
+            days={days}
+            total={preview.data ? Number(preview.data.total) : generated.data ? Number(generated.data.total) : null}
+          />
+        </BookingTopBar>
         <FormAlert message={formError} />
 
         {/* ── 1 · Customer (optional on a quote) ───────────────────────── */}
-        <StepPanel active={step === 0}>
+        <StepPanel step={STEPS[0]!} n={1}>
           <Card>
             <CardContent className="grid gap-4 sm:grid-cols-2">
               <p className="text-sm font-semibold sm:col-span-2">Customer information <span className="font-normal text-muted-foreground">— optional; also asked on Email / SMS Quote</span></p>
@@ -204,11 +200,10 @@ export function QuoteForm({ initial, defaultLocationId }: { initial?: QuoteFormI
               {initial?.customerLabel && <p className="text-xs text-muted-foreground sm:col-span-2">Linked customer: {initial.customerLabel}</p>}
             </CardContent>
           </Card>
-          <StepNav onNext={() => next(0)} nextLabel="Next: trip & vehicle" />
         </StepPanel>
 
         {/* ── 2 · Trip & vehicle ───────────────────────────────────────── */}
-        <StepPanel active={step === 1}>
+        <StepPanel step={STEPS[1]!} n={2}>
           <Card>
             <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <F label="Pickup Location" name="pickupLocationId" required><NativeSelect {...bind("pickupLocationId")}>{opt(o.locations)}</NativeSelect></F>
@@ -232,14 +227,13 @@ export function QuoteForm({ initial, defaultLocationId }: { initial?: QuoteFormI
               <F label="Referral" name="referralId"><ReferralField referrals={o.referrals} value={v.referralId ?? ""} onChange={(id) => set("referralId", id)} /></F>
             </CardContent>
           </Card>
-          <StepNav onBack={() => go(0)} onNext={() => next(1)} nextLabel="Next: extras & charges" />
         </StepPanel>
 
         {/* ── 3 · Extras & charges: Generate stays here, Save opens the quote ── */}
-        <StepPanel active={step === 2}>
+        <StepPanel step={STEPS[2]!} n={3}>
           <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_20rem] 2xl:grid-cols-[minmax(0,1fr)_24rem]">
             <OptionsGrid data={bo.data} value={opts} onChange={setOpts} applyDefaults={!initial?.quoteId} paymentDetails={o.paymentDetails} />
-            <div className="xl:sticky xl:top-4">
+            <div className="xl:sticky xl:top-32">
               <EstimatePanel
                 preview={preview.data}
                 fetching={preview.isFetching}
@@ -249,7 +243,6 @@ export function QuoteForm({ initial, defaultLocationId }: { initial?: QuoteFormI
             </div>
           </div>
           <StepNav
-            onBack={() => go(1)}
             next={
               <div className="flex gap-2">
                 <Button type="submit" name="action" value="generate" size="lg" variant="outline" disabled={pending}>

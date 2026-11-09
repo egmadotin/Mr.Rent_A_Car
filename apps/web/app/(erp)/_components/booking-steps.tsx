@@ -1,78 +1,104 @@
 "use client";
 
 import * as React from "react";
-import { CheckIcon, ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
-import { Button } from "@mrac/ui/components/button";
 import { money } from "@mrac/ui/lib/format";
 import { cn } from "@mrac/ui/lib/utils";
 
 /**
- * Booking forms as steps (client request): Customer → Trip & vehicle → Extras → Summary & payment, one screen each, like a
- * checkout. Every step stays mounted (hidden) so nothing typed is lost when moving back and forth.
+ * Booking forms on ONE page (client request): Customer, Trip & vehicle, Extras, Summary & payment are stacked sections,
+ * no Back / Next. A sticky bar on top jumps to a section and keeps the booking at a glance (customer, dates, vehicle,
+ * total) in view; one action bar at the bottom saves.
  */
 export type Step = { key: string; label: string; hint?: string };
 
-export function StepHeader({ steps, current, onGo, reached }: { steps: Step[]; current: number; onGo: (i: number) => void; reached: number }) {
+export const stepId = (key: string) => `step-${key}`;
+
+/** Scroll a section into view (used by the jump bar and to show the first field with an error). */
+export function scrollToStep(key: string) {
+  document.getElementById(stepId(key))?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+/** Enter in a text field must not submit the whole booking (the save button does). */
+export function blockEnterSubmit(e: React.KeyboardEvent<HTMLFormElement>) {
+  const t = e.target as HTMLElement;
+  if (e.key === "Enter" && t instanceof HTMLInputElement && t.type !== "submit" && t.type !== "button") e.preventDefault();
+}
+
+/** Sticky top: section links (highlighting the one in view) above the booking summary. */
+export function BookingTopBar({ steps, children }: { steps: Step[]; children?: React.ReactNode }) {
+  const [active, setActive] = React.useState(steps[0]?.key);
+  React.useEffect(() => {
+    const els = steps.map((s) => document.getElementById(stepId(s.key))).filter((x): x is HTMLElement => !!x);
+    const io = new IntersectionObserver(
+      (entries) => {
+        const hit = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+        if (hit) setActive(hit.target.id.replace(/^step-/, ""));
+      },
+      { rootMargin: "-160px 0px -55% 0px" },
+    );
+    els.forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, [steps]);
+
   return (
-    <nav aria-label="Booking steps" className="overflow-x-auto">
-      <ol className="flex min-w-max items-center gap-2">
-        {steps.map((s, i) => {
-          const done = i < current;
-          const can = i <= reached;
-          return (
-            <li key={s.key} className="flex items-center gap-2">
-              {i > 0 && <span className={cn("h-px w-6 sm:w-10", i <= current ? "bg-primary" : "bg-border")} aria-hidden />}
+    <div className="z-20 -mx-4 space-y-2 border-b bg-background/95 px-4 pb-2 pt-1 backdrop-blur sm:sticky sm:top-0 md:-mx-6 md:px-6">
+      <nav aria-label="Booking sections" className="overflow-x-auto">
+        <ol className="flex min-w-max items-center gap-1">
+          {steps.map((s, i) => (
+            <li key={s.key}>
               <button
                 type="button"
-                disabled={!can}
-                onClick={() => onGo(i)}
-                aria-current={i === current ? "step" : undefined}
+                onClick={() => scrollToStep(s.key)}
+                aria-current={active === s.key ? "location" : undefined}
                 className={cn(
-                  "flex items-center gap-2 rounded-full px-2 py-1 text-sm transition-colors",
-                  i === current ? "font-semibold text-foreground" : can ? "text-muted-foreground hover:text-foreground" : "text-muted-foreground/50",
+                  "flex items-center gap-2 rounded-full px-3 py-1 text-sm transition-colors",
+                  active === s.key ? "bg-primary/10 font-semibold text-primary" : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 <span
                   className={cn(
-                    "flex size-7 shrink-0 items-center justify-center rounded-full border text-xs font-semibold tabular-nums",
-                    i === current && "border-primary bg-primary text-primary-foreground",
-                    done && "border-primary text-primary",
+                    "flex size-5 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold tabular-nums",
+                    active === s.key && "border-primary bg-primary text-primary-foreground",
                   )}
                 >
-                  {done ? <CheckIcon className="size-4" /> : i + 1}
+                  {i + 1}
                 </span>
-                <span className="text-left leading-tight">
-                  {s.label}
-                  {s.hint && <span className="block text-xs font-normal text-muted-foreground">{s.hint}</span>}
-                </span>
+                {s.label}
               </button>
             </li>
-          );
-        })}
-      </ol>
-    </nav>
-  );
-}
-
-/** One step's content; kept mounted while hidden. */
-export function StepPanel({ active, children, className }: { active: boolean; children: React.ReactNode; className?: string }) {
-  return <div hidden={!active} className={cn("space-y-4", className)}>{children}</div>;
-}
-
-/** Back / Next (or the final action) at the bottom of each step. */
-export function StepNav({ onBack, onNext, nextLabel = "Next", next, children }: { onBack?: () => void; onNext?: () => void; nextLabel?: string; next?: React.ReactNode; children?: React.ReactNode }) {
-  return (
-    <div className="sticky bottom-0 z-10 -mx-4 flex flex-wrap items-center justify-between gap-3 border-t bg-background/95 px-4 py-3 backdrop-blur md:-mx-6 md:px-6">
-      <div className="flex flex-wrap items-center gap-3">
-        {onBack && <Button type="button" variant="outline" onClick={onBack}><ChevronLeftIcon /> Back</Button>}
-        {children}
-      </div>
-      {next ?? (onNext && <Button type="button" onClick={onNext}>{nextLabel} <ChevronRightIcon /></Button>)}
+          ))}
+        </ol>
+      </nav>
+      {children}
     </div>
   );
 }
 
-/** The booking at a glance, on every step: customer, dates, vehicle, total. */
+/** One section of the page, with its numbered heading. */
+export function StepPanel({ step, n, children, className }: { step: Step; n: number; children: React.ReactNode; className?: string }) {
+  return (
+    <section id={stepId(step.key)} aria-labelledby={`${stepId(step.key)}-h`} className={cn("scroll-mt-36 space-y-4 pt-2", className)}>
+      <h2 id={`${stepId(step.key)}-h`} className="flex items-baseline gap-2 text-base font-semibold">
+        <span className="flex size-6 shrink-0 items-center justify-center self-center rounded-full bg-primary text-xs text-primary-foreground tabular-nums">{n}</span>
+        {step.label}
+        {step.hint && <span className="text-sm font-normal text-muted-foreground">— {step.hint}</span>}
+      </h2>
+      {children}
+    </section>
+  );
+}
+
+/** The save bar at the bottom of the page. */
+export function StepNav({ next, children }: { next?: React.ReactNode; children?: React.ReactNode }) {
+  return (
+    <div className="sticky bottom-0 z-10 -mx-4 flex flex-wrap items-center justify-between gap-3 border-t bg-background/95 px-4 py-3 backdrop-blur md:-mx-6 md:px-6">
+      <div className="flex flex-wrap items-center gap-3">{children}</div>
+      {next}
+    </div>
+  );
+}
+
+/** The booking at a glance: customer, dates, vehicle, total. */
 export function BookingSummaryBar({ customer, from, to, vehicle, total, days }: { customer: string; from?: string; to?: string; vehicle?: string; total?: number | null; days?: number | string }) {
   const item = (label: string, value: React.ReactNode) => (
     <div className="min-w-0">
@@ -81,7 +107,7 @@ export function BookingSummaryBar({ customer, from, to, vehicle, total, days }: 
     </div>
   );
   return (
-    <div className="grid grid-cols-2 gap-3 rounded-lg border bg-muted/30 px-4 py-2.5 sm:grid-cols-5">
+    <div className="grid grid-cols-2 gap-3 rounded-lg border bg-muted/30 px-4 py-2 sm:grid-cols-5">
       {item("Customer", customer)}
       {item("Pick-up", from)}
       {item("Return", to)}
