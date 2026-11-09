@@ -17,7 +17,7 @@ import { Textarea } from "@mrac/ui/components/textarea";
 import { money } from "@mrac/ui/lib/format";
 import { EstimatePanel, DiscountField, FormAlert, ReturnDateField, bookingWindow, initialBookingTimes } from "../../../../_components/booking-kit";
 import { DriversCard, withDriverCharges, type DriverPick } from "../../../../_components/booking-drivers";
-import { CUSTOMER_FIELDS, CustomerFields, CustomerNotes, MatchList, PaymentWindow, customerValues, splitInsurance, type CustomerLayout } from "../../../../_components/booking-customer";
+import { CUSTOMER_FIELDS, CustomerFields, CustomerNotes, MatchList, PaymentInfoCard, customerValues, splitInsurance, type CustomerLayout } from "../../../../_components/booking-customer";
 import { CustomerSearchDialog, DriverChecks, driverChecks } from "../../../../_components/customer-checks";
 import { BookingSummaryBar, BookingTopBar, CockpitCol, CockpitGrid, MoreFold, StepNav, StepPanel, blockEnterSubmit, scrollToStep, shortWhen, type Step } from "../../../../_components/booking-steps";
 import { CompanySearch } from "../../../../_components/company-search";
@@ -379,9 +379,11 @@ export function ReservationForm({
         >
           <Card>
             <CardContent className="space-y-4">
-              <CustomerFields layout={CUSTOMER_MAIN} bind={bind} onFind={checkMatching} className="2xl:grid-cols-3" />
+              <CustomerFields layout={CUSTOMER_MAIN} bind={bind} onFind={checkMatching} className="2xl:grid-cols-3">
+                {/* the licence / age warnings in the free cells beside the last fields (saves a row on a laptop) */}
+                <DriverChecks checks={checks} className="col-span-full self-center 2xl:col-span-2" />
+              </CustomerFields>
               <MatchList matches={customerId ? [] : matches.data} onUse={applyCustomer} />
-              <DriverChecks checks={checks} />
               <CustomerSearchDialog<Parameters<typeof applyCustomer>[0]>
                 open={searchOpen}
                 onOpenChange={setSearchOpen}
@@ -397,6 +399,18 @@ export function ReservationForm({
             <DriversCard drivers={drivers} primaryId={customerId} onChange={(d) => { setDrivers(d); setOpts((x) => withDriverCharges(x, bo.data, d.length)); }} />
           </MoreFold>
         </StepPanel>
+        {/* payment: a fixed card in the room under the customer (smaller screens: before the save bar) */}
+          <div className="max-2xl:order-1">
+            <PaymentInfoCard
+              wide
+              set={set}
+              locationId={str("pickupLocationId")}
+              bind={bind}
+              onSubmit={submitPayment}
+              transactionTypes={[["PAYMENT", "Payment (Credit)"], ["AUTHORIZATION", "Authorization"], ["REFUND", "Refund"]]}
+              pendingNote={paymentReady && !editing ? Number(str("payAmount")) : null}
+            />
+          </div>
         </CockpitCol>
 
         <CockpitCol>
@@ -477,17 +491,8 @@ export function ReservationForm({
         <CockpitCol>
         {/* ── 4 · Summary & payment; Save pinned at the bottom ────────────── */}
         <StepPanel step={STEPS[3]!} n={4} className="2xl:min-h-0 2xl:flex-1 2xl:shrink 2xl:overflow-y-auto">
-          <div className="grid gap-4 xl:grid-cols-2 2xl:grid-cols-1">
+          <div className="grid gap-4">
             <EstimatePanel preview={preview.data} fetching={preview.isFetching} emptyText="Choose dates, location, vehicle type and rate (Trip & vehicle)." />
-            <PaymentWindow
-              summary={paymentReady && str("payAmount") ? `${money(Number(str("payAmount")))} by ${str("payMethod")} — applied when saved` : "No payment taken yet"}
-              set={set}
-              locationId={str("pickupLocationId")}
-              bind={bind}
-              onSubmit={submitPayment}
-              transactionTypes={[["PAYMENT", "Payment (Credit)"], ["AUTHORIZATION", "Authorization"], ["REFUND", "Refund"]]}
-              pendingNote={paymentReady && !editing ? Number(str("payAmount")) : null}
-            />
           </div>
           <Card>
             <CardContent className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
@@ -504,7 +509,7 @@ export function ReservationForm({
             </CardContent>
           </Card>
         </StepPanel>
-        <StepNav next={<Button type="submit" size="lg" className="2xl:w-full" disabled={pending}>{pending && <Loader2Icon className="animate-spin" />}{editing ? "Save reservation" : "Reserve"}</Button>} />
+        <StepNav className="max-2xl:order-2" next={<Button type="submit" size="lg" className="2xl:w-full" disabled={pending}>{pending && <Loader2Icon className="animate-spin" />}{editing ? "Save reservation" : "Reserve"}</Button>} />
         </CockpitCol>
         </CockpitGrid>
       </form>

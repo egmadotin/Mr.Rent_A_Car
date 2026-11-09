@@ -386,27 +386,38 @@
  * controls, labels, cards and gaps are tighter there (client request: no scrolling, no back and forth).
  */
 @media (min-width: 96rem) {
+  /*
+   * Spacing grows with the window height (client: "too congested"): a laptop (≈800px tall window) keeps the tight
+   * sizes so everything fits without scrolling, taller monitors open up.
+   */
   .booking-cockpit {
-    --control-height: 32px;
+    /* each value is the tight laptop size up to ~800px of window height, then grows to its maximum around ~1020px */
+    --control-height: clamp(32px, calc(1.82vh + 17.4px), 38px);
+    --cockpit-row: clamp(0.5rem, calc(2.73vh - 13.8px), 1rem);
+    --cockpit-col: clamp(0.75rem, 1vw, 1.25rem);
+    --cockpit-pad: clamp(0.75rem, calc(2.73vh - 9.8px), 1.25rem);
+    --cockpit-label: clamp(0.25rem, calc(0.91vh - 3.3px), 0.5rem);
+    --cockpit-gap: clamp(0.75rem, calc(3.64vh - 17.1px), 1.5rem);
   }
-  /* the page title band above the form is tighter too */
+  /* the page title band above the form is tighter */
   main:has(.booking-cockpit) > header {
     padding-top: 0.75rem;
     padding-bottom: 0;
   }
   .booking-cockpit [data-slot="card"] {
-    padding-block: 0.75rem;
-    gap: 0.5rem;
+    padding-block: var(--cockpit-pad);
+    gap: var(--cockpit-row);
   }
   .booking-cockpit [data-slot="card-header"],
   .booking-cockpit [data-slot="card-content"] {
-    padding-inline: 0.75rem;
+    padding-inline: var(--cockpit-pad);
   }
   .booking-cockpit .space-y-1\.5 > :not(:last-child) {
-    margin-block-end: 0.25rem;
+    margin-block-end: var(--cockpit-label);
   }
-  .booking-cockpit .gap-4 {
-    gap: 0.5rem 0.75rem;
+  .booking-cockpit .gap-4,
+  .booking-cockpit [data-slot="card-content"].grid {
+    gap: var(--cockpit-row) var(--cockpit-col);
   }
   /* the legacy alignment gaps of the customer grid are dropped in the narrow column */
   .booking-cockpit .booking-gap {

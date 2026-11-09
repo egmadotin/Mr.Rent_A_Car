@@ -154,8 +154,11 @@ export function PaymentInfoCard({
   pendingNote,
   locationId,
   set,
+  wide,
 }: {
   bind: Bind;
+  /** the swipe box on the title line and the fields three across (on the booking screen, under the customer) */
+  wide?: boolean;
   /** sets a form value: the card swipe fills Payment Method and the card's last 4 digits */
   set?: (name: string, value: string) => void;
   onSubmit: () => void;
@@ -180,37 +183,60 @@ export function PaymentInfoCard({
     if (c.brand !== "OTHER" && pm.options.some((o) => o.value === c.brand)) set?.("payMethod", c.brand);
   };
   const expired = card ? cardExpired(card.expMonth, card.expYear) : false;
+  const swipeInput = (
+    <Input
+      id="ccSwipe"
+      className={wide ? "w-56 max-w-full" : "max-w-xs"}
+      autoComplete="off"
+      placeholder="Click here, then swipe the card"
+      value={swipe}
+      onChange={(e) => {
+        const t = e.target.value;
+        setSwipe(t);
+        // some readers end with "?" and no Enter
+        if (/\?\s*$/.test(t) && /[\^=]/.test(t) && parseCardSwipe(t)) readSwipe(t);
+      }}
+      onKeyDown={(e) => {
+        if (e.key !== "Enter") return;
+        e.preventDefault();
+        if (swipe) readSwipe(swipe);
+      }}
+    />
+  );
+  const swipeNotes = (
+    <>
+      {swipeError && <p className="text-xs text-destructive">{swipeError}</p>}
+      {card && (
+        <p className={expired ? "text-xs font-semibold text-destructive" : "text-xs text-muted-foreground"}>
+          {card.label} •••• {card.last4} · Exp {String(card.expMonth).padStart(2, "0")}/{card.expYear}{card.holder ? ` · ${card.holder}` : ""}{expired ? " — this card has EXPIRED" : ""}
+        </p>
+      )}
+    </>
+  );
   return (
     <Card className="gap-3">
-      <CardHeader><CardTitle>Payment Information</CardTitle></CardHeader>
-      <CardContent className="grid gap-3 sm:grid-cols-2">
-        <div className="space-y-1.5 sm:col-span-2">
-          <Label htmlFor="ccSwipe">Swipe Credit Card Here Or</Label>
-          <Input
-            id="ccSwipe"
-            className="max-w-xs"
-            autoComplete="off"
-            placeholder="Click here, then swipe the card"
-            value={swipe}
-            onChange={(e) => {
-              const t = e.target.value;
-              setSwipe(t);
-              // some readers end with "?" and no Enter
-              if (/\?\s*$/.test(t) && /[\^=]/.test(t) && parseCardSwipe(t)) readSwipe(t);
-            }}
-            onKeyDown={(e) => {
-              if (e.key !== "Enter") return;
-              e.preventDefault();
-              if (swipe) readSwipe(swipe);
-            }}
-          />
-          {swipeError && <p className="text-xs text-destructive">{swipeError}</p>}
-          {card && (
-            <p className={expired ? "text-xs font-semibold text-destructive" : "text-xs text-muted-foreground"}>
-              {card.label} •••• {card.last4} · Exp {String(card.expMonth).padStart(2, "0")}/{card.expYear}{card.holder ? ` · ${card.holder}` : ""}{expired ? " — this card has EXPIRED" : ""}
-            </p>
-          )}
-        </div>
+      {wide ? (
+        // wide: the swipe box on the title line, the fields three across (fits under the customer on the booking screen)
+        <CardHeader className="flex-row flex-wrap items-center justify-between gap-2">
+          <CardTitle>Payment Information</CardTitle>
+          <div className="flex min-w-0 items-center gap-2">
+            <Label htmlFor="ccSwipe" className="font-normal text-muted-foreground">Swipe Credit Card Here Or</Label>
+            {swipeInput}
+          </div>
+        </CardHeader>
+      ) : (
+        <CardHeader><CardTitle>Payment Information</CardTitle></CardHeader>
+      )}
+      <CardContent className={cn("grid gap-3", wide ? "sm:grid-cols-3" : "sm:grid-cols-2")}>
+        {wide ? (
+          (swipeError || card) && <div className="space-y-1 sm:col-span-3">{swipeNotes}</div>
+        ) : (
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label htmlFor="ccSwipe">Swipe Credit Card Here Or</Label>
+            {swipeInput}
+            {swipeNotes}
+          </div>
+        )}
         <div className="space-y-1.5">
           <div className="flex items-center gap-1"><Label htmlFor="payLast4">Credit Card (last 4)</Label><PlusCircleIcon className="size-3.5 text-primary" aria-hidden /></div>
           <Input {...bind("payLast4")} id="payLast4" inputMode="numeric" maxLength={4} placeholder="1234" autoComplete="off" />
@@ -221,12 +247,13 @@ export function PaymentInfoCard({
         <F label="Transaction Type" name="payType">
           <NativeSelect {...bind("payType")}>{transactionTypes.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</NativeSelect>
         </F>
-        <div className="hidden sm:block" />
+        {!wide && <div className="hidden sm:block" />}
         <F label={codeLabels[0]} name="payAuth"><Input {...bind("payAuth")} /></F>
         <F label={codeLabels[1]} name="payTxn"><Input {...bind("payTxn")} /></F>
-        <div className="sm:col-span-2">
-          <Button type="button" className="w-full sm:w-1/2" onClick={onSubmit}>Submit</Button>
-          {pendingNote != null && <p className="mt-1 text-xs text-muted-foreground">Payment of {money(pendingNote)} will be applied when this is saved.</p>}
+        <div className={wide ? "flex flex-col justify-end sm:col-span-2" : "sm:col-span-2"}>
+          {pendingNote != null && wide && <p className="mb-1 text-xs text-muted-foreground">Payment of {money(pendingNote)} will be applied when this is saved.</p>}
+          <Button type="button" className={wide ? "w-full sm:w-1/2" : "w-full sm:w-1/2"} onClick={onSubmit}>Submit</Button>
+          {pendingNote != null && !wide && <p className="mt-1 text-xs text-muted-foreground">Payment of {money(pendingNote)} will be applied when this is saved.</p>}
         </div>
       </CardContent>
     </Card>

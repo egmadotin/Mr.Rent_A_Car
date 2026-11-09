@@ -49,7 +49,7 @@ export function CockpitGrid({ className, children }: { className: string; childr
       mq.removeEventListener("change", fit);
     };
   });
-  return <div ref={ref} className={cn("flex flex-col gap-6 2xl:grid 2xl:grid-rows-[minmax(0,1fr)] 2xl:gap-4", className)}>{children}</div>;
+  return <div ref={ref} className={cn("flex flex-col gap-6 2xl:grid 2xl:grid-rows-[minmax(0,1fr)] 2xl:gap-x-5", className)}>{children}</div>;
 }
 
 /**
@@ -57,7 +57,7 @@ export function CockpitGrid({ className, children }: { className: string; childr
  * is `display: contents`, so its sections stack in the page (and `max-2xl:order-*` can reorder them).
  */
 export function CockpitCol({ className, children }: { className?: string; children: React.ReactNode }) {
-  return <div className={cn("contents 2xl:flex 2xl:min-h-0 2xl:flex-col 2xl:gap-3 2xl:overflow-y-auto 2xl:pr-1", className)}>{children}</div>;
+  return <div className={cn("contents 2xl:flex 2xl:min-h-0 2xl:flex-col 2xl:gap-(--cockpit-gap) 2xl:overflow-y-auto 2xl:pr-1", className)}>{children}</div>;
 }
 
 /** Sticky top (smaller screens): section links (highlighting the one in view) above the booking summary. */
