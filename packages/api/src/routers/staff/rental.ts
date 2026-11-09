@@ -912,6 +912,42 @@ export const rentalRouter = router({
     }),
   ),
 
+  /**
+   * Add More Drivers → "New driver" (client request): a driver who isn't a customer yet is saved as a customer with the
+   * driver details only (name, licence, birth date, phone), then picked like any other driver.
+   */
+  newDriver: staffProcedure
+    .input(
+      z.object({
+        firstName: z.string().trim().min(1, "First name is required"),
+        lastName: z.string().trim().min(1, "Last name is required"),
+        licenseNumber: z.string().trim().min(1, "Licence # is required"),
+        licenseExpiry: z.coerce.date({ errorMap: () => ({ message: "Licence expiry is required" }) }),
+        licenseProvince: z.string().trim().optional(),
+        birthDate: z.preprocess((v) => (v === "" || v == null ? undefined : v), z.coerce.date().optional()),
+        phone: z.string().trim().optional(),
+      }),
+    )
+    .mutation(({ ctx, input }) =>
+      ctx.prisma.$transaction(async (tx) => {
+        const c = await tx.customer.create({
+          data: {
+            firstName: input.firstName,
+            lastName: input.lastName,
+            licenseNumber: input.licenseNumber,
+            licenseExpiry: input.licenseExpiry,
+            licenseProvince: input.licenseProvince || null,
+            birthDate: input.birthDate ?? null,
+            phone: input.phone || null,
+            registrationChannel: "Staff ERP",
+          },
+          select: { id: true, firstName: true, lastName: true, licenseNumber: true, licenseExpiry: true },
+        });
+        await audit(tx, "Customer", c.id, ctx.user.id, { Created: [null, `${c.firstName} ${c.lastName} (additional driver)`] });
+        return c;
+      }),
+    ),
+
   addDriver: staffProcedure.input(id.extend({ customerId: z.string() })).mutation(async ({ ctx, input }) => {
     const c = await ctx.prisma.customer.findUniqueOrThrow({ where: { id: input.customerId } });
     if (c.isUndesired) throw new TRPCError({ code: "BAD_REQUEST", message: "This customer is on the undesired (do-not-rent) list." });
