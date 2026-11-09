@@ -10,7 +10,7 @@ import { Card, CardContent } from "@mrac/ui/components/card";
 import { Input } from "@mrac/ui/components/input";
 import { NativeSelect } from "@mrac/ui/components/native-select";
 import { toast } from "@mrac/ui/components/sonner";
-import { BookingSummaryBar, BookingTopBar, StepNav, StepPanel, blockEnterSubmit, scrollToStep, shortWhen, type Step } from "../../../../_components/booking-steps";
+import { BookingSummaryBar, BookingTopBar, CockpitCol, CockpitGrid, StepHeading, StepNav, StepPanel, blockEnterSubmit, scrollToStep, shortWhen, type Step } from "../../../../_components/booking-steps";
 import { money } from "@mrac/ui/lib/format";
 import { DiscountField, EstimatePanel, FormAlert, bookingWindow, initialBookingTimes } from "../../../../_components/booking-kit";
 import { CompanySearch } from "../../../../_components/company-search";
@@ -175,7 +175,7 @@ export function QuoteForm({ initial, defaultLocationId }: { initial?: QuoteFormI
 
   return (
     <FormErrorsContext.Provider value={errors}>
-      <form onSubmit={onSubmit} onKeyDown={blockEnterSubmit} noValidate className="space-y-4 p-4 md:p-6">
+      <form onSubmit={onSubmit} onKeyDown={blockEnterSubmit} noValidate className="booking-cockpit space-y-4 p-4 md:p-6 2xl:space-y-3 2xl:pt-2 2xl:pb-0">
         <BookingTopBar steps={STEPS}>
           <BookingSummaryBar
             customer={[v.firstName, v.lastName].filter(Boolean).join(" ")}
@@ -188,6 +188,9 @@ export function QuoteForm({ initial, defaultLocationId }: { initial?: QuoteFormI
         </BookingTopBar>
         <FormAlert message={formError} />
 
+        {/* wide screens: Customer, Trip & vehicle, Estimate + Generate / Save | Extras — all in view */}
+        <CockpitGrid className="2xl:grid-cols-[36rem_minmax(0,1fr)]">
+        <CockpitCol>
         {/* ── 1 · Customer (optional on a quote) ───────────────────────── */}
         <StepPanel step={STEPS[0]!} n={1}>
           <Card>
@@ -229,31 +232,36 @@ export function QuoteForm({ initial, defaultLocationId }: { initial?: QuoteFormI
           </Card>
         </StepPanel>
 
-        {/* ── 3 · Extras & charges: Generate stays here, Save opens the quote ── */}
-        <StepPanel step={STEPS[2]!} n={3}>
-          <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_20rem] 2xl:grid-cols-[minmax(0,1fr)_24rem]">
-            <OptionsGrid data={bo.data} value={opts} onChange={setOpts} applyDefaults={!initial?.quoteId} paymentDetails={o.paymentDetails} />
-            <div className="xl:sticky xl:top-32">
-              <EstimatePanel
-                preview={preview.data}
-                fetching={preview.isFetching}
-                emptyText="Pricing the options…"
-                badge={generated.data && <span className="rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary">Quote #{generated.data.quote.number} saved</span>}
-              />
-            </div>
-          </div>
-          <StepNav
-            next={
-              <div className="flex gap-2">
-                <Button type="submit" name="action" value="generate" size="lg" variant="outline" disabled={pending}>
-                  {pending && <Loader2Icon className="animate-spin" />}
-                  Generate
-                </Button>
-                <Button type="submit" name="action" value="save" size="lg" disabled={pending}>Save</Button>
-              </div>
-            }
+        {/* the estimate and Generate / Save under the trip (smaller screens: after the extras) */}
+        <div className="max-2xl:order-1 2xl:min-h-0 2xl:flex-1 2xl:overflow-y-auto">
+          <EstimatePanel
+            preview={preview.data}
+            fetching={preview.isFetching}
+            emptyText="Pricing the options…"
+            badge={generated.data && <span className="rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary">Quote #{generated.data.quote.number} saved</span>}
           />
+        </div>
+        <StepNav
+          className="max-2xl:order-1"
+          next={
+            <div className="flex gap-2 2xl:w-full 2xl:*:flex-1">
+              <Button type="submit" name="action" value="generate" size="lg" variant="outline" disabled={pending}>
+                {pending && <Loader2Icon className="animate-spin" />}
+                Generate
+              </Button>
+              <Button type="submit" name="action" value="save" size="lg" disabled={pending}>Save</Button>
+            </div>
+          }
+        />
+        </CockpitCol>
+
+        <CockpitCol>
+        {/* ── 3 · Extras & charges: the rest of the screen; Generate stays here, Save opens the quote ── */}
+        <StepPanel step={STEPS[2]!} n={3} bare className="2xl:min-h-0 2xl:flex-1 2xl:shrink 2xl:overflow-y-auto">
+          <OptionsGrid roomy heading={<StepHeading step={STEPS[2]!} n={3} />} data={bo.data} value={opts} onChange={setOpts} applyDefaults={!initial?.quoteId} paymentDetails={o.paymentDetails} />
         </StepPanel>
+        </CockpitCol>
+        </CockpitGrid>
       </form>
     </FormErrorsContext.Provider>
   );

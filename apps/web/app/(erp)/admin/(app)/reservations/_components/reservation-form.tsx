@@ -3,11 +3,11 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangleIcon, Loader2Icon, RefreshCwIcon, SearchIcon } from "lucide-react";
+import { AlertTriangleIcon, Loader2Icon, SearchIcon } from "lucide-react";
 import { useTRPC, useTRPCClient } from "@mrac/api/client";
 import { Badge } from "@mrac/ui/components/badge";
 import { Button } from "@mrac/ui/components/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@mrac/ui/components/card";
+import { Card, CardContent } from "@mrac/ui/components/card";
 import { Checkbox } from "@mrac/ui/components/checkbox";
 import { Input } from "@mrac/ui/components/input";
 import { Label } from "@mrac/ui/components/label";
@@ -15,12 +15,13 @@ import { NativeSelect } from "@mrac/ui/components/native-select";
 import { toast } from "@mrac/ui/components/sonner";
 import { Textarea } from "@mrac/ui/components/textarea";
 import { money } from "@mrac/ui/lib/format";
-import { ChargeSummary, EstimatePanel, DiscountField, FormAlert, bookingWindow, initialBookingTimes } from "../../../../_components/booking-kit";
+import { EstimatePanel, DiscountField, FormAlert, ReturnDateField, bookingWindow, initialBookingTimes } from "../../../../_components/booking-kit";
 import { DriversCard, withDriverCharges, type DriverPick } from "../../../../_components/booking-drivers";
-import { CUSTOMER_FIELDS, CustomerFields, CustomerNotes, MatchList, PaymentInfoCard, customerValues, type CustomerLayout } from "../../../../_components/booking-customer";
+import { CUSTOMER_FIELDS, CustomerFields, CustomerNotes, MatchList, PaymentWindow, customerValues, splitInsurance, type CustomerLayout } from "../../../../_components/booking-customer";
 import { CustomerSearchDialog, DriverChecks, driverChecks } from "../../../../_components/customer-checks";
-import { BookingSummaryBar, BookingTopBar, StepNav, StepPanel, blockEnterSubmit, scrollToStep, shortWhen, type Step } from "../../../../_components/booking-steps";
+import { BookingSummaryBar, BookingTopBar, CockpitCol, CockpitGrid, MoreFold, StepNav, StepPanel, blockEnterSubmit, scrollToStep, shortWhen, type Step } from "../../../../_components/booking-steps";
 import { CompanySearch } from "../../../../_components/company-search";
+import { ExtrasSummary, ExtrasWindow } from "../../../../_components/extras-window";
 import { ConfirmAction } from "../../../../_components/confirm-action";
 import { FieldShell as F, FormErrorsContext, errorMessage, fieldErrorsOf } from "../../../../_components/form";
 import { legacyDate } from "../../../../_components/list-kit";
@@ -47,6 +48,7 @@ const RESERVE_CUSTOMER: CustomerLayout = [
   ["insurancePolicyNumber", "Policy Number"], ["insuranceCompany", "Insurance Company"], ["insuranceExpiry", "Insurance Expiration"], ["insurancePhone", "Insurance Phone"],
   ["insuranceFax", "Insurance Fax"],
 ];
+const [CUSTOMER_MAIN, CUSTOMER_INSURANCE] = splitInsurance(RESERVE_CUSTOMER);
 const STEPS: Step[] = [
   { key: "customer", label: "Customer", hint: "Driver details" },
   { key: "trip", label: "Trip & vehicle", hint: "Dates, vehicle, rate" },
@@ -190,6 +192,8 @@ export function ReservationForm({
   }
 
   // one page (client request): every section visible; go() scrolls to one
+  // the Extras window (client request: the long options list in a movable window instead of on the page)
+  const [extrasOpen, setExtrasOpen] = React.useState(false);
   const go = (i: number) => scrollToStep(STEPS[i]?.key ?? "customer");
   /** Required fields of a section; shows the section when something is missing. */
   function checkSection(from: number): boolean {
@@ -340,7 +344,7 @@ export function ReservationForm({
           e.preventDefault();
           submit();
         }}
-        className="space-y-4 p-4 md:p-6"
+        className="booking-cockpit space-y-4 p-4 md:p-6 2xl:space-y-3 2xl:pt-2 2xl:pb-0"
       >
         <BookingTopBar steps={STEPS}>
           <BookingSummaryBar
@@ -354,23 +358,28 @@ export function ReservationForm({
         </BookingTopBar>
         <FormAlert message={formError} />
 
+        {/* wide screens: Customer | Trip & vehicle + Extras (window) | Estimate, payment, Save — all in view */}
+        <CockpitGrid className="2xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(20rem,0.6fr)]">
+        <CockpitCol>
         {/* ── 1 · Customer ─────────────────────────────────────────────── */}
-        <StepPanel step={STEPS[0]!} n={1}>
+        <StepPanel
+          step={STEPS[0]!}
+          n={1}
+          actions={
+            <>
+              {customerId && (
+                <Badge variant="success">
+                  Existing customer
+                  <button type="button" className="ml-1 underline" onClick={() => setCustomerId(null)}>unlink</button>
+                </Badge>
+              )}
+              <Button type="button" variant="outline" size="sm" onClick={checkMatching}><SearchIcon /> Check Matching</Button>
+            </>
+          }
+        >
           <Card>
-            <CardHeader className="flex-row flex-wrap items-center justify-between gap-2">
-              <CardTitle className="text-base">Primary driver</CardTitle>
-              <div className="flex items-center gap-2">
-                {customerId && (
-                  <Badge variant="success">
-                    Existing customer
-                    <button type="button" className="ml-1 underline" onClick={() => setCustomerId(null)}>unlink</button>
-                  </Badge>
-                )}
-                <Button type="button" variant="outline" size="sm" onClick={checkMatching}><SearchIcon /> Check Matching</Button>
-              </div>
-            </CardHeader>
             <CardContent className="space-y-4">
-              <CustomerFields layout={RESERVE_CUSTOMER} bind={bind} onFind={checkMatching}><CustomerNotes bind={bind} customerId={customerId} /></CustomerFields>
+              <CustomerFields layout={CUSTOMER_MAIN} bind={bind} onFind={checkMatching} className="2xl:grid-cols-3" />
               <MatchList matches={customerId ? [] : matches.data} onUse={applyCustomer} />
               <DriverChecks checks={checks} />
               <CustomerSearchDialog<Parameters<typeof applyCustomer>[0]>
@@ -383,9 +392,14 @@ export function ReservationForm({
               />
             </CardContent>
           </Card>
-          <DriversCard drivers={drivers} primaryId={customerId} onChange={(d) => { setDrivers(d); setOpts((x) => withDriverCharges(x, bo.data, d.length)); }} />
+          <MoreFold title={`More${drivers.length ? ` · ${drivers.length} other driver${drivers.length > 1 ? "s" : ""}` : ""}`} hint="insurance, customer notes, other drivers">
+            <CustomerFields layout={CUSTOMER_INSURANCE} bind={bind} onFind={checkMatching} className="2xl:grid-cols-3"><CustomerNotes bind={bind} customerId={customerId} /></CustomerFields>
+            <DriversCard drivers={drivers} primaryId={customerId} onChange={(d) => { setDrivers(d); setOpts((x) => withDriverCharges(x, bo.data, d.length)); }} />
+          </MoreFold>
         </StepPanel>
+        </CockpitCol>
 
+        <CockpitCol>
         {/* ── 2 · Trip & vehicle ───────────────────────────────────────── */}
         <StepPanel step={STEPS[1]!} n={2}>
           <p className="text-sm text-muted-foreground">
@@ -397,13 +411,7 @@ export function ReservationForm({
               <F label="Pickup Location" name="pickupLocationId" required><NativeSelect {...bind("pickupLocationId")}>{opt(o.locations)}</NativeSelect></F>
               <F label="Return Location" name="returnLocationId"><NativeSelect {...bind("returnLocationId")}>{opt(o.locations)}</NativeSelect></F>
               <F label="Pickup Date" name="pickupAt" required><Input type="datetime-local" {...bind("pickupAt")} /></F>
-              <div className="grid grid-cols-[1fr_5.5rem] gap-2">
-                <F label="Return Date" name="returnAt" required><Input type="datetime-local" {...bind("returnAt")} /></F>
-                <div className="space-y-1.5">
-                  <Label htmlFor="xDays">X Days</Label>
-                  <Input id="xDays" type="number" min={1} value={xDays} onChange={(e) => setXDays(Number(e.target.value))} />
-                </div>
-              </div>
+              <ReturnDateField required input={bind("returnAt")} days={xDays} onDays={setXDays} />
               <F label="Vehicle Type" name="vehicleTypeId" required>
                 <NativeSelect {...bind("vehicleTypeId")}><option value="">Please select</option>{opt(o.vehicleTypes)}</NativeSelect>
               </F>
@@ -427,20 +435,15 @@ export function ReservationForm({
                 <CompanySearch companies={o.companies} value={str("companyId")} onChange={(id) => set("companyId", id)} />
                 {company?.isUndesired && <p className="flex items-center gap-1 text-xs text-destructive"><AlertTriangleIcon className="size-3.5" /> {company.name} is on the undesired list.</p>}
               </div>
-              <div className="grid grid-cols-[1fr_1fr] gap-2">
-                <DiscountField bind={bind} label="Discount" noBlank error={errors.discountValue?.[0]} />
-                <F label="Reason" name="discountReasonId"><NativeSelect {...bind("discountReasonId")}><option value="" />{opt(o.discountReasons)}</NativeSelect></F>
-              </div>
+              <DiscountField bind={bind} label="Discount" noBlank error={errors.discountValue?.[0]} />
+              <F label="Reason" name="discountReasonId"><NativeSelect {...bind("discountReasonId")}><option value="" />{opt(o.discountReasons)}</NativeSelect></F>
               <F label="Deposit:" name="deposit"><Input type="number" min={0} step="0.01" {...bind("deposit")} /></F>
               <F label="Referral" name="referralId"><ReferralField referrals={o.referrals} value={str("referralId")} onChange={(id) => set("referralId", id)} /></F>
             </CardContent>
           </Card>
 
-          <details className="group rounded-xl border bg-card">
-            <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold">
-              More details <span className="font-normal text-muted-foreground">— delivery, flight, hotel, PO / RO #, notes, memo</span>
-            </summary>
-            <div className="grid gap-4 border-t p-4 sm:grid-cols-2 lg:grid-cols-3">
+          <MoreFold title="More details" hint="delivery, flight, hotel, PO / RO #, notes, memo">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <F label="Delivery Address" name="deliveryAddress"><Input {...bind("deliveryAddress")} placeholder="Enter a location" /></F>
               <F label="Driver" name="driver"><NativeSelect id="driver" value="" onChange={() => {}}><option value="" /></NativeSelect></F>
               <F label="Airline" name="airline"><Input {...bind("airline")} /></F>
@@ -459,32 +462,25 @@ export function ReservationForm({
                 <label className="flex items-center gap-2 text-sm"><Checkbox checked={v.isNonRevenue === true} onChange={(e) => set("isNonRevenue", e.target.checked)} /> Non-Revenue</label>
               </div>
             </div>
-          </details>
+          </MoreFold>
         </StepPanel>
 
-        {/* ── 3 · Extras ───────────────────────────────────────────────── */}
+        {/* ── 3 · Extras: what's chosen; the list itself opens in its own window ── */}
         <StepPanel step={STEPS[2]!} n={3}>
-          <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_20rem] 2xl:grid-cols-[minmax(0,1fr)_24rem]">
+          <ExtrasSummary data={bo.data} value={opts} onOpen={() => setExtrasOpen(true)} />
+          <ExtrasWindow open={extrasOpen} onClose={() => setExtrasOpen(false)} title="Extras — insurance, charges, taxes">
             <OptionsGrid data={bo.data} value={opts} onChange={setOpts} applyDefaults={!editing} paymentDetails={o.paymentDetails} />
-            <div className="xl:sticky xl:top-32">
-              <EstimatePanel preview={preview.data} fetching={preview.isFetching} emptyText="Pricing the options…" />
-            </div>
-          </div>
+          </ExtrasWindow>
         </StepPanel>
+        </CockpitCol>
 
-        {/* ── 4 · Summary & payment ────────────────────────────────────── */}
-        <StepPanel step={STEPS[3]!} n={4}>
-          <div className="grid gap-4 xl:grid-cols-2">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-semibold">Charges</p>
-                <Button type="button" variant="ghost" size="sm" className="text-primary" onClick={() => void preview.refetch()}>
-                  <RefreshCwIcon className={preview.isFetching ? "animate-spin" : undefined} /> Refresh
-                </Button>
-              </div>
-              <ChargeSummary title="Charges" preview={preview.data} emptyText="Choose dates, location, vehicle type and rate (Trip & vehicle)." />
-            </div>
-            <PaymentInfoCard
+        <CockpitCol>
+        {/* ── 4 · Summary & payment; Save pinned at the bottom ────────────── */}
+        <StepPanel step={STEPS[3]!} n={4} className="2xl:min-h-0 2xl:flex-1 2xl:shrink 2xl:overflow-y-auto">
+          <div className="grid gap-4 xl:grid-cols-2 2xl:grid-cols-1">
+            <EstimatePanel preview={preview.data} fetching={preview.isFetching} emptyText="Choose dates, location, vehicle type and rate (Trip & vehicle)." />
+            <PaymentWindow
+              summary={paymentReady && str("payAmount") ? `${money(Number(str("payAmount")))} by ${str("payMethod")} — applied when saved` : "No payment taken yet"}
               set={set}
               locationId={str("pickupLocationId")}
               bind={bind}
@@ -507,8 +503,10 @@ export function ReservationForm({
               <label className="flex items-center gap-2"><Checkbox checked={v.isLoaner === true} onChange={(e) => set("isLoaner", e.target.checked)} /> Is Loaner</label>
             </CardContent>
           </Card>
-          <StepNav next={<Button type="submit" size="lg" disabled={pending}>{pending && <Loader2Icon className="animate-spin" />}{editing ? "Save reservation" : "Reserve"}</Button>} />
         </StepPanel>
+        <StepNav next={<Button type="submit" size="lg" className="2xl:w-full" disabled={pending}>{pending && <Loader2Icon className="animate-spin" />}{editing ? "Save reservation" : "Reserve"}</Button>} />
+        </CockpitCol>
+        </CockpitGrid>
       </form>
 
       <ConfirmAction

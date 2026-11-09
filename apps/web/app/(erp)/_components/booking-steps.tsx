@@ -3,11 +3,14 @@
 import * as React from "react";
 import { money } from "@mrac/ui/lib/format";
 import { cn } from "@mrac/ui/lib/utils";
+import { FloatingWindow, WindowCard } from "./extras-window";
 
 /**
- * Booking forms on ONE page (client request): Customer, Trip & vehicle, Extras, Summary & payment are stacked sections,
- * no Back / Next. A sticky bar on top jumps to a section and keeps the booking at a glance (customer, dates, vehicle,
- * total) in view; one action bar at the bottom saves.
+ * Booking forms on ONE page (client request): Customer, Trip & vehicle, Extras, Summary & payment, no Back / Next.
+ * - wide screens (2xl, 1536px+): the "cockpit" — the sections side by side in columns that fill the window under the
+ *   page header, tighter controls (`.booking-cockpit` in globals.css), Save pinned at the bottom of the last column; a
+ *   column scrolls on its own only if its content can't fit
+ * - smaller screens: the sections stacked, a sticky bar on top to jump between them with the booking at a glance
  */
 export type Step = { key: string; label: string; hint?: string };
 
@@ -24,7 +27,40 @@ export function blockEnterSubmit(e: React.KeyboardEvent<HTMLFormElement>) {
   if (e.key === "Enter" && t instanceof HTMLInputElement && t.type !== "submit" && t.type !== "button") e.preventDefault();
 }
 
-/** Sticky top: section links (highlighting the one in view) above the booking summary. */
+/** Wide screens: a row of columns that fills the window under the page header (the page itself doesn't scroll). */
+export function CockpitGrid({ className, children }: { className: string; children: React.ReactNode }) {
+  const ref = React.useRef<HTMLDivElement>(null);
+  // re-measured on every render (an error alert above can push it down) and on resize
+  React.useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const mq = window.matchMedia("(min-width: 96rem)");
+    const fit = () => {
+      if (!mq.matches) return void (el.style.height = "");
+      const top = el.getBoundingClientRect().top + window.scrollY;
+      const h = `${Math.max(520, window.innerHeight - top - 16)}px`;
+      if (el.style.height !== h) el.style.height = h;
+    };
+    fit();
+    window.addEventListener("resize", fit);
+    mq.addEventListener("change", fit);
+    return () => {
+      window.removeEventListener("resize", fit);
+      mq.removeEventListener("change", fit);
+    };
+  });
+  return <div ref={ref} className={cn("flex flex-col gap-6 2xl:grid 2xl:grid-rows-[minmax(0,1fr)] 2xl:gap-4", className)}>{children}</div>;
+}
+
+/**
+ * One column of the cockpit; scrolls on its own only when its content is taller than the window. On smaller screens it
+ * is `display: contents`, so its sections stack in the page (and `max-2xl:order-*` can reorder them).
+ */
+export function CockpitCol({ className, children }: { className?: string; children: React.ReactNode }) {
+  return <div className={cn("contents 2xl:flex 2xl:min-h-0 2xl:flex-col 2xl:gap-3 2xl:overflow-y-auto 2xl:pr-1", className)}>{children}</div>;
+}
+
+/** Sticky top (smaller screens): section links (highlighting the one in view) above the booking summary. */
 export function BookingTopBar({ steps, children }: { steps: Step[]; children?: React.ReactNode }) {
   const [active, setActive] = React.useState(steps[0]?.key);
   React.useEffect(() => {
@@ -41,7 +77,7 @@ export function BookingTopBar({ steps, children }: { steps: Step[]; children?: R
   }, [steps]);
 
   return (
-    <div className="z-20 -mx-4 space-y-2 border-b bg-background/95 px-4 pb-2 pt-1 backdrop-blur sm:sticky sm:top-0 md:-mx-6 md:px-6">
+    <div className="z-20 -mx-4 space-y-2 border-b 2xl:hidden bg-background/95 px-4 pb-2 pt-1 backdrop-blur sm:sticky sm:top-0 md:-mx-6 md:px-6">
       <nav aria-label="Booking sections" className="overflow-x-auto">
         <ol className="flex min-w-max items-center gap-1">
           {steps.map((s, i) => (
@@ -74,24 +110,50 @@ export function BookingTopBar({ steps, children }: { steps: Step[]; children?: R
   );
 }
 
-/** One section of the page, with its numbered heading. */
-export function StepPanel({ step, n, children, className }: { step: Step; n: number; children: React.ReactNode; className?: string }) {
+/** A section's numbered heading; `actions` sit at its right end (e.g. Check Matching). */
+export function StepHeading({ step, n, actions }: { step: Step; n: number; actions?: React.ReactNode }) {
   return (
-    <section id={stepId(step.key)} aria-labelledby={`${stepId(step.key)}-h`} className={cn("scroll-mt-36 space-y-4 pt-2", className)}>
-      <h2 id={`${stepId(step.key)}-h`} className="flex items-baseline gap-2 text-base font-semibold">
-        <span className="flex size-6 shrink-0 items-center justify-center self-center rounded-full bg-primary text-xs text-primary-foreground tabular-nums">{n}</span>
-        {step.label}
-        {step.hint && <span className="text-sm font-normal text-muted-foreground">— {step.hint}</span>}
+    <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+      <h2 id={`${stepId(step.key)}-h`} className="flex min-w-0 items-baseline gap-2 text-base font-semibold">
+        <span className="flex size-6 shrink-0 items-center justify-center self-center rounded-full bg-primary text-xs text-primary-foreground tabular-nums 2xl:size-5">{n}</span>
+        <span className="shrink-0">{step.label}</span>
+        {step.hint && <span className="truncate text-sm font-normal text-muted-foreground">— {step.hint}</span>}
       </h2>
+      {actions && <div className="flex items-center gap-2">{actions}</div>}
+    </div>
+  );
+}
+
+/** One section of the page, with its numbered heading (`bare`: the content renders the heading itself). */
+export function StepPanel({ step, n, children, className, actions, bare }: { step: Step; n: number; children: React.ReactNode; className?: string; actions?: React.ReactNode; bare?: boolean }) {
+  return (
+    <section id={stepId(step.key)} aria-labelledby={`${stepId(step.key)}-h`} className={cn("scroll-mt-36 space-y-4 pt-2 2xl:shrink-0 2xl:space-y-2 2xl:pt-0", className)}>
+      {!bare && <StepHeading step={step} n={n} actions={actions} />}
       {children}
     </section>
   );
 }
 
-/** The save bar at the bottom of the page. */
-export function StepNav({ next, children }: { next?: React.ReactNode; children?: React.ReactNode }) {
+/**
+ * The fields used now and then (insurance, notes, flight …): a one-line card on the form that opens them in a movable
+ * window (client request: opened inline they pushed the columns past the bottom of the screen).
+ */
+export function MoreFold({ title, hint, summary, children, className }: { title: string; hint?: string; summary?: React.ReactNode; children: React.ReactNode; className?: string }) {
+  const [open, setOpen] = React.useState(false);
   return (
-    <div className="sticky bottom-0 z-10 -mx-4 flex flex-wrap items-center justify-between gap-3 border-t bg-background/95 px-4 py-3 backdrop-blur md:-mx-6 md:px-6">
+    <>
+      <WindowCard className={className} title={title} hint={hint} summary={summary} button="Open" onOpen={() => setOpen(true)} />
+      <FloatingWindow open={open} onClose={() => setOpen(false)} title={title}>
+        <div className="space-y-4">{children}</div>
+      </FloatingWindow>
+    </>
+  );
+}
+
+/** The save bar at the bottom of the page (wide screens: at the bottom of the last column). */
+export function StepNav({ next, children, className }: { next?: React.ReactNode; children?: React.ReactNode; className?: string }) {
+  return (
+    <div className={cn("sticky bottom-0 z-10 -mx-4 flex flex-wrap items-center justify-between gap-3 border-t bg-background/95 px-4 py-3 backdrop-blur md:-mx-6 md:px-6 2xl:static 2xl:mx-0 2xl:shrink-0 2xl:bg-transparent 2xl:px-0 2xl:pb-0 2xl:backdrop-blur-none", className)}>
       <div className="flex flex-wrap items-center gap-3">{children}</div>
       {next}
     </div>

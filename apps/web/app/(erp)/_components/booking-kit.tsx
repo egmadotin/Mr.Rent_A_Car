@@ -9,6 +9,7 @@ import { NativeSelect } from "@mrac/ui/components/native-select";
 import { BUSINESS_TZ, fromDateTimeLocal, money, toDateTimeLocal } from "@mrac/ui/lib/format";
 import { nowInput, todayAtInput } from "@mrac/ui/lib/tz";
 import { isPercentLine } from "@mrac/ui/lib/charge-lines";
+import { FormErrorsContext } from "./form";
 
 /**
  * Pieces shared by the Quote and Reservation forms (the same booking fields in RentCentric).
@@ -47,6 +48,37 @@ export function FormAlert({ message }: { message: string | null }) {
   return (
     <div role="alert" className="flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
       <AlertCircleIcon className="size-4" /> {message}
+    </div>
+  );
+}
+
+/**
+ * Return date with RentCentric's "X Days" box on the label row, so the pair stays one grid cell wide (side by side they
+ * squeezed the date and overlapped the next field).
+ */
+export function ReturnDateField({ label = "Return Date", required, input, days, onDays }: {
+  label?: string;
+  required?: boolean;
+  /** props for the datetime-local input (bind("returnAt")) */
+  input: React.ComponentProps<"input">;
+  days: number | string;
+  onDays: (n: number) => void;
+}) {
+  const error = React.useContext(FormErrorsContext).returnAt?.[0];
+  return (
+    <div className="min-w-0 space-y-1.5">
+      <div className="flex h-[13px] items-center justify-between gap-2">
+        <Label htmlFor="returnAt">
+          {label}
+          {required && <span className="text-destructive" aria-hidden>*</span>}
+        </Label>
+        <span className="flex items-center gap-1.5">
+          <Label htmlFor="xDays" className="font-normal text-muted-foreground">X Days</Label>
+          <Input id="xDays" type="number" min={1} value={days} onChange={(e) => onDays(Number(e.target.value))} className="h-5 w-12 px-1.5 text-right text-xs" />
+        </span>
+      </div>
+      <Input type="datetime-local" {...input} id="returnAt" />
+      {error && <p className="text-xs text-destructive">{error}</p>}
     </div>
   );
 }

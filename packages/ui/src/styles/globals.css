@@ -380,3 +380,41 @@
   background: var(--background);
   color: var(--foreground);
 }
+
+/*
+ * Booking forms (Quote / Reserve / Start Rental) on wide screens: everything on one screen in columns, so the
+ * controls, labels, cards and gaps are tighter there (client request: no scrolling, no back and forth).
+ */
+@media (min-width: 96rem) {
+  .booking-cockpit {
+    --control-height: 32px;
+  }
+  /* the page title band above the form is tighter too */
+  main:has(.booking-cockpit) > header {
+    padding-top: 0.75rem;
+    padding-bottom: 0;
+  }
+  .booking-cockpit [data-slot="card"] {
+    padding-block: 0.75rem;
+    gap: 0.5rem;
+  }
+  .booking-cockpit [data-slot="card-header"],
+  .booking-cockpit [data-slot="card-content"] {
+    padding-inline: 0.75rem;
+  }
+  .booking-cockpit .space-y-1\.5 > :not(:last-child) {
+    margin-block-end: 0.25rem;
+  }
+  .booking-cockpit .gap-4 {
+    gap: 0.5rem 0.75rem;
+  }
+  /* the legacy alignment gaps of the customer grid are dropped in the narrow column */
+  .booking-cockpit .booking-gap {
+    display: none;
+  }
+}
+
+/* Booking forms: a grid cell never grows past its column (long values clip instead of overlapping the next field). */
+.booking-cockpit .grid > * {
+  min-width: 0;
+}

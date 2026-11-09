@@ -12,10 +12,12 @@ import { Textarea } from "@mrac/ui/components/textarea";
 import { COUNTRIES } from "@mrac/ui/lib/countries";
 import { date, money } from "@mrac/ui/lib/format";
 import { REGION_OPTIONS } from "@mrac/ui/lib/regions";
+import { cn } from "@mrac/ui/lib/utils";
 import { CUSTOMER_FIELDS, customerValues, type CustomerField } from "./booking-values";
 import { FieldShell as F } from "./form";
 import { usePaymentMethods } from "./payment-methods";
 import { cardExpired, parseCardSwipe, type SwipedCard } from "./customer-checks";
+import { FloatingWindow, WindowCard } from "./extras-window";
 
 // server-safe customer helpers live in booking-values.ts; re-exported for the client forms
 export { CUSTOMER_FIELDS, customerValues, type CustomerField };
@@ -36,12 +38,23 @@ type Bind = (name: string) => {
   "aria-invalid"?: true;
 };
 
+/** Insurance fields of a Customer tab: shown under "More" so the main fields fit beside the trip. */
+const INSURANCE: CustomerField[] = ["insuranceCompany", "insurancePolicyNumber", "insuranceExpiry", "insurancePhone", "insuranceFax"];
+/** A legacy Customer layout split into [main fields, insurance fields] (the order inside each is kept). */
+export function splitInsurance(layout: CustomerLayout): [CustomerLayout, CustomerLayout] {
+  const isIns = (c: CustomerLayout[number]) => typeof c !== "number" && INSURANCE.includes(c[0]);
+  const main = layout.filter((c) => !isIns(c));
+  // a trailing alignment gap is pointless once the insurance rows are gone
+  while (typeof main[main.length - 1] === "number") main.pop();
+  return [main, layout.filter(isIns)];
+}
+
 /** The Customer tab grid in the order a legacy form lays it out; the First Name search icon runs "Check Matching". */
-export function CustomerFields({ layout, bind, onFind, children }: { layout: CustomerLayout; bind: Bind; onFind: () => void; children?: React.ReactNode }) {
+export function CustomerFields({ layout, bind, onFind, children, className }: { layout: CustomerLayout; bind: Bind; onFind: () => void; children?: React.ReactNode; className?: string }) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className={cn("grid gap-4 sm:grid-cols-2 lg:grid-cols-4", className)}>
       {layout.map((cell, i) => {
-        if (typeof cell === "number") return <div key={`gap${i}`} className={cell > 1 ? "hidden lg:col-span-3 lg:block" : "hidden lg:block"} />;
+        if (typeof cell === "number") return <div key={`gap${i}`} className={cell > 1 ? "booking-gap hidden lg:col-span-3 lg:block" : "booking-gap hidden lg:block"} />;
         const [key, label, required] = cell;
         const id = `cust-${key}`;
         const b = { ...bind(key), id };
@@ -113,6 +126,19 @@ export function MatchList<T extends Match>({ matches, onUse }: { matches: T[] | 
         ))}
       </ul>
     </div>
+  );
+}
+
+/** Payment on the booking screen: a one-line card ("Take payment") that opens the Payment Information panel in a movable window. */
+export function PaymentWindow({ summary, ...card }: React.ComponentProps<typeof PaymentInfoCard> & { summary: React.ReactNode }) {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <>
+      <WindowCard title="Payment" summary={summary} button="Take payment" onOpen={() => setOpen(true)} />
+      <FloatingWindow open={open} onClose={() => setOpen(false)} title="Payment Information">
+        <PaymentInfoCard {...card} />
+      </FloatingWindow>
+    </>
   );
 }
 
@@ -195,10 +221,9 @@ export function PaymentInfoCard({
         <F label="Transaction Type" name="payType">
           <NativeSelect {...bind("payType")}>{transactionTypes.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</NativeSelect>
         </F>
-        <div className="grid grid-cols-2 gap-2">
-          <F label={codeLabels[0]} name="payAuth"><Input {...bind("payAuth")} /></F>
-          <F label={codeLabels[1]} name="payTxn"><Input {...bind("payTxn")} /></F>
-        </div>
+        <div className="hidden sm:block" />
+        <F label={codeLabels[0]} name="payAuth"><Input {...bind("payAuth")} /></F>
+        <F label={codeLabels[1]} name="payTxn"><Input {...bind("payTxn")} /></F>
         <div className="sm:col-span-2">
           <Button type="button" className="w-full sm:w-1/2" onClick={onSubmit}>Submit</Button>
           {pendingNote != null && <p className="mt-1 text-xs text-muted-foreground">Payment of {money(pendingNote)} will be applied when this is saved.</p>}

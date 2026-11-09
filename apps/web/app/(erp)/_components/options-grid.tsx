@@ -31,30 +31,32 @@ type Opt = {
   extra?: React.ReactNode;
 };
 
-/** One option as a click-anywhere tile: tick box (or radio for a pick-one group), name, rate. */
+/**
+ * One option as a click-anywhere row: tick box (or radio for a pick-one group), the FULL name (wraps, never cut — the
+ * names matter), the rate floated at the right of the first line so the following lines get the whole width.
+ */
 function OptionTile({ r }: { r: Opt }) {
   return (
-    <div className={cn("flex min-h-8 items-center rounded-md border bg-background text-[13px] transition-colors", r.on ? "border-primary/60 bg-primary/10" : "hover:bg-muted/60")}>
+    <div className={cn("flex items-center rounded-md border text-[13px] transition-colors", r.on ? "border-primary/60 bg-primary/10" : "border-transparent hover:bg-muted/60")}>
       <button
         type="button"
         role={r.group ? "radio" : "checkbox"}
         aria-checked={r.on}
         aria-label={r.name}
-        title={r.name}
         onClick={r.toggle}
-        className="flex min-h-8 min-w-0 flex-1 items-center gap-2 px-2.5 py-1 text-left leading-tight"
+        className="relative block min-w-0 flex-1 py-1 pr-1.5 pl-7 text-left leading-snug"
       >
         <span
           className={cn(
-            "grid size-4 shrink-0 place-items-center border",
+            "absolute top-[0.4rem] left-2 grid size-4 place-items-center border",
             r.group ? "rounded-full" : "rounded-[4px]",
             r.on ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground/50",
           )}
         >
           {r.on && (r.group ? <span className="size-1.5 rounded-full bg-current" /> : <CheckIcon className="size-3" strokeWidth={3} />)}
         </span>
-        <span className="line-clamp-2 min-w-0 flex-1">{r.name}</span>
-        <span className="shrink-0 text-muted-foreground tabular-nums">{r.rate}</span>
+        <span className="float-right ml-2 text-muted-foreground tabular-nums">{r.rate}</span>
+        {r.name}
       </button>
       {r.extra}
     </div>
@@ -84,6 +86,8 @@ export type BookingOptionsData = NonNullable<ReturnType<typeof useBookingOptions
  *   removable chips, so a long list needs no scrolling to find or check a charge
  * - laid out as tiles across the whole width (no inner scroll box); pick-one groups are small cards, click a picked
  *   one again (or Clear) to unpick
+ * - Insurance, Taxes and Misc. charges flow through ONE set of balanced columns (a tall pick-one card no longer leaves
+ *   empty space beside it), so the whole list fits the booking screen
  */
 export function OptionsGrid({
   data,
@@ -91,7 +95,13 @@ export function OptionsGrid({
   onChange,
   applyDefaults,
   paymentDetails,
+  heading,
+  roomy,
 }: {
+  /** larger tiles in wider columns, for a screen with room to spare (the quote) */
+  roomy?: boolean;
+  /** shown at the left of the search row (the section heading, to save a line) */
+  heading?: React.ReactNode;
   data: BookingOptionsData | undefined;
   /** Settings > Payment Details names, for the Other Charges "Detail" list */
   paymentDetails?: string[];
@@ -217,41 +227,41 @@ export function OptionsGrid({
     else if (key.startsWith("m")) setMisc(id, false);
   };
 
+  // one section = its heading, pick-one cards, then the tick boxes; the heading is kept with the first card
   const section = (type: Opt["type"], title: string) => {
     const items = shown.filter((r) => r.type === type);
-    if (!items.length) return null;
+    if (!items.length) return [];
     const loose = items.filter((r) => !r.group);
     const groups = [...new Set(items.filter((r) => r.group).map((r) => r.group!))];
-    return (
-      <section key={type} className="space-y-2">
-        <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+    const cards: React.ReactElement[] = [
+      ...groups.map((g) => {
+        const members = items.filter((r) => r.group === g);
+        const picked = members.find((r) => r.on);
+        return (
+          <div key={g} className="my-1 space-y-0.5 rounded-lg border bg-muted/20 p-1">
+            <div className="flex items-center justify-between gap-2 px-1 text-xs">
+              <span className="truncate font-medium" title={g}>{g} <span className="font-normal text-muted-foreground">· pick one</span></span>
+              {picked && (
+                <button type="button" onClick={picked.toggle} className="shrink-0 text-muted-foreground hover:text-destructive">Clear</button>
+              )}
+            </div>
+            {members.map((r) => <OptionTile key={r.key} r={r} />)}
+          </div>
+        );
+      }),
+      ...loose.map((r) => <OptionTile key={r.key} r={r} />),
+    ];
+    return [
+      <div key={`${type}-head`} className="space-y-1">
+        <h3 className="pt-1.5 pb-0.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
           {title} <span className="font-normal tabular-nums">· {items.filter((r) => r.on).length} of {items.length} on</span>
         </h3>
-        {/* balanced columns (as many as fit): pick-one cards first, then the tick boxes */}
-        <div className="columns-[15rem] gap-2 *:mb-1.5 *:break-inside-avoid">
-          {groups.map((g) => {
-            const members = items.filter((r) => r.group === g);
-            const picked = members.find((r) => r.on);
-            return (
-              <div key={g} className="space-y-1 rounded-lg border bg-muted/20 p-1.5">
-                <div className="flex items-center justify-between gap-2 px-1 text-xs">
-                  <span className="truncate font-medium" title={g}>{g} <span className="font-normal text-muted-foreground">· pick one</span></span>
-                  {picked && (
-                    <button type="button" onClick={picked.toggle} className="shrink-0 text-muted-foreground hover:text-destructive">Clear</button>
-                  )}
-                </div>
-                {members.map((r) => <OptionTile key={r.key} r={r} />)}
-              </div>
-            );
-          })}
-          {loose.map((r) => <OptionTile key={r.key} r={r} />)}
-        </div>
-      </section>
-    );
+        {cards[0]}
+      </div>,
+      ...cards.slice(1),
+    ];
   };
-  const ins = section("Insurance", "Insurance");
-  const misc = section("Misc. Charge", "Misc. charges");
-  const tax = section("Tax", "Taxes");
+  const blocks = [...section("Insurance", "Insurance"), ...section("Tax", "Taxes"), ...section("Misc. Charge", "Misc. charges")];
 
   const other = [0, 1, 2, 3].map((i) => value.otherCharges[i] ?? { amount: 0, detail: "", description: "" });
   const setOther = (i: number, patch: Partial<(typeof other)[number]>) => {
@@ -262,7 +272,8 @@ export function OptionsGrid({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-48 flex-1">
+        {heading && <div className="mr-auto min-w-0">{heading}</div>}
+        <div className={cn("relative min-w-48 flex-1", heading && "max-w-md")}>
           <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input aria-label="Search options" placeholder="Search options (e.g. seat, waiver, GPS)" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8" />
         </div>
@@ -291,13 +302,8 @@ export function OptionsGrid({
           {rows.length ? "No options match." : "Choose a vehicle type to see the options."}
         </p>
       )}
-      {/* wide screens: Insurance and Taxes in a narrow pane, the long Misc. charges list across the rest */}
-      <div className="@container">
-        <div className={cn("grid items-start gap-4", (ins || tax) && misc && "@4xl:grid-cols-[17rem_minmax(0,1fr)] @6xl:grid-cols-[19rem_minmax(0,1fr)]")}>
-          {(ins || tax) && <div className="space-y-4">{ins}{tax}</div>}
-          {misc}
-        </div>
-      </div>
+      {/* balanced columns, as many as fit */}
+      {blocks.length > 0 && <div className={cn("gap-3 *:mb-0.5 *:break-inside-avoid", roomy ? "columns-[15rem] 2xl:[&_[role]]:py-1.5 2xl:[&_[role]]:text-sm" : "columns-[13rem]")}>{blocks}</div>}
 
       <button type="button" onClick={() => setShowOther((x) => !x)} aria-expanded={showOther} className="flex items-center gap-1 text-sm font-medium text-primary">
         <ChevronDownIcon className={cn("size-4 transition-transform", showOther && "rotate-180")} /> Add/Edit Other Charges
