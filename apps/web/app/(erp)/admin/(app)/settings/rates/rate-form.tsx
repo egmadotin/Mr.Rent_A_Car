@@ -209,7 +209,8 @@ export function RateForm({ id, initial, defaultLocationId }: { id?: string; init
               <thead>
                 <tr className="border-b text-left text-xs text-muted-foreground">
                   <th className="px-3 py-2 font-medium">Vehicle type</th>
-                  {COLS.map(([, l]) => <th key={l} className="px-1 py-2 text-right font-medium">{l}</th>)}
+                  {/* headers end where the numbers end: cell padding (px-1) + input padding (px-2) */}
+                  {COLS.map(([, l]) => <th key={l} className="py-2 pr-3 pl-1 text-right font-medium whitespace-nowrap">{l}</th>)}
                 </tr>
               </thead>
               <tbody>
@@ -226,7 +227,7 @@ export function RateForm({ id, initial, defaultLocationId }: { id?: string; init
                             min={0}
                             aria-label={`${t.name} ${l}`}
                             disabled={validFor === "SEASON" && !season}
-                            className="h-8 w-24 rounded-md border bg-transparent px-2 text-right tabular-nums focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+                            className="h-8 w-full min-w-20 rounded-md border bg-transparent px-2 text-right tabular-nums focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
                             value={s(row?.[c])}
                             onChange={(e) => setCell(t.id, c, e.target.value)}
                             onBlur={c === "daily" ? () => fillFromDaily(t.id) : undefined}
