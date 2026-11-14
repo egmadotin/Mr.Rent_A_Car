@@ -13,6 +13,7 @@ import { settingsRouter } from "./routers/staff/settings";
 import { bookingRouter } from "./routers/staff/booking";
 import { paymentGatewayRouter } from "./routers/staff/payment-gateway";
 import { numberSeriesRouter } from "./routers/staff/number-series";
+import { rateControlsRouter } from "./routers/staff/rate-controls";
 import { templateRouter } from "./routers/staff/template";
 import { emailRouter } from "./routers/staff/email";
 import { usersRouter } from "./routers/staff/users";
@@ -37,6 +38,7 @@ export const staffRouter = router({
   booking: bookingRouter,
   paymentGateway: paymentGatewayRouter,
   numberSeries: numberSeriesRouter,
+  rateControls: rateControlsRouter,
   template: templateRouter,
   email: emailRouter,
   users: usersRouter,

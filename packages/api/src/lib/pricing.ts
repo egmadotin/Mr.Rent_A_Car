@@ -1,6 +1,7 @@
 import { Prisma } from "@mrac/db";
 import { BUSINESS_TZ, localDateAsUtc, monthDayIn, weekdayIn } from "./tz";
 import { applyRateOverride, type RateOverride } from "./rate-override";
+import { adjustedDailies, blockedRates, isBlocked } from "./rate-rules";
 
 type Tx = Prisma.TransactionClient;
 const D = (n: number | Prisma.Decimal) => new Prisma.Decimal(n);
@@ -122,9 +123,11 @@ export async function pickOnlineRate(tx: Tx, input: { locationId: string; vehicl
   });
   const minutes = (+input.returnAt - +input.pickupAt) / 60_000;
   const weekday = weekdayIn(input.pickupAt, tz);
+  const blocked = await blockedRates(tx, { locationId: input.locationId, vehicleTypeId: input.vehicleTypeId, pickupAt: input.pickupAt, tz });
   const len = (d: number, h: number, m: number) => d * 1440 + h * 60 + m;
   const fits = rates.filter((r) => {
     if (r.availableDays.length === 7 && !r.availableDays[weekday]) return false;
+    if (isBlocked(blocked, r.id)) return false;
     const min = len(r.minDays, r.minHours, r.minMinutes);
     const max = len(r.maxDays, r.maxHours, r.maxMinutes);
     if (r.validFor === "SEASON" && !r.values.some((v) => v.seasonId && seasonIds.includes(v.seasonId))) return false;
@@ -259,7 +262,12 @@ export async function priceBooking(tx: Tx, input: PricingInput) {
     // monthly / 30 (e.g. M 1,547.30 → 51.5767/day, shown as 51.58; 3 days = 154.73 on mrrentacar.com, not 154.74).
     const rounded = rv.daily.equals(rv.daily.toDecimalPlaces(2));
     const precise = rounded && rv.monthly && rv.monthly.div(30).sub(rv.daily).abs().lt(0.01) ? rv.monthly.div(30) : rv.daily;
-    lines.push({ kind: "TIME", name: "Daily", units: D(days), rate: rv.daily, total: precise.mul(days), sortOrder: sort++ });
+    // Rate Values Update / Rate Utilization: per-day prices for the rental's dates (the line shows their average)
+    const adj = rate ? await adjustedDailies(tx, { locationId: input.locationId, rateId: rate.id, vehicleTypeId: input.vehicleTypeId, pickupAt: input.pickupAt, days, daily: precise, tz }) : null;
+    if (adj) {
+      const total = adj.dailies.slice(0, days).reduce((a, d) => a.add(d), ZERO);
+      lines.push({ kind: "TIME", name: "Daily", units: D(days), rate: total.div(days), total, sortOrder: sort++ });
+    } else lines.push({ kind: "TIME", name: "Daily", units: D(days), rate: rv.daily, total: precise.mul(days), sortOrder: sort++ });
   }
   if (rv?.kmAllowed)
     lines.push({ kind: "MILEAGE", name: "Km Allowed", units: D(rv.kmAllowed * Math.max(1, days)), rate: ZERO, total: ZERO, sortOrder: sort++ });

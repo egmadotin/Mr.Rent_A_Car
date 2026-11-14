@@ -7,7 +7,8 @@ import { Badge } from "@mrac/ui/components/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@mrac/ui/components/card";
 import { Input } from "@mrac/ui/components/input";
 
-export type SettingsCategory = { title: string; items: { label: string; href?: string; desc?: string }[] };
+/** `na`: a RentCentric page that has no use here (why), shown as "Not needed" instead of "Not built yet". */
+export type SettingsCategory = { title: string; items: { label: string; href?: string; desc?: string; na?: string }[] };
 
 /** Fixes the legacy "80+ links, no search" problem: one filter across every category and page. */
 export function SettingsIndex({ categories }: { categories: SettingsCategory[] }) {
@@ -55,8 +56,11 @@ export function SettingsIndex({ categories }: { categories: SettingsCategory[] }
                     </li>
                   ) : (
                     <li key={i.label} className="flex items-center gap-2 px-2 py-1.5 text-sm text-muted-foreground">
-                      <span className="flex-1">{i.label}</span>
-                      <Badge variant="muted">Not built yet</Badge>
+                      <span className="min-w-0 flex-1">
+                        <span className="block">{i.label}</span>
+                        {i.na && <span className="block truncate text-xs" title={i.na}>{i.na}</span>}
+                      </span>
+                      <Badge variant="muted">{i.na ? "Not needed" : "Not built yet"}</Badge>
                     </li>
                   ),
                 )}

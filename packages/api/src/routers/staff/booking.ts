@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { router, staffProcedure } from "../../trpc";
 import { locationTz, priceBooking, seasonsAt } from "../../lib/pricing";
+import { blockedRates, isBlocked } from "../../lib/rate-rules";
 import { localDateAsUtc } from "../../lib/tz";
 import { bookingOptionsInput, staffPricingOptions } from "../../lib/booking-options";
 
@@ -40,8 +41,10 @@ export const bookingRouter = router({
       // charges/coverages with a Min/Max days window only apply to rentals of that length (e.g. snow tires @40/D = 3–5 days)
       const days = input.returnAt ? Math.max(1, Math.ceil((+input.returnAt - +input.at) / 86_400_000)) : null;
       const fitsLength = (x: { minDays: number; maxDays: number }) => days === null || (days >= x.minDays && (x.maxDays === 0 || days <= x.maxDays));
+      const blocked = await blockedRates(ctx.prisma, { locationId: input.locationId, vehicleTypeId: input.vehicleTypeId, pickupAt: input.at, tz });
       return {
         rates: rates
+          .filter((r) => !isBlocked(blocked, r.id))
           .map((r) => {
             // value for the season containing the date, else the date-range value
             const v = r.values.find((x) => x.seasonId && seasonIds.includes(x.seasonId)) ?? r.values.find((x) => !x.seasonId);

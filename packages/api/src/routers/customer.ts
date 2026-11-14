@@ -6,7 +6,8 @@ import { sendReservationEmail } from "../lib/booking-emails";
 import { notifyNewReservation } from "../lib/sms-notify";
 import { Prisma } from "@mrac/db";
 import { router, publicProcedure } from "../trpc";
-import { onlineOptions, periodTotal, pickOnlineRate, priceBooking } from "../lib/pricing";
+import { locationTz, onlineOptions, periodTotal, pickOnlineRate, priceBooking } from "../lib/pricing";
+import { overbookAllowance } from "../lib/rate-rules";
 import { withBookingGuard } from "../lib/errors";
 import { cardOf, requireStripe, stripeGateway } from "../lib/payments";
 import { nextDocNumber } from "../lib/doc-numbers";
@@ -202,7 +203,8 @@ export const customerRouter = router({
         kmIncluded: km ? Number(km.units) : null,
         extraKmCharge: (priced.extraKmCharge ?? rate.extraKmCharge).toFixed(2),
         rateId: rate.id,
-        available: free > 0,
+        // Overbooking Control lets a type take bookings past its free cars
+        available: free > 0 || (await overbookAllowance(ctx.prisma, { locationId: input.pickupLocationId, vehicleTypeId: t.id, pickupAt: input.pickupAt, tz: await locationTz(ctx.prisma, input.pickupLocationId) })) > 0,
         promo: promo ? { ok: !!promo.promo, message: promo.error ?? `Promo code ${promo.promo!.code} applied` } : null,
         lines: priced.lines.map((l) => ({ name: l.name, units: Number(l.units), total: l.total.toFixed(2), kind: l.kind })),
       });

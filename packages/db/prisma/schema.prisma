@@ -2410,3 +2410,86 @@ model OffsiteLocation {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 }
+
+/// Settings > Rates > Rate Blocking (BLOCK) and Rate Values Update (ADJUST), as RentCentric RateBlocking.aspx /
+/// RateValuesUpdate2.aspx: for a location (and optionally one rate code / vehicle type) between two dates on the ticked
+/// weekdays, either the rate can't be used (pickup that day) or its daily price is changed (% / flat $ / set total).
+/// Ids are plain (no relations): rules outlive renamed or deleted rates.
+model RateRule {
+  id            String       @id @default(cuid())
+  kind          RateRuleKind
+  locationId    String
+  rateId        String? /// null = every rate at the location
+  vehicleTypeId String? /// null = every vehicle type
+  startDate     DateTime     @db.Date
+  endDate       DateTime     @db.Date
+  /// Sun..Sat
+  weekdays      Boolean[]    @default([true, true, true, true, true, true, true])
+  changeType    RateChangeType?
+  value         Decimal?     @db.Decimal(10, 2)
+  note          String?
+  createdById   String?
+  createdAt     DateTime     @default(now())
+
+  @@index([locationId, kind])
+}
+
+enum RateRuleKind {
+  BLOCK
+  ADJUST
+}
+
+enum RateChangeType {
+  PERCENT
+  FLAT
+  TOTAL
+}
+
+/// Settings > Rates > Rate Utilization (RateUtilization.aspx): between two dates, the daily rate moves by the % set for
+/// how full the vehicle type is at pickup (0 %, 10 % … 150 % of the fleet booked; 16 tiers).
+model RateUtilization {
+  id            String   @id @default(cuid())
+  locationId    String
+  rateId        String? /// null = every rate
+  vehicleTypeId String? /// null = every vehicle type
+  startDate     DateTime @db.Date
+  endDate       DateTime @db.Date
+  /// % change for utilization 0,10,…,150 (index = utilization / 10)
+  tiers         Decimal[] @db.Decimal(6, 2)
+  createdById   String?
+  createdAt     DateTime @default(now())
+
+  @@index([locationId])
+}
+
+/// Settings > Rates > Overbooking Control (CapacityControl.aspx): how many bookings over the fleet a vehicle type may take
+/// online between two dates, as units or a % of the fleet.
+model Overbooking {
+  id            String          @id @default(cuid())
+  locationId    String
+  vehicleTypeId String
+  startDate     DateTime        @db.Date
+  endDate       DateTime        @db.Date
+  overbookBy    Int
+  unit          OverbookingUnit @default(UNIT)
+  createdById   String?
+  createdAt     DateTime        @default(now())
+
+  @@index([locationId, vehicleTypeId])
+}
+
+enum OverbookingUnit {
+  UNIT
+  PERCENT
+}
+
+/// Settings > Email Marketing > Email Template (EmailTemplatesMain.aspx): saved marketing emails to load on Send Marketing Email.
+model EmailTemplate {
+  id        String   @id @default(cuid())
+  subject   String
+  fromName  String?
+  fromEmail String?
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

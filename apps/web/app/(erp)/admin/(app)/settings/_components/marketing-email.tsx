@@ -48,6 +48,22 @@ export function MarketingEmail() {
   const count = useQuery({ ...trpc.staff.marketing.count.queryOptions(audienceArgs), enabled: editable && !!ready, retry: false });
   const set = (k: keyof typeof a) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setA({ ...a, [k]: e.target.value });
 
+  // Email Template: fill From / Subject / Email from a saved template (Settings > Email Template)
+  const templates = useQuery(trpc.staff.marketing.templates.queryOptions());
+  function loadTemplate(id: string) {
+    const t = templates.data?.find((x) => x.id === id);
+    if (!t) return;
+    const put = (field: string, v: string) => {
+      const el = document.getElementById(field) as HTMLInputElement | HTMLTextAreaElement | null;
+      if (el) el.value = v;
+    };
+    put("fromEmail", t.fromEmail ?? "");
+    put("fromName", t.fromName ?? "");
+    put("subject", t.subject);
+    put("body", t.body);
+    setFormat(/<[a-z][\s\S]*>/i.test(t.body) ? "HTML" : "TEXT");
+  }
+
   async function send(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
@@ -78,7 +94,10 @@ export function MarketingEmail() {
           <form onSubmit={send} className="space-y-4">
             <fieldset disabled={!editable} className="space-y-4">
               <F label="Email Template" name="template">
-                <NativeSelect id="template" disabled><option>None</option></NativeSelect>
+                <NativeSelect id="template" onChange={(e) => loadTemplate(e.target.value)}>
+                  <option value="">None</option>
+                  {templates.data?.map((t) => <option key={t.id} value={t.id}>{t.subject}</option>)}
+                </NativeSelect>
               </F>
               <div className="grid gap-4 sm:grid-cols-2">
                 <F label="From Email" name="fromEmail"><Input id="fromEmail" name="fromEmail" type="email" placeholder="Settings › Email Setup's when blank" /></F>

@@ -120,4 +120,20 @@ export const marketingRouter = router({
       await audit(ctx.prisma, "Marketing", "email", ctx.user.id, { Sent: [null, `${input.subject} — ${input.audience ?? "Email only"}: ${sent} sent, ${failed.length} failed`] });
       return { sent, failed };
     }),
+
+  // ── Settings > Email Marketing > Email Template: saved emails to load on Send Marketing Email
+  templates: permitted("Settings").query(({ ctx }) => ctx.prisma.emailTemplate.findMany({ orderBy: { subject: "asc" } })),
+  saveTemplate: permitted("Settings")
+    .input(z.object({ id: z.string().optional(), subject: z.string().trim().min(1, "Subject is required").max(200), fromName: z.string().trim().max(100).optional(), fromEmail: z.string().trim().email().optional().or(z.literal("")), body: z.string().min(1, "Email is required") }))
+    .mutation(async ({ ctx, input }) => {
+      const data = { subject: input.subject, fromName: input.fromName || null, fromEmail: input.fromEmail || null, body: input.body };
+      const t = input.id ? await ctx.prisma.emailTemplate.update({ where: { id: input.id }, data }) : await ctx.prisma.emailTemplate.create({ data });
+      await audit(ctx.prisma, "EmailTemplate", t.id, ctx.user.id, { Saved: [null, t.subject] });
+      return { id: t.id };
+    }),
+  removeTemplate: permitted("Settings").input(z.object({ id: z.string() })).mutation(async ({ ctx, input }) => {
+    await ctx.prisma.emailTemplate.delete({ where: { id: input.id } });
+    await audit(ctx.prisma, "EmailTemplate", input.id, ctx.user.id, { Removed: [null, "yes"] });
+    return { ok: true };
+  }),
 });
