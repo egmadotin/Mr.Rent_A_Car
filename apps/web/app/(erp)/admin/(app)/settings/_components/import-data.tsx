@@ -14,7 +14,7 @@ import { errorMessage } from "../../../../_components/form";
 import { NO_PERMISSION, useCan } from "../../../../_components/permissions";
 
 /**
- * Settings > Import Data (Customer / Company / Rate / Referral / Vehicle / Model Import): RentCentric's CSV templates,
+ * Settings > Import Data (Customer / Company / Rate / Referral / Vehicle / Model / Reservation Import): RentCentric's CSV templates,
  * read in the browser and imported row by row; bad rows are listed and the rest still import.
  */
 
@@ -25,6 +25,12 @@ const TYPES = {
   referrals: { label: "Referral Import", file: "ReferralsUpload.csv", cols: "Description,FullName,Email,Phone,Fax,Memo,Address,Zip,CommissionType,CommissionAmount,Commissionable", note: "" },
   vehicles: { label: "Vehicle Import", file: "VehiclesUploads.csv", cols: "VehicleID,Year,Make,Model,VehicleType,VINNumber,Status,Odometer,OriginalOdometer,Colour,Price,LicenseNumber,LicenseExpiry,LicenseState,TankSize,Memo,Doors,FuelLevel,FuelType,Transmission,Body,ServiceInterval,Active", note: "Vehicles are added to the chosen location; makes and models are created when new." },
   models: { label: "Model Import", file: "ModelUpload.csv", cols: "Make,Model", note: "" },
+  reservations: {
+    label: "Reservation Import",
+    file: "ReservationsUpload.csv",
+    cols: "ResNumber,LocationOut,LocationIn,DateOut,DateIn,TimeOut,TimeIn,VehicleType,FirstName,LastName,Email,Address,City,State,Country,Zip,CCType,CCNumber,CCExpMonth,CCExpYear,HourlyRate,DailyRate,WeeklyRate,MonthlyRate,Memo,Referral,Tentative,Confirmed,Cancelled,CheckedOut,CheckedIn",
+    note: "Dates as M/D/YYYY, times like 10:00 AM; LocationOut / LocationIn by name or code (blank = the location chosen above); status columns Yes / No. The customer is matched by email or added. The rates become the reservation's own rate values. Card columns are ignored — card numbers are never stored. A ResNumber that already exists is skipped, or updated with Update Existing Records.",
+  },
 } as const;
 type Type = keyof typeof TYPES;
 
@@ -57,7 +63,12 @@ export function ImportData() {
   const client = useTRPCClient();
   const can = useCan();
   const locations = useQuery(trpc.staff.settings.lookups.queryOptions()).data?.locations ?? [];
+  // ?type=reservations etc. (Settings index links straight to one import)
   const [type, setType] = React.useState<Type>("customers");
+  React.useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get("type");
+    if (t && t in TYPES) setType(t as Type);
+  }, []);
   const [locationId, setLocationId] = React.useState("");
   const [update, setUpdate] = React.useState(false);
   const [rows, setRows] = React.useState<Record<string, string>[] | null>(null);

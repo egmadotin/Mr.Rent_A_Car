@@ -3,11 +3,14 @@ import { TRPCError } from "@trpc/server";
 import { Prisma } from "@mrac/db";
 import { router, permitted } from "../../trpc";
 import { audit } from "../../lib/audit";
+import { nextDocNumber } from "../../lib/doc-numbers";
+import { priceBooking } from "../../lib/pricing";
+import { fromZonedInput } from "../../lib/tz";
 
 /**
  * Settings > Import Data and Other Tools: Customer / Company / Rate / Referral / Vehicle / Model Import, reading
  * RentCentric's own CSV templates (CustomersUploads.csv, CompanyUpload.csv, RatesUploads.csv, ReferralImport,
- * VehiclesUploads.csv). The browser parses the CSV; rows arrive as { "<template column>": "value" }.
+ * VehiclesUploads.csv, ReservationsUpload.csv). The browser parses the CSV; rows arrive as { "<template column>": "value" }.
  * Card columns (CCType, CCNumber, CCExpMonth, CCExpYear) are ignored on purpose: card numbers are never stored here.
  * "Update Existing Records" updates a match (customer: email / licence #, company: code / name, rate: rate code + vehicle
  * type, referral: name, vehicle: vehicle ID, model: make + model) instead of skipping it.
@@ -58,7 +61,87 @@ const filled = <T extends Record<string, unknown>>(data: T) => Object.fromEntrie
 
 type Handler = (tx: Tx, r: Row, o: { update: boolean; locationId: string }) => Promise<"created" | "updated" | "skipped">;
 
+/** "10:00 AM", "2:30 pm", "14:30", "10:00:00" → "HH:mm" (null when unreadable). */
+function clock(s: string | null) {
+  const m = s?.trim().match(/^(\d{1,2})(?::(\d{2}))?(?::\d{2})?\s*([ap]\.?m\.?)?$/i);
+  if (!m) return null;
+  let h = +m[1]!;
+  const min = m[2] ?? "00";
+  if (m[3]) h = (h % 12) + (/^p/i.test(m[3]) ? 12 : 0);
+  return h < 24 && +min < 60 ? `${String(h).padStart(2, "0")}:${min}` : null;
+}
+const findLocation = (tx: Tx, s: string | null) =>
+  s
+    ? tx.location.findFirst({
+        where: { OR: [{ code: { equals: s, mode: "insensitive" } }, { name: { equals: s, mode: "insensitive" } }, { name: { startsWith: s, mode: "insensitive" } }] },
+        select: { id: true, timeZone: true },
+      })
+    : null;
+
 const HANDLERS: Record<string, Handler> = {
+  /**
+   * ReservationsUpload.csv: ResNumber, LocationOut, LocationIn, DateOut, DateIn, TimeOut, TimeIn, VehicleType, FirstName,
+   * LastName, Email, Address, City, State, Country, Zip, CC… (ignored), Hourly / Daily / Weekly / MonthlyRate, Memo,
+   * Referral, Tentative / Confirmed / Cancelled / CheckedOut / CheckedIn. The rates become the booking's own rate values
+   * (Rate (i)) and are priced with the location's taxes; the customer is matched by email or created; ResNumber is kept
+   * when free (and matched on "Update Existing Records").
+   */
+  async reservations(tx, r, o) {
+    const firstName = v(r, "FirstName"), lastName = v(r, "LastName");
+    if (!firstName || !lastName) throw new Error("FirstName and LastName are required");
+    const outName = v(r, "LocationOut"), inName = v(r, "LocationIn");
+    const out = outName ? await findLocation(tx, outName) : await tx.location.findUnique({ where: { id: o.locationId }, select: { id: true, timeZone: true } });
+    if (!out) throw new Error(`LocationOut "${outName}" not found`);
+    const inn = inName ? await findLocation(tx, inName) : out;
+    if (!inn) throw new Error(`LocationIn "${inName}" not found`);
+    const typeId = await vehicleTypeId(tx, v(r, "VehicleType"));
+    if (!typeId) throw new Error(`VehicleType "${v(r, "VehicleType") ?? ""}" not found`);
+    const at = (d: string | null, t: string | null) => {
+      const day = date(d);
+      return day ? fromZonedInput(`${day.toISOString().slice(0, 10)}T${clock(t) ?? "09:00"}`, out.timeZone) : null;
+    };
+    const pickupAt = at(v(r, "DateOut"), v(r, "TimeOut")), returnAt = at(v(r, "DateIn"), v(r, "TimeIn"));
+    if (!pickupAt || !returnAt) throw new Error("DateOut and DateIn are required (M/D/YYYY)");
+    if (+returnAt <= +pickupAt) throw new Error("DateIn must be after DateOut");
+    const status: "CANCELLED" | "CHECKED_IN" | "CHECKED_OUT" | "CONFIRMED" | "TENTATIVE" = yes(v(r, "Cancelled")) ? "CANCELLED" : yes(v(r, "CheckedIn")) ? "CHECKED_IN" : yes(v(r, "CheckedOut")) ? "CHECKED_OUT" : yes(v(r, "Confirmed")) ? "CONFIRMED" : "TENTATIVE";
+
+    // the customer: by email, else a new one with the address (card columns are never stored)
+    const email = v(r, "Email");
+    const address = { address1: v(r, "Address"), city: v(r, "City"), province: v(r, "State"), country: v(r, "Country"), postal: v(r, "Zip") };
+    const customer =
+      (email ? await tx.customer.findFirst({ where: { email: { equals: email, mode: "insensitive" } }, select: { id: true, phone: true } }) : null) ??
+      (await tx.customer.create({ data: { firstName, lastName, email, ...address, enteredLocationId: out.id, defaultLocationId: out.id, registrationChannel: "Import" }, select: { id: true, phone: true } }));
+    const refName = v(r, "Referral");
+    const referral = refName ? await tx.referral.findFirst({ where: { name: { equals: refName, mode: "insensitive" } }, select: { id: true } }) : null;
+    const num = (k: string) => (dec(v(r, k)) ? Number(dec(v(r, k))) : null);
+    const override = { hourly: num("HourlyRate"), daily: num("DailyRate"), weekly: num("WeeklyRate"), monthly: num("MonthlyRate") };
+    const hasRates = Object.values(override).some((x) => x != null);
+
+    const data = {
+      status, firstName, lastName, email, phone: customer.phone, customerId: customer.id,
+      locationId: out.id, pickupLocationId: out.id, returnLocationId: inn.id, pickupAt, returnAt, vehicleTypeId: typeId,
+      rateOverride: hasRates ? override : Prisma.DbNull, referralId: referral?.id ?? null, reservationChannel: "Import",
+      cancelledAt: status === "CANCELLED" ? new Date() : null,
+    };
+    const resNo = int(v(r, "ResNumber"));
+    const existing = resNo ? await tx.reservation.findUnique({ where: { number: resNo }, select: { id: true } }) : null;
+    if (existing && !o.update) return "skipped";
+    const reservation = existing
+      ? await tx.reservation.update({ where: { id: existing.id }, data })
+      : await tx.reservation.create({ data: { ...data, number: resNo ?? (await nextDocNumber(tx, "reservation", out.id)) } });
+
+    // charges from the imported rates (no default extras), as the reservation page shows them
+    const priced = await priceBooking(tx, {
+      locationId: out.id, returnLocationId: inn.id, vehicleTypeId: typeId, pickupAt, returnAt, rateId: null, includeDefaults: false, rateOverride: hasRates ? override : null,
+    });
+    await tx.chargeLine.deleteMany({ where: { reservationId: reservation.id } });
+    if (hasRates) await tx.chargeLine.createMany({ data: priced.lines.map((l) => ({ ...l, reservationId: reservation.id })) });
+    const memo = v(r, "Memo");
+    if (memo) await tx.memo.create({ data: { reservationId: reservation.id, body: memo } });
+    return existing ? "updated" : "created";
+  },
+
+
   async customers(tx, r, o) {
     const firstName = v(r, "First Name"), lastName = v(r, "Last Name");
     if (!firstName || !lastName) throw new Error("First Name and Last Name are required");
@@ -174,7 +257,7 @@ const HANDLERS: Record<string, Handler> = {
   },
 };
 
-export const IMPORT_TYPES = ["customers", "companies", "rates", "referrals", "vehicles", "models"] as const;
+export const IMPORT_TYPES = ["customers", "companies", "rates", "referrals", "vehicles", "models", "reservations"] as const;
 
 export const importsRouter = router({
   run: permitted("Settings")

@@ -2493,3 +2493,39 @@ model EmailTemplate {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+/// Settings > Rates > Pay Now Discounts (PayNowDiscountModify.aspx): Rate*, Vehicle Type (ticks, All), Begin / End Date*,
+/// Discount Type* ($ / %), Discount Amount*, "Pay Now Discount on Mileage" — a discount for paying when booking online.
+model PayNowDiscount {
+  id              String       @id @default(cuid())
+  locationId      String
+  rateId          String? /// null = any rate
+  vehicleTypeIds  String[]     @default([]) /// empty = all vehicle types
+  startsAt        DateTime
+  endsAt          DateTime
+  discountType    DiscountType
+  value           Decimal      @db.Decimal(10, 2)
+  applyOnMileage  Boolean      @default(false)
+  createdById     String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([locationId])
+}
+
+/// Settings > Company > Partner Login Setup (PartnerLoginSetup.aspx): what a partner (company) is asked for when it books.
+model PartnerLoginSetup {
+  id                    String   @id @default("default")
+  askForCreditCard      Boolean  @default(false)
+  askForDriverLicense   Boolean  @default(false)
+  askForFullAddress     Boolean  @default(false)
+  askForBirthDate       Boolean  @default(false)
+  askForFlightInfo      Boolean  @default(false)
+  askForEmploymentInfo  Boolean  @default(false)
+  askForCompanyInfo     Boolean  @default(false)
+  askForInsuranceInfo   Boolean  @default(false)
+  askForSsn             Boolean  @default(false)
+  showDeliveryAddress   Boolean  @default(false)
+  updatedAt             DateTime @updatedAt
+  updatedById           String?
+}
