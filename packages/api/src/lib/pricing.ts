@@ -543,8 +543,23 @@ export async function solveAgreedTotal(tx: Tx, input: PricingInput, target: numb
   let x = Math.round((Number(t0.sub(want)) / slope) * 100) / 100;
   let t = await at(x);
   for (let i = 0; i < 6 && !t.equals(want); i++) {
-    x = Math.round((x + Number(t.sub(want)) / slope) * 100) / 100;
+    const nx = Math.round((x + Number(t.sub(want)) / slope) * 100) / 100;
+    if (nx === x) break;
+    x = nx;
     t = await at(x);
+  }
+  // a discount moves in whole cents while the taxes round per line: try the cents around it for the exact total
+  for (let step = 1; step <= 5 && !t.equals(want); step++) {
+    for (const cand of [x - step / 100, x + step / 100]) {
+      const c = Math.round(cand * 100) / 100;
+      if (c <= 0) continue;
+      const tc = await at(c);
+      if (tc.equals(want)) {
+        x = c;
+        t = tc;
+        break;
+      }
+    }
   }
   return { discount: x, total: Number(t) };
 }
