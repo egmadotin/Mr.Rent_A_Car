@@ -307,6 +307,39 @@ export const settingsRouter = router({
    * vehicle type, to adjust together and save.
    */
   /** Rates > Setup (RatesSetup.aspx): #Days in Month and the Rate Ratios. */
+  /**
+   * Master Rates "Export to Excel" (client request: the rates are reviewed in Excel today). RentCentric's export only
+   * lists the rate codes ("Multiple Values"); this one has a row per rate × vehicle type (× season) with every price.
+   */
+  rateExport: staffProcedure.input(z.object({ locationId: z.string().optional(), search: z.string().optional() })).query(async ({ ctx, input }) => {
+    const rates = await ctx.prisma.rate.findMany({
+      where: { locationId: input.locationId, ...(input.search ? { code: { contains: input.search, mode: "insensitive" } } : {}) },
+      orderBy: [{ location: { name: "asc" } }, { minDays: "asc" }, { code: "asc" }],
+      include: {
+        location: { select: { name: true } },
+        values: { include: { vehicleType: { select: { name: true } }, season: { select: { name: true } } } },
+      },
+    });
+    const n = (d: Prisma.Decimal | null | undefined) => (d == null ? null : Number(d.toFixed(2)));
+    const day = (d: Date | null) => d?.toISOString().slice(0, 10) ?? "";
+    const rows: (string | number | null)[][] = [];
+    for (const r of rates) {
+      const head = [r.location.name, r.code, r.rateType, r.calculationBy === "HOUR_24" ? "24Hour" : r.calculationBy === "CALENDAR_DAY" ? "CalenderDay" : r.calculationBy];
+      const tail = [r.displayOnline ? "Yes" : "No", r.isActive ? "Yes" : "No"];
+      const valid = r.validFor === "SEASON" ? "" : `${day(r.effectiveDate)} – ${day(r.endDate)}`;
+      const values = [...r.values].sort((a, b) => (a.season?.name ?? "").localeCompare(b.season?.name ?? "") || a.vehicleType.name.localeCompare(b.vehicleType.name));
+      if (!values.length) rows.push([...head, valid, r.minDays || null, r.maxDays || null, "", null, null, null, null, null, null, null, null, n(r.extraKmCharge), ...tail]);
+      for (const v of values)
+        rows.push([
+          ...head, v.season?.name ?? valid, r.minDays || null, r.maxDays || null, v.vehicleType.name,
+          n(v.hourly), n(v.daily), n(v.extraDaily), n(v.weekly), n(v.monthly), v.kmAllowed, v.kmWeekly, v.kmMonthly, n(v.extraKmCharge ?? r.extraKmCharge), ...tail,
+        ]);
+    }
+    return {
+      header: ["Location", "Rate Code", "Rate Type", "Calculation By", "Season / Valid", "Min Days", "Max Days", "Vehicle Type", "Hourly", "Daily", "Extra Daily", "Weekly", "Monthly", "KM Daily", "KM Weekly", "KM Monthly", "Extra KM Charge", "Display Online", "Active"],
+      rows,
+    };
+  }),
   rateSetupGet: staffProcedure.query(async ({ ctx }) => {
     const r = await ctx.prisma.rateSetup.upsert({ where: { id: "default" }, update: {}, create: { id: "default" } });
     return { daysInMonth: r.daysInMonth, hourly: Number(r.hourlyRatio), extraDaily: Number(r.extraDailyRatio), weekly: Number(r.weeklyRatio), monthly: Number(r.monthlyRatio) };

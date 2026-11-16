@@ -68,7 +68,8 @@ export function legacyDate(d: Date | string | null | undefined, { seconds = fals
 export function exportCsv(filename: string, header: string[], rows: (string | number | null | undefined)[][]) {
   const csv = [header, ...rows].map((r) => r.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(",")).join("\r\n");
   const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  // the UTF-8 marker makes Excel read accents and dashes correctly
+  a.href = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" }));
   a.download = filename;
   a.click();
   URL.revokeObjectURL(a.href);

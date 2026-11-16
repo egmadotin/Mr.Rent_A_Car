@@ -3,8 +3,9 @@
 import * as React from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
+import { toast } from "@mrac/ui/components/sonner";
 import { PlusIcon, SearchIcon } from "lucide-react";
-import { useTRPC } from "@mrac/api/client";
+import { useTRPC, useTRPCClient } from "@mrac/api/client";
 import { Badge } from "@mrac/ui/components/badge";
 import { Button } from "@mrac/ui/components/button";
 import { Card } from "@mrac/ui/components/card";
@@ -13,12 +14,15 @@ import { NativeSelect } from "@mrac/ui/components/native-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@mrac/ui/components/table";
 import { date } from "@mrac/ui/lib/format";
 import { LinkRow } from "../../../../_components/link-row";
+import { ListExportButtons, exportCsv } from "../../../../_components/list-kit";
+import { errorMessage } from "../../../../_components/form";
 
 const CALC: Record<string, string> = { HOUR_24: "24Hour", CALENDAR_DAY: "CalenderDay", FLAT: "Flat" };
 
 /** Legacy Master Rates grid: Rate code · Location · Calculation by · Effective/End (or seasons) · Online · Active. */
 export function RatesList({ defaultLocationId }: { defaultLocationId?: string }) {
   const trpc = useTRPC();
+  const client = useTRPCClient();
   const lookups = useQuery(trpc.staff.settings.lookups.queryOptions()).data;
   const [locationId, setLocationId] = React.useState(defaultLocationId ?? "");
   const [search, setSearch] = React.useState("");
@@ -72,6 +76,18 @@ export function RatesList({ defaultLocationId }: { defaultLocationId?: string })
           </TableBody>
         </Table>
       </Card>
+      {/* Export to Excel (as RentCentric), with every vehicle class's prices so the rates can be reviewed in Excel */}
+      <ListExportButtons
+        onExport={async () => {
+          try {
+            const x = await client.staff.settings.rateExport.query({ locationId: locationId || undefined, search: search || undefined });
+            const loc = lookups?.locations.find((l) => l.id === locationId)?.name.split(" - ")[0];
+            exportCsv(`Master Rates${loc ? ` ${loc}` : ""} ${new Date().toISOString().slice(0, 10)}.csv`, x.header, x.rows);
+          } catch (e) {
+            toast.error(errorMessage(e));
+          }
+        }}
+      />
     </div>
   );
 }
