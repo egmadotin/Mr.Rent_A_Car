@@ -26,6 +26,7 @@ import { ConfirmAction } from "../../../../_components/confirm-action";
 import { FieldShell as F, FormErrorsContext, errorMessage, fieldErrorsOf } from "../../../../_components/form";
 import { OptionsGrid, emptyOptions, useBookingOptions, type BookingOptions } from "../../../../_components/options-grid";
 import { ReferralField } from "../../../../_components/referral-field";
+import { SaveStatus, useAutoSave, useFormDraft } from "../../../../_components/form-persistence";
 import { PrintoutSelect } from "../../../../_components/printout-select";
 import { SearchPicker } from "../../../../_components/search-picker";
 import { RateDetailsButton } from "../../../../_components/rate-details";
@@ -226,18 +227,39 @@ export function StartRentalForm({
     if (x) setV((s) => ({ ...s, vehicleId: id, odometerOut: String(x.currentOdometer ?? ""), fuelOut: String(x.fuelLevel ?? 16) }));
   }
 
-  async function submit(allowUndesired = false) {
-    if (!checkSection(0) || !checkSection(1)) return;
-    const missing = customerMissing();
-    if (missing.length) {
-      setErrors(Object.fromEntries(missing.map(([k, label]) => [`customer.${k}`, [`${label} is required`]])));
-      go(0);
-      toast.error("Complete the customer details first.");
-      return;
+  // client request: a new rental survives a page refresh; an open contract saves itself as it's edited
+  const draft = useFormDraft({
+    enabled: !editing,
+    label: "rental",
+    snapshot: { v, opts, customerId, drivers },
+    restore: (d) => {
+      setV(d.v);
+      setOpts(d.opts);
+      setCustomerId(d.customerId);
+      setDrivers(d.drivers);
+    },
+  });
+  const autoSave = useAutoSave({ enabled: !!editing, value: { v, opts, drivers }, save: () => submit(false, true) });
+
+  async function submit(allowUndesired = false, silent = false) {
+    if (silent) {
+      // auto-save: only a complete contract, and never a pop-up or page change
+      const missing = [...customerMissing().map(([, l]) => l), ...([["pickupLocationId", "Pickup Location"], ["returnLocationId", "Return Location"], ["pickupAt", "Pickup Date"], ["returnAt", "Return Date"], ["vehicleTypeId", "Vehicle Type"], ["rateId", "Rate"]] as [string, string][]).filter(([k]) => !str(k)).map(([, l]) => l)];
+      if (missing.length) throw new Error(`fill in ${missing.join(", ")}`);
+      if (!validWindow) throw new Error("return must be after pickup");
+    } else {
+      if (!checkSection(0) || !checkSection(1)) return;
+      const missing = customerMissing();
+      if (missing.length) {
+        setErrors(Object.fromEntries(missing.map(([k, label]) => [`customer.${k}`, [`${label} is required`]])));
+        go(0);
+        toast.error("Complete the customer details first.");
+        return;
+      }
+      setPending(true);
+      setErrors({});
+      setFormError(null);
     }
-    setPending(true);
-    setErrors({});
-    setFormError(null);
     const pay = paymentReady && str("payMethod") && str("payAmount");
     const tz = o?.locations.find((l) => l.id === str("pickupLocationId"))?.timeZone;
     try {
@@ -253,6 +275,7 @@ export function StartRentalForm({
           upgradeType: (str("upgradeType") || null) as "FLAT" | null,
           upgradeAmount: str("upgradeAmount") || null,
         } as never);
+        if (silent) return;
         toast.success("Rental updated");
         router.push(`/admin/rentals/${editing.rentalId}`);
         return;
@@ -266,10 +289,12 @@ export function StartRentalForm({
           ? { method: str("payMethod") as "CASH", transactionType: (str("payType") || "AUTHORIZATION") as "AUTHORIZATION", amount: Number(str("payAmount")), authorizationCode: str("payAuth"), transactionCode: str("payTxn"), cardLast4: str("payLast4") }
           : null,
       });
+      draft.clear();
       toast.success("Rental started");
       router.push(`/admin/rentals/${res.rentalId}?print=${encodeURIComponent(str("printout"))}`);
     } catch (err) {
       const msg = errorMessage(err);
+      if (silent) throw new Error(msg.startsWith("UNDESIRED_") ? "on the Do Not Rent list — use Save" : msg);
       if (msg === "UNDESIRED_CUSTOMER") return setUndesired("customer");
       if (msg === "UNDESIRED_COMPANY") return setUndesired("company");
       const fe = fieldErrorsOf(err);
@@ -281,7 +306,7 @@ export function StartRentalForm({
       setFormError(m);
       toast.error(m);
     } finally {
-      setPending(false);
+      if (!silent) setPending(false);
     }
   }
 
@@ -488,6 +513,7 @@ export function StartRentalForm({
         </StepPanel>
         <StepNav
           className="max-2xl:order-2"
+          status={editing && <SaveStatus state={autoSave} />}
           next={
             <div className="flex flex-wrap items-end gap-3 2xl:w-full">
               {!editing && (

@@ -18,6 +18,7 @@ import { FieldShell as F, FormErrorsContext, errorMessage, fieldErrorsOf } from 
 import { OptionsGrid, emptyOptions, useBookingOptions, type BookingOptions } from "../../../../_components/options-grid";
 import { ReferralField } from "../../../../_components/referral-field";
 import { RateDetailsButton } from "../../../../_components/rate-details";
+import { SaveStatus, useAutoSave, useFormDraft } from "../../../../_components/form-persistence";
 
 type Values = Record<string, string>;
 const STEPS: Step[] = [
@@ -110,14 +111,29 @@ export function QuoteForm({ initial, defaultLocationId }: { initial?: QuoteFormI
     return true;
   }
 
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    if (!checkSection(1)) return;
-    const action = ((e.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null)?.value === "generate" ? "generate" : "save";
-    setPending(true);
-    setErrors({});
-    setFormError(null);
-    const data = {
+  // client request: a new quote survives a page refresh; a generated / existing one saves itself as it's edited
+  const draft = useFormDraft({
+    enabled: !initial?.quoteId,
+    label: "quote",
+    snapshot: { v, opts },
+    restore: (d) => {
+      setV(d.v);
+      setOpts(d.opts);
+    },
+  });
+  const autoSave = useAutoSave({
+    enabled: editing,
+    value: { v, opts },
+    save: async () => {
+      const missing = ([["pickupLocationId", "Pickup Location"], ["returnLocationId", "Return Location"], ["pickupAt", "Pickup Date"], ["returnAt", "Return Date"], ["vehicleTypeId", "Vehicle Type"], ["rateId", "Rate"]] as [string, string][]).filter(([k]) => !v[k]).map(([, l]) => l);
+      if (missing.length) throw new Error(`fill in ${missing.join(", ")}`);
+      if (!pickupAt || !returnAt || +returnAt <= +pickupAt) throw new Error("return must be after pickup");
+      await client.staff.quote.update.mutate({ quoteId: quoteId!, data: quoteData() as never });
+      await generated.refetch();
+    },
+  });
+
+  const quoteData = () => ({
       pickupAt: pickupAt as Date,
       returnAt: returnAt as Date,
       pickupLocationId: v.pickupLocationId ?? "",
@@ -134,11 +150,21 @@ export function QuoteForm({ initial, defaultLocationId }: { initial?: QuoteFormI
       email: v.email ?? "",
       contactPhone: v.contactPhone ?? "",
       options: opts,
-    };
+  });
+
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!checkSection(1)) return;
+    const action = ((e.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null)?.value === "generate" ? "generate" : "save";
+    setPending(true);
+    setErrors({});
+    setFormError(null);
+    const data = quoteData();
     try {
       const res = editing
         ? await client.staff.quote.update.mutate({ quoteId: quoteId!, data: data as never })
         : await client.staff.quote.create.mutate(data as never);
+      draft.clear();
       if (action === "save") {
         toast.success(editing ? "Quote saved" : "Quote created");
         router.push(`/admin/quotes/${res.id}`);
@@ -243,6 +269,7 @@ export function QuoteForm({ initial, defaultLocationId }: { initial?: QuoteFormI
         </div>
         <StepNav
           className="max-2xl:order-1"
+          status={editing && <SaveStatus state={autoSave} />}
           next={
             <div className="flex gap-2 2xl:w-full 2xl:*:flex-1">
               <Button type="submit" name="action" value="generate" size="lg" variant="outline" disabled={pending}>

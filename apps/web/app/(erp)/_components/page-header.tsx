@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ChevronRightIcon } from "lucide-react";
 import { cn } from "@mrac/ui/lib/utils";
+import { RefreshButton } from "./refresh-button";
 
 /** Page title band: breadcrumbs, title (Inter Bold, tight), description and the page's actions. */
 export function PageHeader({
@@ -39,7 +40,11 @@ export function PageHeader({
           <h1 className="text-[1.625rem] leading-tight font-bold tracking-[-0.03em] md:text-[1.75rem]">{title}</h1>
           {description && <div className="mt-1 text-sm text-muted-foreground">{description}</div>}
         </div>
-        {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+        {/* every page gets a standard Refresh at the top right (client request) */}
+        <div className="flex flex-wrap items-center gap-2">
+          {actions}
+          <RefreshButton />
+        </div>
       </div>
     </header>
   );

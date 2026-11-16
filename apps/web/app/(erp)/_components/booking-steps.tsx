@@ -151,10 +151,10 @@ export function MoreFold({ title, hint, summary, children, className }: { title:
 }
 
 /** The save bar at the bottom of the page (wide screens: at the bottom of the last column). */
-export function StepNav({ next, children, className }: { next?: React.ReactNode; children?: React.ReactNode; className?: string }) {
+export function StepNav({ next, children, status, className }: { next?: React.ReactNode; children?: React.ReactNode; /** e.g. the auto-save status */ status?: React.ReactNode; className?: string }) {
   return (
     <div className={cn("sticky bottom-0 z-10 -mx-4 flex flex-wrap items-center justify-between gap-3 border-t bg-background/95 px-4 py-3 backdrop-blur md:-mx-6 md:px-6 2xl:static 2xl:mx-0 2xl:shrink-0 2xl:bg-transparent 2xl:px-0 2xl:pb-0 2xl:backdrop-blur-none", className)}>
-      <div className="flex flex-wrap items-center gap-3">{children}</div>
+      <div className="flex flex-wrap items-center gap-3">{children}{status}</div>
       {next}
     </div>
   );

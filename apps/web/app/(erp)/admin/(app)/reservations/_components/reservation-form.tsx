@@ -27,6 +27,7 @@ import { FieldShell as F, FormErrorsContext, errorMessage, fieldErrorsOf } from 
 import { legacyDate } from "../../../../_components/list-kit";
 import { OptionsGrid, emptyOptions, useBookingOptions, type BookingOptions } from "../../../../_components/options-grid";
 import { ReferralField } from "../../../../_components/referral-field";
+import { SaveStatus, useAutoSave, useFormDraft } from "../../../../_components/form-persistence";
 import { SearchPicker } from "../../../../_components/search-picker";
 import { RateDetailsButton } from "../../../../_components/rate-details";
 
@@ -225,11 +226,32 @@ export function ReservationForm({
       : key.startsWith("options") ? 2
       : 1;
 
-  async function submit(allowUndesired = false) {
-    if (!checkSection(0) || !checkSection(1)) return;
-    setPending(true);
-    setErrors({});
-    setFormError(null);
+  // client request: a new reservation survives a page refresh; an existing one saves itself as it's edited
+  const draft = useFormDraft({
+    enabled: !editing,
+    label: "reservation",
+    snapshot: { v, opts, customerId, drivers },
+    restore: (d) => {
+      setV(d.v);
+      setOpts(d.opts);
+      setCustomerId(d.customerId);
+      setDrivers(d.drivers);
+    },
+  });
+  const autoSave = useAutoSave({ enabled: editing, value: { v, opts, customerId, drivers }, save: () => submit(false, true) });
+
+  async function submit(allowUndesired = false, silent = false) {
+    if (silent) {
+      // auto-save: only a complete reservation, and never a pop-up or page change
+      const missing = ([["firstName", "First Name"], ["lastName", "Last Name"], ["phone", "Phone"], ["locationId", "Location"], ["pickupLocationId", "Pickup Location"], ["pickupAt", "Pickup Date"], ["returnAt", "Return Date"], ["vehicleTypeId", "Vehicle Type"], ["rateId", "Rate"]] as [string, string][]).filter(([k]) => !str(k).trim()).map(([, l]) => l);
+      if (missing.length) throw new Error(`fill in ${missing.join(", ")}`);
+      if (!validWindow) throw new Error("return must be after pickup");
+    } else {
+      if (!checkSection(0) || !checkSection(1)) return;
+      setPending(true);
+      setErrors({});
+      setFormError(null);
+    }
     const customer = Object.fromEntries(CUSTOMER_FIELDS.map((f) => [f, str(f)]));
     const pay = paymentReady && !editing && str("payMethod") && str("payAmount");
     const data = {
@@ -279,10 +301,13 @@ export function ReservationForm({
       const res = editing
         ? await client.staff.reservation.update.mutate({ reservationId: initial!.reservationId!, data: data as never })
         : await client.staff.reservation.create.mutate(data as never);
+      if (silent) return;
+      draft.clear();
       toast.success(editing ? "Reservation updated" : "Reservation saved");
       router.push(`/admin/reservations/${res.id}${startRentalAfterSave ? "?start=1" : ""}`);
     } catch (err) {
       const msg = errorMessage(err);
+      if (silent) throw new Error(msg.startsWith("UNDESIRED_") ? "on the Do Not Rent list — use Save" : msg);
       if (msg === "UNDESIRED_CUSTOMER") return setUndesired("customer");
       if (msg === "UNDESIRED_COMPANY") return setUndesired("company");
       const fe = Object.fromEntries(Object.entries(fieldErrorsOf(err)).map(([k, val]) => [k.replace(/^data\./, ""), val]));
@@ -294,7 +319,7 @@ export function ReservationForm({
       setFormError(m);
       toast.error(m);
     } finally {
-      setPending(false);
+      if (!silent) setPending(false);
     }
   }
 
@@ -510,7 +535,7 @@ export function ReservationForm({
             </CardContent>
           </Card>
         </StepPanel>
-        <StepNav className="max-2xl:order-2" next={<Button type="submit" size="lg" className="2xl:w-full" disabled={pending}>{pending && <Loader2Icon className="animate-spin" />}{editing ? "Save reservation" : "Reserve"}</Button>} />
+        <StepNav className="max-2xl:order-2" status={editing && <SaveStatus state={autoSave} />} next={<Button type="submit" size="lg" className="2xl:w-full" disabled={pending}>{pending && <Loader2Icon className="animate-spin" />}{editing ? "Save reservation" : "Reserve"}</Button>} />
         </CockpitCol>
         </CockpitGrid>
       </form>
