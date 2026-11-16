@@ -26,6 +26,7 @@ type Bar = {
   href: string;
   reservationId: string | null;
   vehicleTypeId: string;
+  vehicleTypeName?: string;
   pickupLocation: string;
   returnLocation: string;
 };
@@ -50,6 +51,7 @@ const LABEL_W = 272; // px, sticky vehicle column
 const COL_W: Record<number, number> = { 7: 150, 14: 92, 30: 50 };
 const ROW_H = 46;
 const BAR_H = 34;
+const HEAD_H = 50; // day header height: the unassigned row sticks right under it
 const DAY = 86_400_000;
 
 function startOfDay(d: Date) {
@@ -228,6 +230,7 @@ function FleetCalendarInner({ defaultLocationId }: { defaultLocationId?: string 
           >
             {clippedStart && "‹"}
             <span className="truncate">{bar.label}</span>
+            {bar.kind === "UNASSIGNED" && bar.vehicleTypeName && <span className="shrink-0 rounded bg-black/10 px-1.5 text-xs font-medium">{bar.vehicleTypeName}</span>}
             {widthPx > 230 && <span className="ml-auto shrink-0 text-xs font-normal opacity-90">→ {shortDay(bar.endsAt)}</span>}
           </button>
         </PopoverTrigger>
@@ -244,6 +247,11 @@ function FleetCalendarInner({ defaultLocationId }: { defaultLocationId?: string 
             <dt className="text-muted-foreground">Return</dt>
             <dd>{dateTime(bar.endsAt)} · {bar.returnLocation}</dd>
           </dl>
+          {bar.reservationId && candidates.length === 0 && (
+            <p className="rounded-md bg-warning/10 p-2 text-xs">
+              No {bar.vehicleTypeName ?? "cars of this type"} {bar.vehicleTypeName ? "cars " : ""}in this view. Choose All locations, or change the reservation&apos;s vehicle type to one the fleet has.
+            </p>
+          )}
           {bar.reservationId && candidates.length > 0 && (
             <div className="space-y-1.5">
               <Label htmlFor={`assign-${bar.id}`}>Assign to vehicle (same type)</Label>
@@ -349,7 +357,7 @@ function FleetCalendarInner({ defaultLocationId }: { defaultLocationId?: string 
       <div ref={scrollRef} className={cn("max-h-[calc(100dvh-17rem)] overflow-auto rounded-lg border bg-card transition-opacity", isFetching && "opacity-70")}>
         <div className="relative" style={{ width: LABEL_W + trackW }}>
           {/* Header */}
-          <div className="sticky top-0 z-20 flex border-b bg-card">
+          <div className="sticky top-0 z-20 flex border-b bg-card" style={{ height: HEAD_H }}>
             <div className="sticky left-0 z-10 flex items-end border-r bg-card px-3 py-2 text-sm font-semibold" style={{ width: LABEL_W }}>
               Vehicle
             </div>
@@ -383,18 +391,19 @@ function FleetCalendarInner({ defaultLocationId }: { defaultLocationId?: string 
 
           {/* Unassigned reservations */}
           {unassigned.length > 0 && (
-            <>
+            // pinned under the dates, so a reservation can be dragged onto any car further down
+            <div className="sticky z-[15] max-h-[40vh] overflow-y-auto border-b-2 border-status-unassigned bg-card shadow-md" style={{ top: HEAD_H }}>
               <GroupHeader title="Unassigned reservations" count={unassigned.length} labelW={LABEL_W} trackW={trackW} highlight />
               <div className="flex border-b">
                 <div className="sticky left-0 z-10 flex items-center border-r bg-card px-3 text-sm text-muted-foreground" style={{ width: LABEL_W }}>
-                  Drag onto a car of the same type to assign
+                  Drag onto a car of the same type (or click it) to assign
                 </div>
                 <div className="relative" style={{ ...trackStyle, height: unassignedLanes * (BAR_H + 6) + 8 }}>
                   <DayStripes />
                   {unassigned.map(({ item, lane }) => renderBar(item, 6 + lane * (BAR_H + 6)))}
                 </div>
               </div>
-            </>
+            </div>
           )}
 
           {/* Vehicles by type */}
