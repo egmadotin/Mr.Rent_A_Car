@@ -10,7 +10,7 @@ export default async function Page() {
     <>
       <PageHeader
         title="Import Data"
-        description="Customer, Company, Rate, Referral, Vehicle and Model Import from RentCentric's CSV templates."
+        description="Customer, Company, Rate, Referral, Vehicle, Model and Reservation Import from RentCentric's CSV templates."
         breadcrumbs={[{ label: "Settings", href: "/admin/settings" }, { label: "Import Data and Other Tools" }, { label: "Import Data" }]}
       />
       <ImportData />
