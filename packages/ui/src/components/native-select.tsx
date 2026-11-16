@@ -151,14 +151,15 @@ function NativeSelect({ className, children, id, disabled, "aria-label": ariaLab
             autoComplete="off"
             spellCheck={false}
             disabled={disabled}
-            value={query ?? selected?.label ?? ""}
-            placeholder={selected?.label ? undefined : options[0]?.value === "" ? options[0].label : undefined}
+            // open: an empty search box with the current choice as the hint, so typing searches only what's typed
+            value={open ? (query ?? "") : (selected?.label ?? "")}
+            placeholder={(open && selected?.label) || (options[0]?.value === "" ? options[0].label : undefined)}
             onChange={(e) => {
               setQuery(e.target.value);
               setActive(0);
               if (!open) setOpen(true);
             }}
-            onFocus={(e) => e.currentTarget.select()}
+            onFocus={() => openList()}
             onClick={() => (open ? undefined : openList())}
             onKeyDown={onKeyDown}
             onBlur={() => setTimeout(() => {
