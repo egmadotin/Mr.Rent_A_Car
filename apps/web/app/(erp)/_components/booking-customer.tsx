@@ -12,6 +12,7 @@ import { Textarea } from "@mrac/ui/components/textarea";
 import { COUNTRIES } from "@mrac/ui/lib/countries";
 import { date, money } from "@mrac/ui/lib/format";
 import { REGION_OPTIONS } from "@mrac/ui/lib/regions";
+import { LicenceRegionSelect } from "./licence-region-select";
 import { cn } from "@mrac/ui/lib/utils";
 import { CUSTOMER_FIELDS, customerValues, type CustomerField } from "./booking-values";
 import { FieldShell as F } from "./form";
@@ -60,7 +61,10 @@ export function CustomerFields({ layout, bind, onFind, children, className }: { 
         const b = { ...bind(key), id };
         const kind = KIND[key];
         let input: React.ReactNode;
-        if (kind === "region" || kind === "country") {
+        if (key === "licenseProvince") {
+          // tick box in front: only the address country's provinces / states
+          input = <LicenceRegionSelect {...b} country={String(bind("country").value ?? "")} />;
+        } else if (kind === "region" || kind === "country") {
           const base = kind === "country" ? COUNTRIES : REGION_OPTIONS;
           const list = [...new Set([...base, ...(b.value ? [b.value] : [])])];
           input = <NativeSelect {...b}><option value="">Please select</option>{list.map((r) => <option key={r}>{r}</option>)}</NativeSelect>;

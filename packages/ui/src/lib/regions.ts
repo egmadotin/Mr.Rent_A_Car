@@ -14,3 +14,11 @@ export const US_STATES = [
 ];
 
 export const REGION_OPTIONS = [...PROVINCES, ...US_STATES];
+
+/** The provinces / states of a country typed or picked in an address (null = no list for it). */
+export function regionsOf(country?: string | null): string[] | null {
+  const c = (country ?? "").trim().toLowerCase().replace(/\./g, "");
+  if (["canada", "ca", "can"].includes(c)) return PROVINCES;
+  if (["united states", "united states of america", "usa", "us"].includes(c)) return US_STATES;
+  return null;
+}

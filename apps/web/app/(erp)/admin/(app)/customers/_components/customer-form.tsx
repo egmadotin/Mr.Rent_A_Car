@@ -12,8 +12,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@mrac
 import { toast } from "@mrac/ui/components/sonner";
 import { date } from "@mrac/ui/lib/format";
 import { REGION_OPTIONS } from "@mrac/ui/lib/regions";
+import { LicenceRegionSelect } from "../../../../_components/licence-region-select";
 import { ConfirmAction } from "../../../../_components/confirm-action";
 import {
+  FieldShell,
   CheckField,
   Field,
   FormErrorsContext,
@@ -74,6 +76,9 @@ export function CustomerForm({
   const dups = useQuery({ ...trpc.staff.customer.duplicates.queryOptions(debouncedKey), enabled: !editing && debouncedKey.lastName.length >= 2 });
 
   const val = (k: string) => (initial[k] == null ? undefined : String(initial[k]));
+  // Licence province list follows the licence country, else the address country (tick box on the field)
+  const [country, setCountry] = React.useState(() => String(initial.country ?? ""));
+  const [licenceCountry, setLicenceCountry] = React.useState(() => String(initial.licenseCountry ?? ""));
   const chk = (k: string, dflt = false) => (initial[k] == null ? dflt : Boolean(initial[k]));
 
   async function save(v: Record<string, unknown>, ignoreDuplicates = false) {
@@ -177,14 +182,16 @@ export function CustomerForm({
             <Field label="City" name="city" defaultValue={val("city")} />
             <SelectField label="Province / state" name="province" options={REGION_OPTIONS} placeholder="—" defaultValue={val("province")} />
             <Field label="Postal / zip" name="postal" defaultValue={val("postal")} />
-            <Field label="Country" name="country" defaultValue={val("country")} />
+            <Field label="Country" name="country" defaultValue={val("country")} onChange={(e) => setCountry(e.target.value)} />
           </Section>
 
           <Section id="licence" title="Licence & identity" description="Entered by hand today. Plustek (counter scan) and Plaid (online) fill these automatically once connected.">
             <Field label="Driver's licence #" name="licenseNumber" defaultValue={val("licenseNumber")} />
             <Field label="Licence expiration" name="licenseExpiry" type="date" defaultValue={val("licenseExpiry")} />
-            <SelectField label="Licence province / state" name="licenseProvince" options={REGION_OPTIONS} placeholder="—" defaultValue={val("licenseProvince")} />
-            <Field label="Licence country" name="licenseCountry" defaultValue={val("licenseCountry")} />
+            <FieldShell label="Licence province / state" name="licenseProvince">
+              <LicenceRegionSelect id="licenseProvince" name="licenseProvince" defaultValue={val("licenseProvince")} country={licenceCountry.trim() || country} />
+            </FieldShell>
+            <Field label="Licence country" name="licenseCountry" defaultValue={val("licenseCountry")} onChange={(e) => setLicenceCountry(e.target.value)} />
             <SelectField label="Motorcycle licensed" name="motorcycleLicensed" options={[{ value: "true", label: "Yes" }, { value: "false", label: "No" }]} placeholder="—" defaultValue={val("motorcycleLicensed")} />
             <Field label="Passport #" name="passportNumber" defaultValue={val("passportNumber")} />
             <div className="space-y-1 sm:col-span-2 xl:col-span-3">
