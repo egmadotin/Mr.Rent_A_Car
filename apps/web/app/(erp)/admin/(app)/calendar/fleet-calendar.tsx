@@ -159,7 +159,10 @@ function FleetCalendarInner({ defaultLocationId }: { defaultLocationId?: string 
 
   // free cars of a type per day: rentable cars with nothing on that day, minus that day's unassigned reservations
   const freeByDay = (typeId: string) => {
-    const rows = (data?.rows ?? []).filter((r) => r.vehicle.vehicleType.id === typeId && !OFF_ROAD[r.vehicle.status]);
+    // a location's own cars only (a car from elsewhere shown for its booking here isn't free here)
+    const rows = (data?.rows ?? []).filter(
+      (r) => r.vehicle.vehicleType.id === typeId && !OFF_ROAD[r.vehicle.status] && (!locationId || !r.vehicle.home || r.vehicle.home.id === locationId),
+    );
     return days.map((d) => {
       const busy = rows.filter((r) => r.bars.some((b) => overlapsDay(b as Bar, d))).length;
       const waiting = unassignedAll.filter((u) => u.vehicleTypeId === typeId && overlapsDay(u, d)).length;
