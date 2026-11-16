@@ -1,3 +1,4 @@
+import { fromDateTimeLocal } from "@mrac/ui/lib/format";
 import { PageHeader } from "../../../../_components/page-header";
 import { NoAccess } from "../../../../_components/no-access";
 import { api, can, workingLocationId } from "../../../../_lib/session";
@@ -9,10 +10,10 @@ export const metadata = { title: "Reserve" };
 /**
  * ?quoteId=…        "Make New Reservation" from a quote: prefilled and linked to it.
  * ?quoteId=…&start=1 "Start Rental" from a quote: same, then Start rental opens on save.
- * ?vehicleId=…      "Reserve" from the vehicle list.
+ * ?vehicleId=…      "Reserve" from the vehicle list (&on=YYYY-MM-DD from the fleet calendar: that day, 9:00 to 9:00 next day).
  * ?customerId=…     "New reservation" / "Start rental" from a customer (renter prefilled).
  */
-export default async function NewReservationPage({ searchParams }: { searchParams: Promise<{ quoteId?: string; start?: string; vehicleId?: string; customerId?: string }> }) {
+export default async function NewReservationPage({ searchParams }: { searchParams: Promise<{ quoteId?: string; start?: string; vehicleId?: string; customerId?: string; on?: string }> }) {
   if (!(await can("ReservationsAdd"))) return <NoAccess what="make reservations" />;
   const sp = await searchParams;
   const locationId = await workingLocationId();
@@ -64,7 +65,9 @@ export default async function NewReservationPage({ searchParams }: { searchParam
     }
   } else if (sp.vehicleId) {
     const v = await staff.vehicle.byId({ vehicleId: sp.vehicleId }).catch(() => null);
-    if (v) initial = { values: { vehicleTypeId: v.vehicleTypeId, vehicleId: v.id, pickupLocationId: v.rentalLocationId, returnLocationId: v.rentalLocationId, locationId: v.rentalLocationId, ...(sp.start === "1" ? { status: "CONFIRMED" } : {}) } };
+    const day = sp.on && /^\d{4}-\d{2}-\d{2}$/.test(sp.on) ? fromDateTimeLocal(`${sp.on}T09:00`) : null;
+    const dates: Record<string, string> = day && !Number.isNaN(+day) ? { pickupAt: day.toISOString(), returnAt: new Date(+day + 86_400_000).toISOString() } : {};
+    if (v) initial = { values: { vehicleTypeId: v.vehicleTypeId, vehicleId: v.id, pickupLocationId: v.rentalLocationId, returnLocationId: v.rentalLocationId, locationId: v.rentalLocationId, ...dates, ...(sp.start === "1" ? { status: "CONFIRMED" } : {}) } };
     if (v && sp.start === "1") title = `Start rental — ${v.assignedId}`;
   } else if (sp.start === "1") {
     title = "Start rental";
