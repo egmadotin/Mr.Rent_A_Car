@@ -265,7 +265,7 @@ function FleetCalendarInner({ defaultLocationId }: { defaultLocationId?: string 
               >
                 <option value="" disabled>Choose…</option>
                 {candidates.map((v) => (
-                  <option key={v.id} value={v.id}>{v.assignedId} — {v.title}</option>
+                  <option key={v.id} value={v.id}>{v.assignedId} — {v.title}{v.home ? ` (${v.home.label})` : ""}</option>
                 ))}
               </NativeSelect>
             </div>
@@ -458,6 +458,9 @@ function FleetCalendarInner({ defaultLocationId }: { defaultLocationId?: string 
                           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                             <span className="truncate">{row.vehicle.plate}</span>
                             {off && <span className="shrink-0 rounded bg-destructive/15 px-1.5 py-px font-medium text-destructive">{off}</span>}
+                            {locationId && row.vehicle.home && row.vehicle.home.id !== locationId && (
+                              <span className="shrink-0 rounded bg-info/15 px-1.5 py-px font-medium text-info" title="This car belongs to another location and has a booking here">from {row.vehicle.home.label}</span>
+                            )}
                           </div>
                         </div>
                         <div

@@ -38,7 +38,30 @@ export const calendarRouter = router({
 
       const [vehicles, vehicleTypes, unassigned] = await Promise.all([
         ctx.prisma.vehicle.findMany({
-          where: { isActive: true, rentalLocationId: input.locationId, vehicleTypeId: input.vehicleTypeId },
+          // a location's view: its own cars, plus any car with a booking picking up or returning there in these dates
+          // (a Surrey reservation can be given a Calgary car; it must still show on the Surrey calendar)
+          where: {
+            isActive: true,
+            vehicleTypeId: input.vehicleTypeId,
+            ...(input.locationId
+              ? {
+                  OR: [
+                    { rentalLocationId: input.locationId },
+                    {
+                      blocks: {
+                        some: {
+                          ...overlaps,
+                          OR: [
+                            { reservation: { OR: [{ pickupLocationId: input.locationId }, { returnLocationId: input.locationId }] } },
+                            { rental: { OR: [{ checkOutLocationId: input.locationId }, { checkInLocationId: input.locationId }] } },
+                          ],
+                        },
+                      },
+                    },
+                  ],
+                }
+              : {}),
+          },
           orderBy: [{ vehicleType: { name: "asc" } }, { assignedId: "asc" }],
           select: {
             id: true,
@@ -49,6 +72,7 @@ export const calendarRouter = router({
             make: { select: { name: true } },
             model: { select: { name: true } },
             vehicleType: { select: { id: true, name: true } },
+            rentalLocation: { select: { id: true, code: true, name: true } },
             blocks: {
               where: overlaps,
               select: {
@@ -100,6 +124,7 @@ export const calendarRouter = router({
           title: `${v.year ?? ""} ${v.make.name} ${v.model.name}`.trim(),
           plate: v.licenseNumber,
           vehicleType: v.vehicleType,
+          home: v.rentalLocation ? { id: v.rentalLocation.id, label: v.rentalLocation.code ?? v.rentalLocation.name } : null,
         },
         bars: v.blocks.map((b): Bar => {
           if (b.rental) {
