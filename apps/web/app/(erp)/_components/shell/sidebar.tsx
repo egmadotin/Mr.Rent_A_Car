@@ -91,11 +91,38 @@ function setCookie(name: string, value: string) {
   document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=31536000; samesite=lax`;
 }
 
+/** Alt + letter → a new booking (the "New" menu shows them too). */
+const NEW_SHORTCUTS = [
+  { key: "Q", href: "/admin/quotes/new", perm: "CheckAddQuote" },
+  { key: "R", href: "/admin/reservations/new", perm: "ReservationsAdd" },
+  { key: "T", href: "/admin/rentals/new", perm: "CheckOuts" },
+] as const;
+const Kbd = ({ children }: { children: React.ReactNode }) => (
+  <kbd className="ml-auto rounded border bg-muted px-1.5 py-0.5 font-sans text-[0.6875rem] text-muted-foreground">{children}</kbd>
+);
+
 export function Sidebar(props: Props) {
   const [collapsed, setCollapsed] = React.useState(props.defaultCollapsed);
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const pathname = usePathname();
   React.useEffect(() => setMobileOpen(false), [pathname]);
+
+  // Keyboard shortcuts (client request): Alt+Q new quote, Alt+R new reservation, Alt+T new rental — from any page,
+  // even while typing in a field, so a walk-in customer needs no clicking through menus
+  const router = useRouter();
+  const permsRef = React.useRef(props.permissions);
+  permsRef.current = props.permissions;
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || e.repeat) return;
+      const hit = NEW_SHORTCUTS.find((x) => e.code === `Key${x.key}`);
+      if (!hit || !permsRef.current.includes(hit.perm)) return;
+      e.preventDefault();
+      router.push(hit.href);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [router]);
 
   const toggle = () => {
     setCollapsed((c) => {
@@ -222,7 +249,7 @@ function SidebarBody({ user, locations, currentLocationId, collapsed, permission
         {/* Quick "New" */}
         {canAdd && (
           <DropdownMenu>
-            <SideTooltip label="New…" show={collapsed}>
+            <SideTooltip label="New… (Alt+R reservation · Alt+T rental · Alt+Q quote)" show={collapsed}>
               <DropdownMenuTrigger asChild>
                 <Button variant="ink" className={cn("w-full", collapsed && "px-0")}>
                   <PlusIcon className="size-4" />
@@ -231,9 +258,9 @@ function SidebarBody({ user, locations, currentLocationId, collapsed, permission
               </DropdownMenuTrigger>
             </SideTooltip>
             <DropdownMenuContent align="start" className="w-56">
-              {can("ReservationsAdd") && <DropdownMenuItem asChild><Link href="/admin/reservations/new"><CalendarCheckIcon /> Make reservation</Link></DropdownMenuItem>}
-              {can("CheckOuts") && <DropdownMenuItem asChild><Link href="/admin/rentals/new"><KeyRoundIcon /> Start rental</Link></DropdownMenuItem>}
-              {can("CheckAddQuote") && <DropdownMenuItem asChild><Link href="/admin/quotes/new"><FileTextIcon /> New quote</Link></DropdownMenuItem>}
+              {can("ReservationsAdd") && <DropdownMenuItem asChild><Link href="/admin/reservations/new"><CalendarCheckIcon /> Make reservation<Kbd>Alt+R</Kbd></Link></DropdownMenuItem>}
+              {can("CheckOuts") && <DropdownMenuItem asChild><Link href="/admin/rentals/new"><KeyRoundIcon /> Start rental<Kbd>Alt+T</Kbd></Link></DropdownMenuItem>}
+              {can("CheckAddQuote") && <DropdownMenuItem asChild><Link href="/admin/quotes/new"><FileTextIcon /> New quote<Kbd>Alt+Q</Kbd></Link></DropdownMenuItem>}
               {(can("CustomersAdd") || can("VehiclesAdd")) && <DropdownMenuSeparator />}
               {can("CustomersAdd") && <DropdownMenuItem asChild><Link href="/admin/customers/new"><UsersIcon /> Add customer</Link></DropdownMenuItem>}
               {can("VehiclesAdd") && <DropdownMenuItem asChild><Link href="/admin/vehicles/new"><CarFrontIcon /> Add vehicle</Link></DropdownMenuItem>}
