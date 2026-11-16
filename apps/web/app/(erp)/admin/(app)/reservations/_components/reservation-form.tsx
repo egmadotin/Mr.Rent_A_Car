@@ -228,8 +228,8 @@ export function ReservationForm({
 
   // client request: a new reservation survives a page refresh; an existing one saves itself as it's edited
   const draft = useFormDraft({
-    enabled: !editing,
-    label: "reservation",
+    enabled: true,
+    label: editing ? "changes" : "reservation",
     snapshot: { v, opts, customerId, drivers },
     restore: (d) => {
       setV(d.v);
@@ -238,7 +238,12 @@ export function ReservationForm({
       setDrivers(d.drivers);
     },
   });
-  const autoSave = useAutoSave({ enabled: editing, value: { v, opts, customerId, drivers }, save: () => submit(false, true) });
+  const autoSave = useAutoSave({ enabled: editing, value: { v, opts, customerId, drivers }, save: async () => {
+    // the local copy goes once the server has these changes
+    const sent = JSON.stringify({ v, opts, customerId, drivers });
+    await submit(false, true);
+    draft.saved(sent);
+  } });
 
   async function submit(allowUndesired = false, silent = false) {
     if (silent) {

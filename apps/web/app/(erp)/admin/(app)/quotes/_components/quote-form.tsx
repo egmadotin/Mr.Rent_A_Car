@@ -113,8 +113,8 @@ export function QuoteForm({ initial, defaultLocationId }: { initial?: QuoteFormI
 
   // client request: a new quote survives a page refresh; a generated / existing one saves itself as it's edited
   const draft = useFormDraft({
-    enabled: !initial?.quoteId,
-    label: "quote",
+    enabled: true,
+    label: initial?.quoteId ? "changes" : "quote",
     snapshot: { v, opts },
     restore: (d) => {
       setV(d.v);
@@ -128,7 +128,9 @@ export function QuoteForm({ initial, defaultLocationId }: { initial?: QuoteFormI
       const missing = ([["pickupLocationId", "Pickup Location"], ["returnLocationId", "Return Location"], ["pickupAt", "Pickup Date"], ["returnAt", "Return Date"], ["vehicleTypeId", "Vehicle Type"], ["rateId", "Rate"]] as [string, string][]).filter(([k]) => !v[k]).map(([, l]) => l);
       if (missing.length) throw new Error(`fill in ${missing.join(", ")}`);
       if (!pickupAt || !returnAt || +returnAt <= +pickupAt) throw new Error("return must be after pickup");
+      const sent = JSON.stringify({ v, opts });
       await client.staff.quote.update.mutate({ quoteId: quoteId!, data: quoteData() as never });
+      draft.saved(sent);
       await generated.refetch();
     },
   });

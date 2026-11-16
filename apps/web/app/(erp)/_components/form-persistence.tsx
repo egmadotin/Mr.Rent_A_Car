@@ -28,29 +28,56 @@ const read = (key: string) => {
 };
 
 /**
- * Keep a new form's state in this browser while it's being filled in. `snapshot` is everything the form needs to come
- * back (no card CVV: that field isn't part of the form state); `restore` puts it back on load. Call `clear()` once saved.
+ * Keep a form's state in this browser while it's being filled in or edited (client request, Nov 9: never lose entered
+ * data — a refresh by mistake or a dropped connection brings everything back exactly as it was).
+ * - written a moment after each change, and at once when the page is being closed / refreshed / hidden
+ * - while something is unsaved, the browser asks before leaving the page ("Leave site?")
+ * - `snapshot` is everything the form needs to come back (never the card CVV: it isn't part of the form state);
+ *   `restore` puts it back on load. New forms call `clear()` once saved; edit forms call `saved()` after each save.
  */
 export function useFormDraft<T>({ enabled, snapshot, restore, label }: { enabled: boolean; snapshot: T; restore: (d: T) => void; label: string }) {
   const key = React.useRef<string | null>(null);
   const pristine = React.useRef<string | null>(null);
   const done = React.useRef(false);
   const ready = React.useRef(false);
+  const restored = React.useRef(false);
+  const settled = React.useRef(false);
+  const stored = React.useRef(false);
   const json = JSON.stringify(snapshot);
+  const latest = React.useRef(json);
+  latest.current = json;
   const restoreRef = React.useRef(restore);
   restoreRef.current = restore;
 
-  // restore once, on load (the URL is the key: /reservations/new and /reservations/new?quoteId=… are separate drafts)
+  const write = React.useCallback(() => {
+    if (!enabled || !ready.current || done.current || !key.current) return;
+    try {
+      // an untouched form leaves nothing behind; restored data counts as unsaved until it's saved
+      if (latest.current === pristine.current && !restored.current) {
+        localStorage.removeItem(key.current);
+        stored.current = false;
+      } else {
+        localStorage.setItem(key.current, JSON.stringify({ at: Date.now(), data: JSON.parse(latest.current) }));
+        stored.current = true;
+      }
+    } catch {
+      /* storage full or blocked: the form still works */
+    }
+  }, [enabled]);
+
+  // restore once, on load (the URL is the key: /reservations/new, /reservations/new?quoteId=…, /reservations/<id>/edit)
   React.useEffect(() => {
     if (!enabled) return;
     key.current = PREFIX + location.pathname + location.search;
-    pristine.current = json;
+    pristine.current = latest.current;
     const saved = read(key.current) as T | null;
     if (saved) {
+      restored.current = true;
+      stored.current = true;
       restoreRef.current(saved);
       toast.info(`Unsaved ${label} restored`, {
-        description: "What you typed before the page reloaded is back.",
-        duration: 8000,
+        description: "What was entered before the page reloaded is back, exactly as it was.",
+        duration: 10000,
         action: {
           label: "Discard",
           onClick: () => {
@@ -61,33 +88,102 @@ export function useFormDraft<T>({ enabled, snapshot, restore, label }: { enabled
       });
     }
     ready.current = true;
+    // defaults filled in while the page settles (locations, times…) aren't the user's typing
+    const t = setTimeout(() => (settled.current = true), 1500);
+    return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled]);
 
-  // write a moment after each change; an untouched form leaves nothing behind
   React.useEffect(() => {
-    if (!enabled || !ready.current || done.current || !key.current) return;
-    const t = setTimeout(() => {
-      try {
-        if (json === pristine.current) localStorage.removeItem(key.current!);
-        else localStorage.setItem(key.current!, JSON.stringify({ at: Date.now(), data: JSON.parse(json) }));
-      } catch {
-        /* storage full or blocked: the form still works */
-      }
-    }, 400);
+    if (!enabled || !ready.current) return;
+    if (!settled.current && !restored.current) {
+      pristine.current = json;
+      return;
+    }
+    const t = setTimeout(write, 300);
     return () => clearTimeout(t);
-  }, [json, enabled]);
+  }, [json, enabled, write]);
+
+  // write at once when the page goes away, and ask before leaving with unsaved entries
+  React.useEffect(() => {
+    if (!enabled) return;
+    const flush = () => {
+      if (settled.current || restored.current) write();
+    };
+    const onHide = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      flush();
+      if (!done.current && stored.current) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("pagehide", flush);
+    window.addEventListener("beforeunload", onBeforeUnload);
+    document.addEventListener("visibilitychange", onHide);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      document.removeEventListener("visibilitychange", onHide);
+    };
+  }, [enabled, write]);
 
   function clear() {
     done.current = true;
+    stored.current = false;
     try {
       if (key.current) localStorage.removeItem(key.current);
     } catch {
       /* ignore */
     }
   }
-  return { clear };
+  /** The server has everything: drop the local copy but keep watching for new changes (edit forms). */
+  function saved(savedJson?: string) {
+    pristine.current = savedJson ?? latest.current;
+    restored.current = false;
+    if (pristine.current === latest.current) {
+      stored.current = false;
+      try {
+        if (key.current) localStorage.removeItem(key.current);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+  return { clear, saved };
 }
+
+/** Online / offline, live. */
+export function useOnline() {
+  const [online, setOnline] = React.useState(true);
+  React.useEffect(() => {
+    const on = () => setOnline(navigator.onLine);
+    on();
+    window.addEventListener("online", on);
+    window.addEventListener("offline", on);
+    return () => {
+      window.removeEventListener("online", on);
+      window.removeEventListener("offline", on);
+    };
+  }, []);
+  return online;
+}
+
+/** Shown on every page while the connection is down. */
+export function OfflineNotice() {
+  const online = useOnline();
+  if (online) return null;
+  return (
+    <div role="status" className="mt-3 flex items-center gap-2 rounded-md border border-warning/50 bg-warning/10 px-3 py-2 text-sm">
+      <AlertTriangleIcon className="size-4 shrink-0 text-warning" />
+      No internet connection. What you enter is kept on this computer and comes back after a refresh; it saves once the connection is back.
+    </div>
+  );
+}
+
+const OFFLINE = "offline — kept on this computer, saves when the connection is back";
 
 export type AutoSaveState = { status: "idle" | "pending" | "saving" | "saved" | "error"; at?: Date; message?: string };
 
@@ -103,6 +199,7 @@ export function useAutoSave({ enabled, value, save, delay = 1200 }: { enabled: b
   const running = React.useRef<Promise<void>>(Promise.resolve());
   const saveRef = React.useRef(save);
   saveRef.current = save;
+  const online = useOnline();
 
   React.useEffect(() => {
     const t = setTimeout(() => (settled.current = true), 1500);
@@ -116,6 +213,10 @@ export function useAutoSave({ enabled, value, save, delay = 1200 }: { enabled: b
       return;
     }
     if (json === baseline.current) return;
+    if (!online) {
+      setState({ status: "error", message: OFFLINE });
+      return;
+    }
     setState({ status: "pending" });
     const t = setTimeout(() => {
       running.current = running.current.then(async () => {
@@ -125,12 +226,12 @@ export function useAutoSave({ enabled, value, save, delay = 1200 }: { enabled: b
           baseline.current = json;
           setState({ status: "saved", at: new Date() });
         } catch (e) {
-          setState({ status: "error", message: errorMessage(e) });
+          setState({ status: "error", message: navigator.onLine ? errorMessage(e) : OFFLINE });
         }
       });
     }, delay);
     return () => clearTimeout(t);
-  }, [json, enabled, delay]);
+  }, [json, enabled, delay, online]);
 
   return state;
 }

@@ -229,8 +229,8 @@ export function StartRentalForm({
 
   // client request: a new rental survives a page refresh; an open contract saves itself as it's edited
   const draft = useFormDraft({
-    enabled: !editing,
-    label: "rental",
+    enabled: true,
+    label: editing ? "changes" : "rental",
     snapshot: { v, opts, customerId, drivers },
     restore: (d) => {
       setV(d.v);
@@ -239,7 +239,12 @@ export function StartRentalForm({
       setDrivers(d.drivers);
     },
   });
-  const autoSave = useAutoSave({ enabled: !!editing, value: { v, opts, drivers }, save: () => submit(false, true) });
+  const autoSave = useAutoSave({ enabled: !!editing, value: { v, opts, drivers }, save: async () => {
+    // the local copy goes once the server has these changes
+    const sent = JSON.stringify({ v, opts, customerId, drivers });
+    await submit(false, true);
+    draft.saved(sent);
+  } });
 
   async function submit(allowUndesired = false, silent = false) {
     if (silent) {

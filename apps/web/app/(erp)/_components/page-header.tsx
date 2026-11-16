@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ChevronRightIcon } from "lucide-react";
 import { cn } from "@mrac/ui/lib/utils";
 import { RefreshButton } from "./refresh-button";
+import { OfflineNotice } from "./form-persistence";
 
 /** Page title band: breadcrumbs, title (Inter Bold, tight), description and the page's actions. */
 export function PageHeader({
@@ -46,6 +47,7 @@ export function PageHeader({
           <RefreshButton />
         </div>
       </div>
+      <OfflineNotice />
     </header>
   );
 }
