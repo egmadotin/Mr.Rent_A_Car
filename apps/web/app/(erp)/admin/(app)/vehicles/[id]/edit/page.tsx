@@ -15,7 +15,7 @@ export default async function EditVehiclePage({ params }: { params: Promise<{ id
 
   const values: Record<string, string | boolean | string[]> = {
     assignedId: v.assignedId, name: s(v.name), makeId: v.makeId, modelId: v.modelId, modelCode: s(v.modelCode), year: s(v.year),
-    colour: s(v.colour), vehicleTypeId: v.vehicleTypeId, transmission: s(v.transmission), doors: s(v.doors), cylinders: s(v.cylinders),
+    colour: s(v.colour), vehicleTypeId: v.vehicleTypeId, transmission: s(v.transmission), doors: s(v.doors), cylinders: s(v.cylinders), engine: s(v.engine), horsepower: s(v.horsepower), seats: s(v.seats),
     vin: s(v.vin), spotNumber: s(v.spotNumber), memo: s(v.memo),
     rentalLocationId: v.rentalLocationId, owningLocationId: v.owningLocationId, currentLocationId: s(v.currentLocationId), status: v.status,
     categoryId: s(v.categoryId), bodyId: s(v.bodyId), fuelTypeId: s(v.fuelTypeId), tankSize: s(v.tankSize), fuelLevel: s(v.fuelLevel),

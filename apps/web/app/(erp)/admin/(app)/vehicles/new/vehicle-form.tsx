@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { AlertCircleIcon, Loader2Icon } from "lucide-react";
+import { AlertCircleIcon, Loader2Icon, ScanLineIcon, SparklesIcon } from "lucide-react";
 import { useTRPC, useTRPCClient } from "@mrac/api/client";
 import { VEHICLE_STATUSES } from "@mrac/api/vehicle-status";
 import { Badge } from "@mrac/ui/components/badge";
@@ -14,6 +14,7 @@ import { toast } from "@mrac/ui/components/sonner";
 import { REGION_OPTIONS } from "@mrac/ui/lib/regions";
 import { cn } from "@mrac/ui/lib/utils";
 import { FormAlert } from "../../../../_components/booking-kit";
+import { Input } from "@mrac/ui/components/input";
 import {
   CheckField,
   Field,
@@ -54,7 +55,7 @@ export function VehicleForm({ defaultLocationId, initial }: { defaultLocationId?
   const trpc = useTRPC();
   const client = useTRPCClient();
   const router = useRouter();
-  const { data: o, isLoading } = useQuery(trpc.staff.vehicle.formOptions.queryOptions());
+  const { data: o, isLoading, refetch: refetchOptions } = useQuery(trpc.staff.vehicle.formOptions.queryOptions());
   const editing = !!initial;
   const iv = initial?.values ?? {};
   const dv = (name: string) => (typeof iv[name] === "string" ? (iv[name] as string) : undefined);
@@ -64,7 +65,105 @@ export function VehicleForm({ defaultLocationId, initial }: { defaultLocationId?
   const [formError, setFormError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
 
-  const models = o?.makes.find((m) => m.id === makeId)?.models ?? [];
+  const models = React.useMemo(() => o?.makes.find((m) => m.id === makeId)?.models ?? [], [o, makeId]);
+
+  // ── VIN decode + standard specs (client request, Nov 17)
+  const formRef = React.useRef<HTMLFormElement>(null);
+  const [vin, setVin] = React.useState(dv("vin") ?? "");
+  const [decoding, setDecoding] = React.useState(false);
+  const [decoded, setDecoded] = React.useState<null | { summary: string; warning: string | null }>(null);
+  const [specNote, setSpecNote] = React.useState<string | null>(null);
+  const [pendingModel, setPendingModel] = React.useState<string | null>(null);
+  const [modelId, setModelId] = React.useState(dv("modelId") ?? "");
+  const [year, setYear] = React.useState(dv("year") ?? "");
+  const lastTemplate = React.useRef("");
+
+  /** Write a value into a form field (as if typed), only when it's empty unless `overwrite`. */
+  function fill(name: string, value: string | number | null | undefined, overwrite = false) {
+    if (value == null || value === "") return false;
+    // by name only: a searchable dropdown's visible box shares the field's id
+    const input = formRef.current?.querySelector<HTMLInputElement | HTMLSelectElement>(`select[name="${name}"], input[name="${name}"]`);
+    if (!input) return false;
+    if (!overwrite && input.value) return false;
+    const proto = input instanceof HTMLSelectElement ? HTMLSelectElement.prototype : HTMLInputElement.prototype;
+    Object.getOwnPropertyDescriptor(proto, "value")!.set!.call(input, String(value));
+    if (input instanceof HTMLSelectElement && input.value !== String(value)) return false;
+    input.dispatchEvent(new Event(input instanceof HTMLSelectElement ? "change" : "input", { bubbles: true }));
+    return true;
+  }
+  // once the make's models are listed, pick the model a VIN / template asked for
+  React.useEffect(() => {
+    if (!pendingModel || !models.some((m) => m.id === pendingModel)) return;
+    const t = setTimeout(() => {
+      if (fill("modelId", pendingModel, true)) setModelId(pendingModel);
+      setPendingModel(null);
+    });
+    return () => clearTimeout(t);
+  }, [pendingModel, models]);
+
+  async function applyTemplate(forModel: string, forYear: string, overwrite = false) {
+    if (!forModel || editing) return;
+    const key = `${forModel}|${forYear}`;
+    if (!overwrite && lastTemplate.current === key) return;
+    lastTemplate.current = key;
+    try {
+      const t = await client.staff.vehicle.specTemplate.query({ modelId: forModel, year: forYear ? Number(forYear) : null });
+      if (!t) {
+        setSpecNote(null);
+        return;
+      }
+      let n = 0;
+      for (const [k, val] of Object.entries(t.values)) if (fill(k, val, overwrite)) n++;
+      const boxes = [...(formRef.current?.querySelectorAll<HTMLInputElement>('input[name="optionIds"]') ?? [])];
+      if (!boxes.some((b) => b.checked)) for (const b of boxes) if (t.optionIds.includes(b.value)) b.checked = true;
+      setSpecNote(`${n ? `${n} standard spec${n === 1 ? "" : "s"} filled` : "Standard specs already filled"} from ${t.from}${t.sameYear ? "" : " (nearest year)"} — change only what differs (engine, options).`);
+    } catch {
+      /* no template: nothing to fill */
+    }
+  }
+
+  async function decode(value = vin) {
+    const v = value.trim().toUpperCase();
+    if (v.length !== 17) return toast.error("A VIN has 17 characters.");
+    setDecoding(true);
+    try {
+      const d = await client.staff.vehicle.decodeVin.mutate({ vin: v });
+      let mk = d.makeId;
+      let md = d.modelId;
+      if ((!mk || !md) && d.makeName && d.modelName) {
+        const ids = await client.staff.vehicle.ensureMakeModel.mutate({ make: d.makeName, model: d.modelName });
+        mk = ids.makeId;
+        md = ids.modelId;
+        await refetchOptions();
+      }
+      if (mk) {
+        setMakeId(mk);
+        if (md) setPendingModel(md);
+      }
+      fill("year", d.year, true);
+      if (d.year) setYear(String(d.year));
+      fill("doors", d.doors, true);
+      fill("cylinders", d.cylinders, true);
+      fill("engine", d.engine, true);
+      fill("horsepower", d.horsepower, true);
+      fill("seats", d.seats, true);
+      fill("transmission", d.transmission, true);
+      fill("powerTrain", d.powerTrain, true);
+      fill("fuelTypeId", d.fuelTypeId, true);
+      fill("bodyId", d.bodyId, true);
+      setDecoded({
+        summary: [d.year, d.makeName, d.modelName, d.trim].filter(Boolean).join(" ") + (d.engine ? ` · ${d.engine}` : "") + (d.horsepower ? ` · ${d.horsepower} hp` : "") + (d.body ? ` · ${d.body}` : "") + (d.seats ? ` · ${d.seats} seats` : "") + (d.fuel ? ` · ${d.fuel}` : ""),
+        warning: d.warning,
+      });
+      // then the rest of the standard specs from another unit of the same model
+      if (md) setTimeout(() => void applyTemplate(md!, d.year ? String(d.year) : ""), 300);
+      toast.success("VIN decoded — details filled in");
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setDecoding(false);
+    }
+  }
   const loc = o?.locations.some((l) => l.id === defaultLocationId) ? defaultLocationId : o?.locations[0]?.id;
   const sectionsWithErrors = new Set(Object.keys(errors).map((k) => FIELD_SECTION[k]).filter(Boolean));
 
@@ -97,7 +196,7 @@ export function VehicleForm({ defaultLocationId, initial }: { defaultLocationId?
 
   return (
     <FormErrorsContext.Provider value={errors}>
-      <form onSubmit={onSubmit} noValidate className="grid gap-6 p-4 md:p-6 lg:grid-cols-[13rem_minmax(0,1fr)]">
+      <form ref={formRef} onSubmit={onSubmit} noValidate className="grid gap-6 p-4 md:p-6 lg:grid-cols-[13rem_minmax(0,1fr)]">
         {/* Section nav */}
         <nav aria-label="Form sections" className="hidden lg:block">
           <ol className="sticky top-6 space-y-1 text-sm">
@@ -122,6 +221,51 @@ export function VehicleForm({ defaultLocationId, initial }: { defaultLocationId?
         <div className="space-y-6">
           <FormAlert message={formError} />
 
+          {/* VIN first: the fastest way to add a vehicle (client request, Nov 17) */}
+          <Card className="border-primary/40">
+            <CardContent className="space-y-3">
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="min-w-64 flex-1 space-y-1.5">
+                  <Label htmlFor="vin">VIN</Label>
+                  <Input
+                    id="vin"
+                    name="vin"
+                    value={vin}
+                    maxLength={17}
+                    autoComplete="off"
+                    className="font-mono uppercase"
+                    aria-invalid={errors.vin ? true : undefined}
+                    placeholder="17 characters — year, make, model and specs fill in by themselves"
+                    onChange={(e) => {
+                      const v = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+                      setVin(v);
+                      if (v.length === 17 && !editing) void decode(v);
+                    }}
+                  />
+                </div>
+                <Button type="button" variant="outline" disabled={decoding || vin.length !== 17} onClick={() => void decode()}>
+                  {decoding ? <Loader2Icon className="animate-spin" /> : <ScanLineIcon />}
+                  Decode VIN
+                </Button>
+              </div>
+              {errors.vin && <p className="text-xs text-destructive">{errors.vin[0]}</p>}
+              {decoded && (
+                <div className="rounded-md bg-success/10 p-2.5 text-sm">
+                  <span className="font-medium">{decoded.summary}</span>
+                  {decoded.warning && <span className="mt-1 block text-xs text-warning">VIN check: {decoded.warning}</span>}
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">Looked up live in the NHTSA vehicle database (new model years included as manufacturers publish them). Anything it fills can still be changed.</p>
+            </CardContent>
+          </Card>
+          {specNote && (
+            <div className="flex items-start gap-2 rounded-md border border-info/40 bg-info/10 p-2.5 text-sm">
+              <SparklesIcon className="mt-0.5 size-4 shrink-0 text-info" />
+              <span className="flex-1">{specNote}</span>
+              <button type="button" className="shrink-0 text-xs font-medium text-primary hover:underline" onClick={() => void applyTemplate(modelId, year, true)}>Fill again</button>
+            </div>
+          )}
+
           <FormSection id="identity" title="Identity & spec" description="What the vehicle is and how staff refer to it.">
             <Field label="Assigned ID" name="assignedId" defaultValue={dv("assignedId")} required hint="The unit number on the key tag." />
             <Field label="Vehicle name" name="name" defaultValue={dv("name")} />
@@ -133,17 +277,33 @@ export function VehicleForm({ defaultLocationId, initial }: { defaultLocationId?
               key={makeId}
               defaultValue={makeId === dv("makeId") ? dv("modelId") : undefined}
               disabled={!makeId}
+              onChange={(e) => {
+                setModelId(e.target.value);
+                void applyTemplate(e.target.value, year);
+              }}
               options={opt(models)}
               placeholder={makeId ? (models.length ? "Please select" : "No models for this make yet") : "Choose a make first"}
             />
             <Field label="Model code" name="modelCode" defaultValue={dv("modelCode")} />
-            <SelectField label="Year" name="year" defaultValue={dv("year")} options={Array.from({ length: 2029 - 1920 + 1 }, (_, i) => String(2029 - i))} placeholder="—" />
+            <SelectField
+              label="Year"
+              name="year"
+              defaultValue={dv("year")}
+              onChange={(e) => {
+                setYear(e.target.value);
+                if (modelId) void applyTemplate(modelId, e.target.value);
+              }}
+              options={Array.from({ length: 2029 - 1920 + 1 }, (_, i) => String(2029 - i))}
+              placeholder="—"
+            />
             <Field label="Colour" name="colour" defaultValue={dv("colour")} required />
             <SelectField label="Type" name="vehicleTypeId" defaultValue={dv("vehicleTypeId")} required options={opt(o.vehicleTypes)} />
             <SelectField label="Transmission" name="transmission" defaultValue={dv("transmission")} options={[{ value: "AUTOMATIC", label: "Automatic" }, { value: "MANUAL", label: "Manual" }, { value: "TIPTRONIC", label: "Tip Tronic" }, { value: "NONE", label: "None" }]} placeholder="—" />
             <SelectField label="Doors" name="doors" defaultValue={dv("doors")} options={["2", "3", "4", "5", "6"]} placeholder="—" />
-            <SelectField label="Cylinders" name="cylinders" defaultValue={dv("cylinders")} options={["0", "1", "2", "3", "4", "6", "8", "10", "12"]} placeholder="—" />
-            <Field label="VIN" name="vin" defaultValue={dv("vin")} maxLength={17} inputClassName="font-mono uppercase" />
+            <SelectField label="Cylinders" name="cylinders" defaultValue={dv("cylinders")} options={["0", "1", "2", "3", "4", "5", "6", "8", "10", "12"]} placeholder="—" />
+            <Field label="Engine" name="engine" defaultValue={dv("engine")} hint="e.g. 1.8L 4-cyl" />
+            <Field label="Horsepower" name="horsepower" defaultValue={dv("horsepower")} type="number" min={0} />
+            <Field label="Seats" name="seats" defaultValue={dv("seats")} type="number" min={0} max={60} />
             <Field label="Spot number" name="spotNumber" defaultValue={dv("spotNumber")} />
             <TextareaField label="Memo" name="memo" defaultValue={dv("memo")} rows={2} />
           </FormSection>

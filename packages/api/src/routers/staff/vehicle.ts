@@ -4,6 +4,7 @@ import { Prisma } from "@mrac/db";
 import { router, staffProcedure, permitted } from "../../trpc";
 import { audit } from "../../lib/audit";
 import { VEHICLE_STATUS_VALUES } from "../../lib/vehicle-status";
+import { decodeVin } from "../../lib/vin";
 
 const D = (n: number) => new Prisma.Decimal(n);
 const optStr = z.string().trim().max(1000).optional().transform((v) => v || null);
@@ -41,6 +42,9 @@ export const vehicleInput = z
     colour: req("Colour"),
     doors: optInt,
     cylinders: optInt,
+    engine: optStr,
+    horsepower: optInt,
+    seats: optInt,
     transmission: z.enum(["NONE", "AUTOMATIC", "MANUAL", "TIPTRONIC"]).optional().nullable(),
     vehicleTypeId: req("Type"),
     vin: optStr,
@@ -153,7 +157,85 @@ function uniqueError(e: unknown): never {
   throw e;
 }
 
+/**
+ * Standard specs every unit of the same year / make / model shares (client request, Nov 17): copied from the newest
+ * unit of that model when a vehicle is added, so only what differs (engine, options) is typed. Not identity, plate,
+ * colour, odometer, location or money.
+ */
+const SPEC_FIELDS = [
+  "modelCode", "doors", "cylinders", "engine", "horsepower", "seats", "transmission", "vehicleTypeId", "categoryId", "bodyId", "fuelTypeId", "tankSize",
+  "maintenanceEveryKm", "powerTrain", "fuelGrade", "oilType", "dimensions", "maxPayload", "verticalClearance", "frontTirePressure", "rearTirePressure",
+  "engineBrandId", "engineTypeId", "gvwr", "cityMpg", "highwayMpg",
+] as const;
+
+/** A lookup (fuel type, body…) whose name matches one of the words vPIC gave, e.g. "Gasoline" → "Gas". */
+async function matchLookup(db: Prisma.TransactionClient, kind: "FUEL_TYPE" | "VEHICLE_BODY", text: string | null, synonyms: Record<string, string[]>) {
+  if (!text) return null;
+  const all = await db.lookup.findMany({ where: { kind, isActive: true }, select: { id: true, name: true } });
+  const t = text.toLowerCase();
+  const exact = all.find((l) => l.name.toLowerCase() === t);
+  if (exact) return exact.id;
+  for (const [k, words] of Object.entries(synonyms)) if (words.some((w) => t.includes(w))) {
+    const hit = all.find((l) => l.name.toLowerCase().includes(k));
+    if (hit) return hit.id;
+  }
+  return all.find((l) => t.includes(l.name.toLowerCase()))?.id ?? null;
+}
+
 export const vehicleRouter = router({
+  /**
+   * Add New Vehicle → VIN: year, make, model, engine and standard specs from NHTSA vPIC (live), matched to this
+   * system's makes / models / fuel types / bodies where they exist.
+   */
+  decodeVin: staffProcedure.input(z.object({ vin: z.string() })).mutation(async ({ ctx, input }) => {
+    const v = await decodeVin(input.vin);
+    const make = v.make ? await ctx.prisma.vehicleMake.findFirst({ where: { name: { equals: v.make, mode: "insensitive" } }, select: { id: true, name: true } }) : null;
+    const model = make && v.model ? await ctx.prisma.vehicleModel.findFirst({ where: { makeId: make.id, name: { equals: v.model, mode: "insensitive" } }, select: { id: true, name: true } }) : null;
+    const fuelTypeId = await matchLookup(ctx.prisma, "FUEL_TYPE", v.fuel, { gas: ["gasoline", "petrol", "flex"], diesel: ["diesel"], electric: ["electric"], hybrid: ["hybrid"] });
+    const bodyId = await matchLookup(ctx.prisma, "VEHICLE_BODY", v.body, { suv: ["sport utility", "suv", "crossover"], minivan: ["minivan"], van: ["van"], truck: ["pickup", "truck"], car: ["sedan", "saloon", "coupe", "hatchback", "convertible", "wagon"] });
+    return { ...v, makeId: make?.id ?? null, makeName: make?.name ?? v.make, modelId: model?.id ?? null, modelName: model?.name ?? v.model, fuelTypeId, bodyId };
+  }),
+
+  /** The VIN's make / model when this system doesn't have them yet (Vehicle Setup > Makes & Models gets them too). */
+  ensureMakeModel: permitted("VehiclesAdd")
+    .input(z.object({ make: z.string().trim().min(1).max(80), model: z.string().trim().min(1).max(80) }))
+    .mutation(async ({ ctx, input }) => {
+      const make =
+        (await ctx.prisma.vehicleMake.findFirst({ where: { name: { equals: input.make, mode: "insensitive" } } })) ?? (await ctx.prisma.vehicleMake.create({ data: { name: input.make } }));
+      const model =
+        (await ctx.prisma.vehicleModel.findFirst({ where: { makeId: make.id, name: { equals: input.model, mode: "insensitive" } } })) ??
+        (await ctx.prisma.vehicleModel.create({ data: { makeId: make.id, name: input.model } }));
+      return { makeId: make.id, modelId: model.id };
+    }),
+
+  /** Standard specs from the newest unit of the same model (same year first, else the nearest year). */
+  specTemplate: staffProcedure
+    .input(z.object({ modelId: z.string().min(1), year: z.coerce.number().int().optional().nullable(), excludeId: z.string().optional() }))
+    .query(async ({ ctx, input }) => {
+      const units = await ctx.prisma.vehicle.findMany({
+        where: { modelId: input.modelId, ...(input.excludeId ? { id: { not: input.excludeId } } : {}) },
+        orderBy: [{ isActive: "desc" }, { createdAt: "desc" }],
+        take: 50,
+        include: { make: { select: { name: true } }, model: { select: { name: true } }, options: { select: { optionId: true } } },
+      });
+      if (!units.length) return null;
+      const pick = input.year
+        ? [...units].sort((a, b) => Math.abs((a.year ?? 0) - input.year!) - Math.abs((b.year ?? 0) - input.year!))[0]!
+        : units[0]!;
+      const values: Record<string, string> = {};
+      for (const f of SPEC_FIELDS) {
+        const x = (pick as Record<string, unknown>)[f];
+        if (x != null && x !== "") values[f] = String(x);
+      }
+      return {
+        from: `${pick.year ?? ""} ${pick.make.name} ${pick.model.name}`.trim() + ` — unit ${pick.assignedId}`,
+        sameYear: !input.year || pick.year === input.year,
+        values,
+        optionIds: pick.options.map((o) => o.optionId),
+      };
+    }),
+
+
   formOptions: staffProcedure.query(async ({ ctx }) => {
     const [makes, vehicleTypes, locations, lookups] = await Promise.all([
       ctx.prisma.vehicleMake.findMany({ orderBy: { name: "asc" }, include: { models: { orderBy: { name: "asc" }, select: { id: true, name: true } } } }),

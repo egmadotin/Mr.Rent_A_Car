@@ -440,6 +440,10 @@ model Vehicle {
   colour        String
   doors         Int?
   cylinders     Int?
+  /// Standard specs (client request, Nov 17): filled from the VIN or from another unit of the same year / make / model
+  engine        String? /// e.g. "1.8L 4-cyl"
+  horsepower    Int?
+  seats         Int?
   transmission  Transmission?
   vehicleTypeId String
   vehicleType   VehicleType   @relation(fields: [vehicleTypeId], references: [id])
