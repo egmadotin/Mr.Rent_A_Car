@@ -389,7 +389,8 @@ export function StartRentalForm({
         {/* ── 2 · Trip & vehicle ───────────────────────────────────────── */}
         <StepPanel step={STEPS[1]!} n={2}>
           <Card>
-            <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {/* the middle column (pickup / return date) a little wider, so the dates and X Days fit */}
+            <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1fr)]">
               <F label="Rental #" name="raNumber" required><Input id="raNumber" value={editing ? String(editing.raNumber) : ""} placeholder="Auto" disabled /></F>
               <F label="Pickup Location" name="checkOutLocationId" required><NativeSelect {...bind("pickupLocationId")} id="checkOutLocationId"><option value="">Please Select</option>{opt(o.locations)}</NativeSelect></F>
               <F label="Return Location" name="checkInLocationId" required><NativeSelect {...bind("returnLocationId")} id="checkInLocationId"><option value="">Please Select</option>{opt(o.locations)}</NativeSelect></F>
@@ -524,7 +525,7 @@ export function FuelSlider({ id, label, value, onChange, required }: { id: strin
   return (
     <div className="space-y-1.5 sm:col-span-2">
       <Label htmlFor={id}>{label}{required && <span className="text-destructive" aria-hidden>*</span>} <span className="font-normal text-muted-foreground">{n}/16</span></Label>
-      <div className="flex justify-between px-1 text-[10px] text-muted-foreground tabular-nums">{Array.from({ length: 17 }, (_, i) => <span key={i}>{i}</span>)}</div>
+      <div className="flex justify-between px-1 text-[0.625rem] text-muted-foreground tabular-nums">{Array.from({ length: 17 }, (_, i) => <span key={i}>{i}</span>)}</div>
       <input id={id} type="range" min={0} max={16} step={1} value={n} onChange={(e) => onChange(e.target.value)} className="w-full accent-primary" />
     </div>
   );

@@ -113,7 +113,7 @@ export function Sidebar(props: Props) {
         </Button>
         <Link href="/admin" className="flex items-center gap-2">
           <BrandLogo className="h-6" />
-          <span className="type-code rounded-[6px] bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">ERP</span>
+          <span className="type-code rounded-[6px] bg-muted px-1.5 py-0.5 text-[0.625rem] text-muted-foreground">ERP</span>
         </Link>
       </div>
 
@@ -129,7 +129,7 @@ export function Sidebar(props: Props) {
         data-collapsed={collapsed}
         className={cn(
           "sticky top-0 hidden h-dvh shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-[width] duration-200 ease-out-quick md:flex",
-          collapsed ? "w-[72px]" : "w-64",
+          collapsed ? "w-[4.5rem]" : "w-64",
         )}
       >
         <SidebarBody {...props} collapsed={collapsed} />
@@ -138,7 +138,7 @@ export function Sidebar(props: Props) {
             type="button"
             onClick={toggle}
             className={cn(
-              "flex h-9 w-full items-center gap-2.5 rounded-control px-2.5 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground",
+              "flex h-9 w-full items-center gap-2.5 rounded-control px-2.5 text-[0.8125rem] font-medium text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground",
               collapsed && "justify-center px-0",
             )}
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
@@ -171,7 +171,7 @@ function SidebarBody({ user, locations, currentLocationId, collapsed, permission
           ) : (
             <>
               <BrandLogo className="h-7" />
-              <span className="type-code rounded-[6px] bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">ERP</span>
+              <span className="type-code rounded-[6px] bg-muted px-1.5 py-0.5 text-[0.625rem] text-muted-foreground">ERP</span>
             </>
           )}
         </Link>
@@ -184,7 +184,7 @@ function SidebarBody({ user, locations, currentLocationId, collapsed, permission
             <DropdownMenuTrigger asChild>
               <button
                 className={cn(
-                  "flex h-10 w-full items-center gap-2.5 rounded-control border bg-card px-2.5 text-left text-[13px] transition-colors hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none",
+                  "flex h-10 w-full items-center gap-2.5 rounded-control border bg-card px-2.5 text-left text-[0.8125rem] transition-colors hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none",
                   collapsed && "justify-center px-0",
                 )}
               >
@@ -192,7 +192,7 @@ function SidebarBody({ user, locations, currentLocationId, collapsed, permission
                 {!collapsed && (
                   <>
                     <span className="min-w-0 flex-1">
-                      <span className="block text-[11px] leading-tight text-muted-foreground">Working location</span>
+                      <span className="block text-[0.6875rem] leading-tight text-muted-foreground">Working location</span>
                       <span className="block truncate leading-tight font-semibold">{current?.name ?? "Select location"}</span>
                     </span>
                     <ChevronsUpDownIcon className="size-3.5 shrink-0 text-muted-foreground" />
@@ -265,7 +265,7 @@ function SidebarBody({ user, locations, currentLocationId, collapsed, permission
                         collapsed && "justify-center px-0",
                       )}
                     >
-                      <item.icon className={cn("size-[18px] shrink-0", active ? "text-brand" : "text-muted-foreground group-hover:text-foreground")} strokeWidth={active ? 2.25 : 1.75} />
+                      <item.icon className={cn("size-[1.125rem] shrink-0", active ? "text-brand" : "text-muted-foreground group-hover:text-foreground")} strokeWidth={active ? 2.25 : 1.75} />
                       {!collapsed && <span className="truncate">{item.label}</span>}
                     </Link>
                   </SideTooltip>
@@ -286,12 +286,12 @@ function SidebarBody({ user, locations, currentLocationId, collapsed, permission
                 collapsed && "justify-center",
               )}
             >
-              <span className="grid size-8 shrink-0 place-items-center rounded-pill bg-foreground text-[13px] font-bold text-background">
+              <span className="grid size-8 shrink-0 place-items-center rounded-pill bg-foreground text-[0.8125rem] font-bold text-background">
                 {user.name.slice(0, 1).toUpperCase()}
               </span>
               {!collapsed && (
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[13px] font-semibold">{user.name}</span>
+                  <span className="block truncate text-[0.8125rem] font-semibold">{user.name}</span>
                   <span className="block truncate text-xs text-muted-foreground">{user.email}</span>
                 </span>
               )}

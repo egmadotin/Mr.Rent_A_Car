@@ -205,7 +205,7 @@ export function RateForm({ id, initial, defaultLocationId }: { id?: string; init
             </div>
           </CardHeader>
           <CardContent className="overflow-x-auto px-0">
-            <table className="w-full min-w-[1100px] text-sm">
+            <table className="w-full min-w-[68.75rem] text-sm">
               <thead>
                 <tr className="border-b text-left text-xs text-muted-foreground">
                   <th className="px-3 py-2 font-medium">Vehicle type</th>

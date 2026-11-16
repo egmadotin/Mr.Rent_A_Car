@@ -19,7 +19,7 @@ export function PageHeader({
   return (
     <header className={cn("px-4 pt-6 pb-2 md:px-6 md:pt-8", className)}>
       {breadcrumbs && breadcrumbs.length > 0 && (
-        <nav aria-label="Breadcrumb" className="mb-2 flex flex-wrap items-center gap-1 text-[13px] text-muted-foreground">
+        <nav aria-label="Breadcrumb" className="mb-2 flex flex-wrap items-center gap-1 text-[0.8125rem] text-muted-foreground">
           {breadcrumbs.map((b, i) => (
             <span key={i} className="flex items-center gap-1">
               {i > 0 && <ChevronRightIcon className="size-3.5 text-muted-foreground/60" />}
@@ -36,7 +36,7 @@ export function PageHeader({
       )}
       <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
         <div className="min-w-0">
-          <h1 className="text-[26px] leading-tight font-bold tracking-[-0.03em] md:text-[28px]">{title}</h1>
+          <h1 className="text-[1.625rem] leading-tight font-bold tracking-[-0.03em] md:text-[1.75rem]">{title}</h1>
           {description && <div className="mt-1 text-sm text-muted-foreground">{description}</div>}
         </div>
         {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}

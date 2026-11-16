@@ -67,14 +67,15 @@ export function ReturnDateField({ label = "Return Date", required, input, days, 
   const error = React.useContext(FormErrorsContext).returnAt?.[0];
   return (
     <div className="min-w-0 space-y-1.5">
-      <div className="flex h-[13px] items-center justify-between gap-2">
-        <Label htmlFor="returnAt">
-          {label}
+      {/* one line, never wrapping: the label gives way (ellipsis) before it can run into X Days */}
+      <div className="flex h-[0.8125rem] min-w-0 items-center justify-between gap-1.5">
+        <Label htmlFor="returnAt" className="min-w-0 overflow-hidden whitespace-nowrap" title={label}>
+          <span className="truncate">{label}</span>
           {required && <span className="text-destructive" aria-hidden>*</span>}
         </Label>
-        <span className="flex items-center gap-1.5">
-          <Label htmlFor="xDays" className="font-normal text-muted-foreground">X Days</Label>
-          <Input id="xDays" type="number" min={1} value={days} onChange={(e) => onDays(Number(e.target.value))} className="h-5 w-12 px-1.5 text-right text-xs" />
+        <span className="flex shrink-0 items-center gap-1">
+          <Label htmlFor="xDays" className="font-normal whitespace-nowrap text-muted-foreground">X Days</Label>
+          <Input id="xDays" type="number" min={1} value={days} onChange={(e) => onDays(Number(e.target.value))} className="h-5 w-10 px-1 text-right text-xs" />
         </span>
       </div>
       <Input type="datetime-local" {...input} id="returnAt" />

@@ -37,7 +37,7 @@ type Opt = {
  */
 function OptionTile({ r }: { r: Opt }) {
   return (
-    <div className={cn("flex items-center rounded-md border text-[13px] transition-colors", r.on ? "border-primary/60 bg-primary/10" : "border-transparent hover:bg-muted/60")}>
+    <div className={cn("flex items-center rounded-md border text-[0.8125rem] transition-colors", r.on ? "border-primary/60 bg-primary/10" : "border-transparent hover:bg-muted/60")}>
       <button
         type="button"
         role={r.group ? "radio" : "checkbox"}

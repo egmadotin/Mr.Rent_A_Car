@@ -93,7 +93,7 @@ export function BookingTopBar({ steps, children }: { steps: Step[]; children?: R
               >
                 <span
                   className={cn(
-                    "flex size-5 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold tabular-nums",
+                    "flex size-5 shrink-0 items-center justify-center rounded-full border text-[0.6875rem] font-semibold tabular-nums",
                     active === s.key && "border-primary bg-primary text-primary-foreground",
                   )}
                 >
@@ -164,7 +164,7 @@ export function StepNav({ next, children, className }: { next?: React.ReactNode;
 export function BookingSummaryBar({ customer, from, to, vehicle, total, days }: { customer: string; from?: string; to?: string; vehicle?: string; total?: number | null; days?: number | string }) {
   const item = (label: string, value: React.ReactNode) => (
     <div className="min-w-0">
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className="text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
       <p className="truncate text-sm font-medium">{value || <span className="text-muted-foreground">—</span>}</p>
     </div>
   );

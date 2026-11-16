@@ -420,7 +420,8 @@ export function ReservationForm({
             {initial?.number ? `Reservation #${initial.number} · ` : ""}Reservation Date : {legacyDate(initial?.createdAt ?? new Date(), { timeZone: o.locations.find((l) => l.id === str("locationId"))?.timeZone })}
           </p>
           <Card>
-            <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {/* the middle column (pickup / return date) a little wider, so the dates and X Days fit */}
+            <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1fr)]">
               <F label="Location" name="locationId" required><NativeSelect {...bind("locationId")}>{opt(o.locations)}</NativeSelect></F>
               <F label="Pickup Location" name="pickupLocationId" required><NativeSelect {...bind("pickupLocationId")}>{opt(o.locations)}</NativeSelect></F>
               <F label="Return Location" name="returnLocationId"><NativeSelect {...bind("returnLocationId")}>{opt(o.locations)}</NativeSelect></F>

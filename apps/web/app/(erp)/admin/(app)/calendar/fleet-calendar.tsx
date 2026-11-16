@@ -169,7 +169,7 @@ function FleetCalendarInner({ defaultLocationId }: { defaultLocationId?: string 
               setDropTarget(null);
             }}
             className={cn(
-              "absolute flex items-center overflow-hidden rounded px-1.5 text-left text-[11px] leading-tight font-medium whitespace-nowrap shadow-sm outline-none hover:brightness-110 focus-visible:ring-2 focus-visible:ring-ring",
+              "absolute flex items-center overflow-hidden rounded px-1.5 text-left text-[0.6875rem] leading-tight font-medium whitespace-nowrap shadow-sm outline-none hover:brightness-110 focus-visible:ring-2 focus-visible:ring-ring",
               KIND[bar.kind].className,
               clippedStart && "rounded-l-none",
               clippedEnd && "rounded-r-none",
@@ -285,7 +285,7 @@ function FleetCalendarInner({ defaultLocationId }: { defaultLocationId?: string 
                 return (
                   <div
                     key={i}
-                    className={cn("border-l px-1 py-1.5 text-center text-[11px] leading-tight", (d.getDay() === 0 || d.getDay() === 6) && "bg-muted/60", today && "bg-primary/10 font-semibold text-primary")}
+                    className={cn("border-l px-1 py-1.5 text-center text-[0.6875rem] leading-tight", (d.getDay() === 0 || d.getDay() === 6) && "bg-muted/60", today && "bg-primary/10 font-semibold text-primary")}
                     style={{ width: col }}
                   >
                     <div className="text-muted-foreground">{d.toLocaleDateString("en-CA", { weekday: span === 30 ? "narrow" : "short" })}</div>
@@ -331,7 +331,7 @@ function FleetCalendarInner({ defaultLocationId }: { defaultLocationId?: string 
                       <Link href={`/admin/vehicles/${row.vehicle.id}`} className="truncate text-xs font-medium hover:underline">
                         {row.vehicle.assignedId} <span className="font-normal text-muted-foreground">{row.vehicle.title}</span>
                       </Link>
-                      <span className="truncate text-[11px] text-muted-foreground">{row.vehicle.plate}</span>
+                      <span className="truncate text-[0.6875rem] text-muted-foreground">{row.vehicle.plate}</span>
                     </div>
                     <div
                       className={cn("relative transition-colors", accepts && "bg-primary/5", dropTarget === row.vehicle.id && accepts && "bg-primary/15 ring-2 ring-primary ring-inset")}

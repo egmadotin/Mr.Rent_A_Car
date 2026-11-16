@@ -163,7 +163,7 @@
 /* Staff ERP: same palette, a touch denser — controls 10px, cards 16px. */
 [data-brand="erp"] {
   --radius: 10px;
-  --control-height: 36px;
+  --control-height: 2.25rem;
   --radius-card-size: 16px;
   --radius-sheet-size: 22px;
 }
@@ -263,6 +263,17 @@
   --font-mono: var(--font-geist-mono), "Geist Mono", ui-monospace, Menlo, Consolas, monospace;
 
   --ease-out-quick: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/*
+ * Staff ERP at 80% (client request: "make 80% zoom the default"): the base size is 80%, and every size is in rem, so
+ * the whole ERP renders as at 80% browser zoom. Screen only — printouts keep their exact sizes; the public site is
+ * untouched. (Real CSS `zoom` would also shrink full-height layouts and break popover / drag positions.)
+ */
+@media screen {
+  html[data-brand="erp"] {
+    font-size: 80%;
+  }
 }
 
 @layer base {
@@ -392,12 +403,12 @@
    */
   .booking-cockpit {
     /* each value is the tight laptop size up to ~800px of window height, then grows to its maximum around ~1020px */
-    --control-height: clamp(32px, calc(1.82vh + 17.4px), 38px);
-    --cockpit-row: clamp(0.5rem, calc(2.73vh - 13.8px), 1rem);
+    --control-height: clamp(2rem, calc(1.82vh + 1.0875rem), 2.375rem);
+    --cockpit-row: clamp(0.5rem, calc(2.73vh - 0.8625rem), 1rem);
     --cockpit-col: clamp(0.75rem, 1vw, 1.25rem);
-    --cockpit-pad: clamp(0.75rem, calc(2.73vh - 9.8px), 1.25rem);
-    --cockpit-label: clamp(0.25rem, calc(0.91vh - 3.3px), 0.5rem);
-    --cockpit-gap: clamp(0.75rem, calc(3.64vh - 17.1px), 1.5rem);
+    --cockpit-pad: clamp(0.75rem, calc(2.73vh - 0.6125rem), 1.25rem);
+    --cockpit-label: clamp(0.25rem, calc(0.91vh - 0.2063rem), 0.5rem);
+    --cockpit-gap: clamp(0.75rem, calc(3.64vh - 1.0688rem), 1.5rem);
   }
   /* the page title band above the form is tighter */
   main:has(.booking-cockpit) > header {

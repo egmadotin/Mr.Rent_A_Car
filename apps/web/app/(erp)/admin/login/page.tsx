@@ -18,11 +18,11 @@ export default async function LoginPage({
   return (
     <main className="relative grid min-h-dvh place-items-center overflow-hidden px-4 py-10">
       <div aria-hidden className="pointer-events-none absolute -top-48 -right-40 size-[40rem] rounded-full bg-[radial-gradient(circle,var(--brand-glow)_0%,transparent_62%)] opacity-50" />
-      <div className="relative w-full max-w-[400px] space-y-8">
+      <div className="relative w-full max-w-[25rem] space-y-8">
         <div className="space-y-3 text-center">
           <BrandLogo className="mx-auto h-11" />
           <div>
-            <h1 className="text-[22px] font-bold tracking-tight">Staff sign in</h1>
+            <h1 className="text-[1.375rem] font-bold tracking-tight">Staff sign in</h1>
             <p className="mt-1 text-sm text-muted-foreground">Reservations, rentals and fleet — one place.</p>
           </div>
         </div>

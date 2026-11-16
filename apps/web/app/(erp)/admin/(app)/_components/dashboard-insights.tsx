@@ -34,7 +34,7 @@ function Kpi({ label, value, sub, icon: Icon, trend, children, href }: {
   const body = (
     <Card className={cn("h-full gap-2 p-4", href && "transition-shadow hover:shadow-lift")}>
       <div className="flex items-start justify-between gap-2">
-        <span className="text-[13px] font-semibold text-muted-foreground">{label}</span>
+        <span className="text-[0.8125rem] font-semibold text-muted-foreground">{label}</span>
         <span className="grid size-8 place-items-center rounded-control bg-muted text-foreground"><Icon className="size-4" /></span>
       </div>
       <div className="flex items-baseline gap-2">
@@ -97,7 +97,7 @@ function Columns({ data, format, height = 180, barClass = "fill-steel", ariaLabe
           return (
             <g key={i}>
               <line x1={padL} x2={W} y1={y} y2={y} className="stroke-border" strokeWidth={1} />
-              <text x={padL - 6} y={y + 3} textAnchor="end" className="fill-muted-foreground text-[10px]">{format((nice / 4) * i)}</text>
+              <text x={padL - 6} y={y + 3} textAnchor="end" className="fill-muted-foreground text-[0.625rem]">{format((nice / 4) * i)}</text>
             </g>
           );
         })}
@@ -108,7 +108,7 @@ function Columns({ data, format, height = 180, barClass = "fill-steel", ariaLabe
             <g key={i} onMouseEnter={() => setHover(i)}>
               <rect x={padL + i * step} y={padT} width={step} height={plotH} fill="transparent" />
               {h > 0 && <path d={bar(x, padT + plotH - h, bw, h)} className={cn(barClass, hover != null && hover !== i && "opacity-50")} />}
-              {i % every === 0 && <text x={x + bw / 2} y={H - 6} textAnchor="middle" className="fill-muted-foreground text-[10px]">{d.label}</text>}
+              {i % every === 0 && <text x={x + bw / 2} y={H - 6} textAnchor="middle" className="fill-muted-foreground text-[0.625rem]">{d.label}</text>}
             </g>
           );
         })}
@@ -337,7 +337,7 @@ export function RecentActivity() {
               </div>
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 {r.kind === "RENTAL" ? "Rental" : "Reservation"} · {r.detail} · {title(r.status)}
-                {r.online && <Badge variant="muted" className="h-4 px-1.5 text-[10px]">Online</Badge>}
+                {r.online && <Badge variant="muted" className="h-4 px-1.5 text-[0.625rem]">Online</Badge>}
               </div>
             </li>
           ))}

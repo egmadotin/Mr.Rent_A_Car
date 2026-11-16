@@ -77,7 +77,7 @@ export function ReportFrame({
         </CardContent>
       </Card>
       {generated && !error && (
-        <div className="overflow-x-auto rounded-md border bg-white p-4 text-[12px] text-black print:border-0 print:p-0">
+        <div className="overflow-x-auto rounded-md border bg-white p-4 text-[0.75rem] text-black print:border-0 print:p-0">
           <h2 className="mb-3 text-center text-xl font-bold">{title}</h2>
           <dl className="mb-4 grid gap-x-8 gap-y-1 sm:grid-cols-2">
             {[...header, ["Date", ymdhm(now)] as [string, React.ReactNode]].map(([k, v]) => (

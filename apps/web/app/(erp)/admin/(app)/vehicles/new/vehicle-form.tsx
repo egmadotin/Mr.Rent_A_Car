@@ -110,7 +110,7 @@ export function VehicleForm({ defaultLocationId, initial }: { defaultLocationId?
                     sectionsWithErrors.has(s.id) && "text-destructive",
                   )}
                 >
-                  <span className="grid size-5 place-items-center rounded-full border text-[11px]">{i + 1}</span>
+                  <span className="grid size-5 place-items-center rounded-full border text-[0.6875rem]">{i + 1}</span>
                   {s.title}
                   {sectionsWithErrors.has(s.id) && <AlertCircleIcon className="ml-auto size-4" />}
                 </a>
