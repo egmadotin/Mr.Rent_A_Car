@@ -122,6 +122,7 @@ export function QuoteForm({ initial, defaultLocationId }: { initial?: QuoteFormI
     },
   });
   const autoSave = useAutoSave({
+    force: draft.restored,
     enabled: editing,
     value: { v, opts },
     save: async () => {

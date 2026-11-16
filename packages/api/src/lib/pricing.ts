@@ -53,7 +53,44 @@ export type PricingInput = {
   fuelCharge?: number | null;
   /** "Rate (i)" Rate Details: the booking's own rate values (blank ones keep the rate's) */
   rateOverride?: RateOverride | null;
+  /** Contract summary edits (double-click a charge): this booking only, by line key — see chargeKey() */
+  chargeEdits?: Record<string, ChargeEdit> | null;
 };
+
+/**
+ * A one-off change to one charge line of a contract (client request, Nov 17): rename it, charge it at another unit rate
+ * (per day / each, or % for a percentage charge), or as a lump sum shown as one amount. Saved charge definitions stay as
+ * they are.
+ */
+export type ChargeEdit = { name?: string | null; mode: "CALC" | "UNIT" | "LUMP"; amount?: number | null };
+
+/** Line identity for chargeEdits: kind + the charge it comes from (Other Charges by position). */
+export function chargeKey(l: ChargeDraft, otherIndex?: number) {
+  if (l.kind === "MISC") return `MISC:${l.miscChargeId}`;
+  if (l.kind === "PROTECTION") return `PROTECTION:${l.insuranceId}`;
+  if (l.kind === "TAX") return `TAX:${l.taxId}`;
+  if (l.kind === "OTHER") return `OTHER:${otherIndex ?? 0}`;
+  if (l.kind === "TIME") return `TIME:${l.name}`;
+  return l.kind;
+}
+/** Lines that can be edited on a contract (taxes, km allowed and the discount line follow from the rest). */
+export const isEditableLine = (l: { kind: string }) => !["TAX", "MILEAGE", "DISCOUNT"].includes(l.kind);
+/** The permission (Settings > User Groups) that edits a line of this kind. */
+export const chargeEditPermission = (kind: string) => (kind === "TIME" ? "RateChange" : kind === "PROTECTION" ? "chkInsuranceRateChange" : "chkMiscChargeRateChange");
+
+function applyEdit(l: ChargeDraft, e: ChargeEdit | undefined, percentBase?: Prisma.Decimal) {
+  if (!e) return false;
+  if (e.name?.trim()) l.name = e.name.trim();
+  if (e.mode === "LUMP" && e.amount != null) {
+    l.units = D(1);
+    l.rate = D(e.amount);
+    l.total = D(e.amount);
+  } else if (e.mode === "UNIT" && e.amount != null) {
+    l.rate = D(e.amount);
+    l.total = percentBase ? percentBase.mul(e.amount).div(100) : l.units.mul(e.amount);
+  }
+  return true;
+}
 
 /**
  * Price a per-period charge (misc charge or protection) for a rental of `days`.
@@ -370,11 +407,24 @@ export async function priceBooking(tx: Tx, input: PricingInput) {
   // ── One Way: Settings > One Way Rates between the pickup and return locations' regions
   const oneWay = await oneWayFee(tx, input);
   if (oneWay) lines.push({ kind: "ONE_WAY", name: "One Way", units: D(1), rate: oneWay, total: oneWay, sortOrder: 9 });
+  // contract edits (double-click a charge): this booking only, applied before percentage charges and taxes
+  const edits = input.chargeEdits ?? {};
+  const edited = new Set<ChargeDraft>();
+  {
+    let other = 0;
+    for (const l of lines) {
+      const key = chargeKey(l, l.kind === "OTHER" ? ++other : undefined);
+      if (isEditableLine(l) && applyEdit(l, edits[key])) edited.add(l);
+    }
+  }
   // percentage charges apply to everything above them (rental + protection + other charges), before tax.
   // Verified on mrrentacar.com: YYC Standard 3 days + SLC → Premium Location 9.75% of 220.49 = 21.50, total 254.09.
   const beforePercent = lines.reduce((a, l) => a.add(l.total), ZERO);
-  for (const m of percent)
-    lines.push({ kind: "MISC", name: m.name, units: D(1), rate: m.rate, total: beforePercent.mul(m.rate).div(100), miscChargeId: m.id, sortOrder: 40 + sort++ });
+  for (const m of percent) {
+    const l: ChargeDraft = { kind: "MISC", name: m.name, units: D(1), rate: m.rate, total: beforePercent.mul(m.rate).div(100), miscChargeId: m.id, sortOrder: 40 + sort++ };
+    if (applyEdit(l, edits[chargeKey(l)], beforePercent)) edited.add(l);
+    lines.push(l);
+  }
 
   // ── taxes for the pickup location: fixed-amount (per day) first, then % on the subtotal
   const taxes = await tx.locationTax.findMany({
@@ -402,7 +452,11 @@ export async function priceBooking(tx: Tx, input: PricingInput) {
   const total = lines.reduce((a, l) => a.add(l.total), ZERO);
   // per-class extra-km charge from the rate value, else the rate's
   const extraKmCharge = rv?.extraKmCharge ?? rate?.extraKmCharge ?? null;
-  return { lines, total, subTotal, days, hours, approximate, warnings, extraKmCharge };
+  // for the contract summary: each line's key, whether it can be edited and whether it was (kept apart from the lines,
+  // which are saved as charge lines as they are)
+  let otherN = 0;
+  const meta = lines.map((l) => ({ key: chargeKey(l, l.kind === "OTHER" ? ++otherN : undefined), editable: isEditableLine(l), edited: edited.has(l) }));
+  return { lines, total, subTotal, days, hours, approximate, warnings, extraKmCharge, meta };
 }
 
 /** Whether a location tax's "Apply to" rules (TaxesModify.aspx) cover a charge line. `other` = n of "Other Charges n". */
@@ -453,4 +507,44 @@ export async function oneWayFee(tx: Tx, input: Pick<PricingInput, "locationId" |
   });
   const r = rates.find((x) => x.vehicleTypeId === input.vehicleTypeId) ?? rates[0];
   return r ? r.fee : null;
+}
+
+/**
+ * "Double-click the total" (client request, Nov 17): the daily rate, or the pre-tax discount, that makes the contract
+ * total exactly `target`. Totals are linear in both (percentage charges and taxes scale with them), so a couple of Newton
+ * steps land on it; rounding to the cent can leave ±$0.01, reported as `total`.
+ */
+export async function solveAgreedTotal(tx: Tx, input: PricingInput, target: number, mode: "RATE" | "DISCOUNT") {
+  const want = D(target);
+  if (mode === "RATE") {
+    const base = await priceBooking(tx, input);
+    const daily = base.lines.find((l) => l.kind === "TIME" && l.name === "Daily");
+    if (!daily) throw new Error("This rental has no daily rate to adjust.");
+    // the agreed total replaces any per-contract change to the Daily line
+    const { ["TIME:Daily"]: _drop, ...edits } = input.chargeEdits ?? {};
+    const at = async (d: number) => (await priceBooking(tx, { ...input, chargeEdits: edits, rateOverride: { ...(input.rateOverride ?? {}), daily: d } })).total;
+    let d = Number(daily.rate);
+    const t0 = await at(d);
+    const slope = Number((await at(d + 1)).sub(t0));
+    if (slope <= 0) throw new Error("The total doesn't change with the daily rate.");
+    let t = t0;
+    for (let i = 0; i < 8 && !t.equals(want); i++) {
+      d = Math.round((d + Number(want.sub(t)) / slope) * 1e6) / 1e6;
+      if (d < 0) throw new Error("That total is below what the other charges and taxes come to on their own.");
+      t = await at(d);
+    }
+    return { daily: d, total: Number(t), days: Number(daily.units) };
+  }
+  // the difference as a pre-tax discount line (replaces any discount already on the contract)
+  const at = async (x: number) => (await priceBooking(tx, { ...input, discountType: x ? "AMOUNT" : null, discountValue: x || null })).total;
+  const t0 = await at(0);
+  if (want.gte(t0)) throw new Error(`The calculated total is $${t0.toFixed(2)}; a discount can only bring it down. Use "Adjust the daily rate" for a higher total.`);
+  const slope = Number(t0.sub(await at(1)));
+  let x = Math.round((Number(t0.sub(want)) / slope) * 100) / 100;
+  let t = await at(x);
+  for (let i = 0; i < 6 && !t.equals(want); i++) {
+    x = Math.round((x + Number(t.sub(want)) / slope) * 100) / 100;
+    t = await at(x);
+  }
+  return { discount: x, total: Number(t) };
 }

@@ -18,6 +18,18 @@ export const bookingOptionsInput = z.object({
     .default([]),
   /** "Rate (i)" Rate Details */
   rateOverride: rateOverrideInput.nullable().optional(),
+  /** contract summary edits (double-click a charge), by line key: name, unit rate or lump sum — this booking only */
+  chargeEdits: z
+    .record(
+      z.string().max(100),
+      z.object({
+        name: z.string().trim().max(100).nullable().optional(),
+        mode: z.enum(["CALC", "UNIT", "LUMP"]),
+        amount: z.coerce.number().finite().min(0, "Can't be negative").nullable().optional(),
+      }),
+    )
+    .nullable()
+    .optional(),
 });
 export type BookingOptionsInput = z.infer<typeof bookingOptionsInput>;
 
@@ -29,6 +41,7 @@ export function staffPricingOptions(o: BookingOptionsInput) {
     excludedTaxIds: o.excludedTaxIds,
     otherCharges: o.otherCharges.filter((x) => x.amount),
     rateOverride: o.rateOverride ?? null,
+    chargeEdits: o.chargeEdits ?? null,
     includeDefaults: false,
   };
 }

@@ -1,6 +1,7 @@
 import { z } from "zod";
-import { router, staffProcedure } from "../../trpc";
-import { locationTz, priceBooking, seasonsAt } from "../../lib/pricing";
+import { TRPCError } from "@trpc/server";
+import { requireDiscountAllowed, requirePermission, router, staffProcedure } from "../../trpc";
+import { locationTz, priceBooking, seasonsAt, solveAgreedTotal } from "../../lib/pricing";
 import { blockedRates, isBlocked } from "../../lib/rate-rules";
 import { localDateAsUtc } from "../../lib/tz";
 import { bookingOptionsInput, staffPricingOptions } from "../../lib/booking-options";
@@ -87,4 +88,37 @@ export const bookingRouter = router({
     .query(({ ctx, input }) =>
       priceBooking(ctx.prisma, { ...input, ...staffPricingOptions(input.options) }),
     ),
+
+  /**
+   * Contract "double-click the total" (client request, Nov 17): the daily rate (RATE, needs Rate Change) or the discount
+   * (DISCOUNT, needs Allow Adjustments and stays within the group's Max Discount) that makes the total exactly the agreed amount. Nothing is saved here.
+   */
+  solveTotal: staffProcedure
+    .input(
+      z.object({
+        pickupAt: z.coerce.date(),
+        returnAt: z.coerce.date(),
+        locationId: z.string().min(1),
+        returnLocationId: z.string().nullable().optional(),
+        vehicleTypeId: z.string().min(1),
+        rateId: z.string().nullable().optional(),
+        discountType: z.enum(["PERCENT", "AMOUNT"]).nullable().optional(),
+        discountValue: z.number().nullable().optional(),
+        options: bookingOptionsInput,
+        target: z.coerce.number().positive("Enter the agreed total"),
+        mode: z.enum(["RATE", "DISCOUNT"]),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await requirePermission(ctx, input.mode === "RATE" ? "RateChange" : "CKAllowAdjustments");
+      const { target, mode, ...rest } = input;
+      try {
+        const r = await solveAgreedTotal(ctx.prisma, { ...rest, ...staffPricingOptions(rest.options) }, target, mode);
+        if ("discount" in r) await requireDiscountAllowed(ctx, "AMOUNT", r.discount);
+        return r;
+      } catch (e) {
+        if (e instanceof TRPCError) throw e;
+        throw new TRPCError({ code: "BAD_REQUEST", message: (e as Error).message });
+      }
+    }),
 });

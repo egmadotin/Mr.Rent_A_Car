@@ -9,6 +9,7 @@ import { NativeSelect } from "@mrac/ui/components/native-select";
 import { BUSINESS_TZ, fromDateTimeLocal, money, toDateTimeLocal } from "@mrac/ui/lib/format";
 import { nowInput, todayAtInput } from "@mrac/ui/lib/tz";
 import { isPercentLine } from "@mrac/ui/lib/charge-lines";
+import { cn } from "@mrac/ui/lib/utils";
 import { FormErrorsContext } from "./form";
 
 /**
@@ -105,13 +106,24 @@ export function DiscountField({ bind, error, label = "Discount %", noBlank }: { 
   );
 }
 
-type Preview = { lines: { name: string; units: unknown; kind: string; rate?: unknown; total: unknown; sortOrder?: number }[]; total: unknown; warnings: string[] };
+type Preview = {
+  lines: { name: string; units: unknown; kind: string; rate?: unknown; total: unknown; sortOrder?: number }[];
+  total: unknown;
+  warnings: string[];
+  /** per line: its key for chargeEdits, whether it can be edited and whether this contract changed it */
+  meta?: { key: string; editable: boolean; edited: boolean }[];
+};
+export type EstimateLine = Preview["lines"][number] & { index: number; key: string; edited: boolean };
+
+/** Contract summary editing (Start / Edit Rental): which lines this user may change, and what a double-click opens. */
+export type EstimateEditing = { canLine: (kind: string) => boolean; canTotal: boolean; onLine: (l: EstimateLine) => void; onTotal: () => void };
 
 /**
  * Live estimate beside the options (extras step): every priced line with its unit × rate underneath, and a large
  * total. Updates as options are ticked, nothing is saved.
  */
-export function EstimatePanel({ preview, fetching, emptyText, badge }: { preview: Preview | null | undefined; fetching?: boolean; emptyText: string; badge?: React.ReactNode }) {
+export function EstimatePanel({ preview, fetching, emptyText, badge, editing }: { preview: Preview | null | undefined; fetching?: boolean; emptyText: string; badge?: React.ReactNode; editing?: EstimateEditing }) {
+  const anyEditable = !!editing && (editing.canTotal || !!preview?.lines.some((l, i) => preview.meta?.[i]?.editable && editing.canLine(l.kind)));
   return (
     <aside className="rounded-xl border bg-card p-4 text-sm shadow-xs">
       <div className="flex items-center justify-between gap-2">
@@ -130,10 +142,18 @@ export function EstimatePanel({ preview, fetching, emptyText, badge }: { preview
               const units = Number(l.units) || 0;
               const detail =
                 l.kind === "MILEAGE" ? "" : l.rate == null ? "" : isPercentLine(l) ? `${Number(l.rate)}%` : units > 1 ? `${units} × ${money(Number(l.rate))}` : "";
+              const m = preview.meta?.[i];
+              const can = !!editing && !!m?.editable && editing.canLine(l.kind);
               return (
-                <li key={i} className="flex items-baseline justify-between gap-3 py-1.5">
+                <li
+                  key={i}
+                  className={cn("flex items-baseline justify-between gap-3 py-1.5", can && "-mx-1.5 cursor-pointer rounded px-1.5 select-none hover:bg-accent")}
+                  title={can ? "Double-click to change this charge for this rental only" : undefined}
+                  onDoubleClick={can ? () => editing!.onLine({ ...l, index: i, key: m!.key, edited: m!.edited }) : undefined}
+                >
                   <span className="min-w-0">
                     {l.name}
+                    {m?.edited && <span className="ml-1.5 rounded bg-primary/10 px-1 text-[0.6875rem] font-medium text-primary">edited</span>}
                     {detail && <span className="block text-xs text-muted-foreground tabular-nums">{detail}</span>}
                   </span>
                   <span className="shrink-0 tabular-nums">{l.kind === "MILEAGE" ? <span className="text-muted-foreground">{units ? `${units} km` : "Unlimited"}</span> : money(l.total as number)}</span>
@@ -141,10 +161,15 @@ export function EstimatePanel({ preview, fetching, emptyText, badge }: { preview
               );
             })}
           </ul>
-          <div className="mt-2 flex items-baseline justify-between border-t pt-3">
+          <div
+            className={cn("mt-2 flex items-baseline justify-between border-t pt-3", editing?.canTotal && "-mx-1.5 cursor-pointer rounded px-1.5 select-none hover:bg-accent")}
+            title={editing?.canTotal ? "Double-click to set an agreed total" : undefined}
+            onDoubleClick={editing?.canTotal ? editing.onTotal : undefined}
+          >
             <span className="font-medium">Total</span>
             <span className="text-2xl font-semibold tabular-nums">{money(preview.total as number)}</span>
           </div>
+          {anyEditable && <p className="mt-2 text-xs text-muted-foreground">Double-click a charge or the total to change it for this rental only.</p>}
           {preview.warnings.map((w) => (
             <p key={w} className="mt-2 flex gap-1.5 text-xs text-warning-foreground dark:text-warning">
               <AlertTriangleIcon className="size-3.5 shrink-0" /> {w}

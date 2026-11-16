@@ -1270,6 +1270,9 @@ model Rental {
   rate             Rate?         @relation(fields: [rateId], references: [id])
   /// "Rate (i)" Rate Details: this booking's own rate values, replacing the rate's (RateDetails.aspx) — see lib/rate-override.ts
   rateOverride     Json?
+  /// The contract's options grid as entered (incl. chargeEdits: per-contract charge changes from the summary), so Edit Rental
+  /// shows them as saved and every re-price keeps them
+  bookingOptions   Json?
   discountType     DiscountType?
   discountValue    Decimal?      @db.Decimal(10, 2)
   discountReasonId String?

@@ -30,6 +30,9 @@ import { SaveStatus, useAutoSave, useFormDraft } from "../../../../_components/f
 import { PrintoutSelect } from "../../../../_components/printout-select";
 import { SearchPicker } from "../../../../_components/search-picker";
 import { RateDetailsButton } from "../../../../_components/rate-details";
+import { AgreedTotalDialog, ChargeEditDialog } from "../../../../_components/contract-edits";
+import type { EstimateLine } from "../../../../_components/booking-kit";
+import { useCan } from "../../../../_components/permissions";
 
 export type Values = Record<string, string | boolean>;
 
@@ -140,18 +143,19 @@ export function StartRentalForm({
     set("returnAt", d.toISOString().slice(0, 16));
   }
 
+  const previewInput = {
+    returnLocationId: str("returnLocationId") || null,
+    pickupAt: pickupAt ?? new Date(),
+    returnAt: returnAt ?? new Date(),
+    locationId: str("pickupLocationId"),
+    vehicleTypeId: str("vehicleTypeId"),
+    rateId: str("rateId") || null,
+    discountType: (str("discountValue") ? str("discountType") || null : null) as "PERCENT" | null,
+    discountValue: str("discountValue") ? Number(str("discountValue")) : null,
+    options: opts,
+  };
   const preview = useQuery({
-    ...trpc.staff.booking.preview.queryOptions({
-      returnLocationId: str("returnLocationId") || null,
-      pickupAt: pickupAt ?? new Date(),
-      returnAt: returnAt ?? new Date(),
-      locationId: str("pickupLocationId"),
-      vehicleTypeId: str("vehicleTypeId"),
-      rateId: str("rateId") || null,
-      discountType: (str("discountValue") ? str("discountType") || null : null) as "PERCENT" | null,
-      discountValue: str("discountValue") ? Number(str("discountValue")) : null,
-      options: opts,
-    }),
+    ...trpc.staff.booking.preview.queryOptions(previewInput),
     enabled: validWindow && !!str("vehicleTypeId") && !!str("pickupLocationId") && !!str("rateId"),
     placeholderData: (p) => p,
   });
@@ -239,12 +243,51 @@ export function StartRentalForm({
       setDrivers(d.drivers);
     },
   });
-  const autoSave = useAutoSave({ enabled: !!editing, value: { v, opts, drivers }, save: async () => {
+  const autoSave = useAutoSave({ force: draft.restored, enabled: !!editing, value: { v, opts, drivers }, save: async () => {
     // the local copy goes once the server has these changes
     const sent = JSON.stringify({ v, opts, customerId, drivers });
     await submit(false, true);
     draft.saved(sent);
   } });
+
+  // ── contract summary editing (client request, Nov 17): double-click a charge or the total; this rental only.
+  // Who may: Settings > User Groups — Rate Change (daily rate, agreed total by rate), Insurance Rate Change (protection),
+  // MiscCharge Rate Change (other charges), Allow Adjustments (agreed total as a discount). The API checks the same.
+  const can = useCan();
+  const [editLine, setEditLine] = React.useState<EstimateLine | null>(null);
+  const [totalOpen, setTotalOpen] = React.useState(false);
+  const linePerm = (kind: string) => (kind === "TIME" ? "RateChange" : kind === "PROTECTION" ? "chkInsuranceRateChange" : "chkMiscChargeRateChange");
+  const canRateTotal = can("RateChange");
+  const canDiscountTotal = can("CKAllowAdjustments");
+  function saveLineEdit(key: string, edit: NonNullable<BookingOptions["chargeEdits"]>[string] | null) {
+    setOpts((o) => {
+      const next = { ...(o.chargeEdits ?? {}) };
+      if (edit) next[key] = edit;
+      else delete next[key];
+      return { ...o, chargeEdits: Object.keys(next).length ? next : null };
+    });
+    setEditLine(null);
+  }
+  async function applyAgreedTotal(target: number, mode: "RATE" | "DISCOUNT") {
+    try {
+      const r = await client.staff.booking.solveTotal.mutate({ ...previewInput, target, mode });
+      if ("daily" in r && r.daily != null) {
+        setOpts((o) => {
+          const { ["TIME:Daily"]: _drop, ...rest } = o.chargeEdits ?? {};
+          return { ...o, rateOverride: { ...(o.rateOverride ?? {}), daily: r.daily }, chargeEdits: Object.keys(rest).length ? rest : null };
+        });
+        toast.success(`Daily rate set to ${money(r.daily)} for ${r.days} day${r.days === 1 ? "" : "s"} — total ${money(r.total)}`);
+      } else if ("discount" in r && r.discount != null) {
+        set("discountType", "AMOUNT");
+        set("discountValue", String(r.discount));
+        toast.success(`Discount of ${money(r.discount)} added — total ${money(r.total)}`);
+      }
+      if (Math.abs(r.total - target) >= 0.005) toast.warning(`Closest possible to the cent: ${money(r.total)}`);
+      setTotalOpen(false);
+    } catch (e) {
+      toast.error(errorMessage(e));
+    }
+  }
 
   async function submit(allowUndesired = false, silent = false) {
     if (silent) {
@@ -513,7 +556,26 @@ export function StartRentalForm({
         {/* ── 4 · Summary & payment; Complete pinned at the bottom ────────── */}
         <StepPanel step={STEPS[3]!} n={4} className="2xl:min-h-0 2xl:flex-1 2xl:shrink 2xl:overflow-y-auto">
           <div className="grid gap-4">
-            <EstimatePanel preview={preview.data} fetching={preview.isFetching} emptyText="Choose dates, location, vehicle type and rate (Trip & vehicle)." />
+            <EstimatePanel
+              preview={preview.data}
+              fetching={preview.isFetching}
+              emptyText="Choose dates, location, vehicle type and rate (Trip & vehicle)."
+              editing={{
+                canLine: (kind) => can(linePerm(kind)),
+                canTotal: canRateTotal || canDiscountTotal,
+                onLine: setEditLine,
+                onTotal: () => setTotalOpen(true),
+              }}
+            />
+            <ChargeEditDialog line={editLine} edit={editLine ? opts.chargeEdits?.[editLine.key] ?? undefined : undefined} onSave={(e) => editLine && saveLineEdit(editLine.key, e)} onClose={() => setEditLine(null)} />
+            <AgreedTotalDialog
+              open={totalOpen}
+              current={Number(preview.data?.total ?? 0)}
+              canRate={canRateTotal}
+              canDiscount={canDiscountTotal}
+              onApply={applyAgreedTotal}
+              onClose={() => setTotalOpen(false)}
+            />
           </div>
         </StepPanel>
         <StepNav

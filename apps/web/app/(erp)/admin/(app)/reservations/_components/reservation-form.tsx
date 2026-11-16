@@ -238,7 +238,7 @@ export function ReservationForm({
       setDrivers(d.drivers);
     },
   });
-  const autoSave = useAutoSave({ enabled: editing, value: { v, opts, customerId, drivers }, save: async () => {
+  const autoSave = useAutoSave({ force: draft.restored, enabled: editing, value: { v, opts, customerId, drivers }, save: async () => {
     // the local copy goes once the server has these changes
     const sent = JSON.stringify({ v, opts, customerId, drivers });
     await submit(false, true);

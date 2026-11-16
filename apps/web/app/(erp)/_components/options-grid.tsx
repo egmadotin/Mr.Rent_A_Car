@@ -17,7 +17,10 @@ export type BookingOptions = {
   otherCharges: { amount: number; detail?: string | null; description?: string | null }[];
   /** "Rate (i)" Rate Details (see rate-details.tsx) */
   rateOverride?: RateOverride | null;
+  /** contract summary edits (double-click a charge on a rental): by line key, this booking only */
+  chargeEdits?: Record<string, ChargeEdit> | null;
 };
+export type ChargeEdit = { name?: string | null; mode: "CALC" | "UNIT" | "LUMP"; amount?: number | null };
 type Opt = {
   key: string;
   type: "Insurance" | "Misc. Charge" | "Tax";

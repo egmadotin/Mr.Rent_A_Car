@@ -7,7 +7,7 @@ import { audit } from "../../lib/audit";
 import { rentalTotals } from "../../lib/totals";
 import { withBookingGuard } from "../../lib/errors";
 import { billSplitData, billSplitInput, transportInput } from "../../lib/bill-split";
-import { priceBooking } from "../../lib/pricing";
+import { chargeEditPermission, priceBooking } from "../../lib/pricing";
 import { bookingOptionsInput, staffPricingOptions } from "../../lib/booking-options";
 import { methodData, paymentMethodInput } from "../../lib/payment-methods";
 import { storedRateOverride } from "../../lib/rate-override";
@@ -131,6 +131,21 @@ async function syncTicketLine(tx: Prisma.TransactionClient, rentalId: string) {
 /** The charge line an adjustment created ("Adjustment — <name>", same kind and amount). */
 async function adjustmentLine(tx: Prisma.TransactionClient, a: { rentalId: string; kind: string; name: string; amount: Prisma.Decimal }) {
   return tx.chargeLine.findFirst({ where: { rentalId: a.rentalId, kind: a.kind as never, name: `Adjustment — ${a.name}`, total: a.amount } });
+}
+
+/**
+ * Contract summary edits (client request, Nov 17): who may change what is set per user group in Settings > User Groups —
+ * daily rate / Rate (i) / agreed total by rate: "Rate Change"; protection lines: "Insurance Rate Change"; other charges:
+ * "MiscCharge Rate Change". Only what changed against the saved contract is checked.
+ */
+async function requireContractEditRights(ctx: Parameters<typeof requirePermission>[0], before: unknown, after: { chargeEdits?: Record<string, unknown> | null; rateOverride?: unknown }, beforeRate: unknown) {
+  const prev = ((before ?? {}) as { chargeEdits?: Record<string, unknown> | null }).chargeEdits ?? {};
+  const next = after.chargeEdits ?? {};
+  const needed = new Set<string>();
+  for (const key of new Set([...Object.keys(prev), ...Object.keys(next)]))
+    if (JSON.stringify(prev[key] ?? null) !== JSON.stringify(next[key] ?? null)) needed.add(chargeEditPermission(key.split(":")[0]!));
+  if (JSON.stringify(storedRateOverride(after.rateOverride as never) ?? null) !== JSON.stringify(beforeRate ?? null)) needed.add("RateChange");
+  for (const p of needed) await requirePermission(ctx, p);
 }
 
 export const rentalRouter = router({
@@ -453,6 +468,7 @@ export const rentalRouter = router({
             allowUndesired: input.allowUndesired,
             locationId: input.checkOutLocationId,
           }))!;
+          await requireContractEditRights(ctx, null, input.options, null);
           const priced = await priceBooking(tx, {
             pickupAt: input.checkOutAt,
             returnAt: input.returnAt,
@@ -481,6 +497,7 @@ export const rentalRouter = router({
               prepaidFuel: input.prepaidFuel,
               rateId: input.rateId,
               rateOverride: storedRateOverride(input.options.rateOverride),
+              bookingOptions: input.options as Prisma.InputJsonValue,
               discountType: input.discountValue ? input.discountType ?? null : null,
               discountValue: input.discountValue ? D(input.discountValue) : null,
               discountReasonId: input.discountReasonId,
@@ -546,6 +563,7 @@ export const rentalRouter = router({
           if (input.close) await requirePermission(ctx, "CheckIns");
           if (r.status === "CLOSED") await requirePermission(ctx, "ClosedAgreementsEdit");
           if (input.discountValue !== (r.discountValue == null ? null : Number(r.discountValue))) await requireDiscountAllowed(ctx, input.discountType, input.discountValue);
+          await requireContractEditRights(ctx, r.bookingOptions, input.options, r.rateOverride);
           if (input.companyId && input.companyId !== r.companyId && !input.allowUndesired) {
             const co = await tx.company.findUnique({ where: { id: input.companyId } });
             if (co?.isUndesired) throw new TRPCError({ code: "CONFLICT", message: "UNDESIRED_COMPANY" });
@@ -595,6 +613,7 @@ export const rentalRouter = router({
               prepaidFuel: input.prepaidFuel,
               rateId: input.rateId,
               rateOverride: storedRateOverride(input.options.rateOverride),
+              bookingOptions: input.options as Prisma.InputJsonValue,
               discountType: input.discountValue ? input.discountType ?? null : null,
               discountValue: input.discountValue ? D(input.discountValue) : null,
               discountReasonId: input.discountReasonId,

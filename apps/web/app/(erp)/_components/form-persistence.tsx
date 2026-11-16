@@ -41,6 +41,8 @@ export function useFormDraft<T>({ enabled, snapshot, restore, label }: { enabled
   const done = React.useRef(false);
   const ready = React.useRef(false);
   const restored = React.useRef(false);
+  // render-visible copy: an edit form saves restored changes to the server straight away
+  const [restoredOnLoad, setRestoredOnLoad] = React.useState(false);
   const settled = React.useRef(false);
   const stored = React.useRef(false);
   const json = JSON.stringify(snapshot);
@@ -73,6 +75,7 @@ export function useFormDraft<T>({ enabled, snapshot, restore, label }: { enabled
     const saved = read(key.current) as T | null;
     if (saved) {
       restored.current = true;
+      setRestoredOnLoad(true);
       stored.current = true;
       restoreRef.current(saved);
       toast.info(`Unsaved ${label} restored`, {
@@ -152,7 +155,7 @@ export function useFormDraft<T>({ enabled, snapshot, restore, label }: { enabled
       }
     }
   }
-  return { clear, saved };
+  return { clear, saved, restored: restoredOnLoad };
 }
 
 /** Online / offline, live. */
@@ -191,7 +194,7 @@ export type AutoSaveState = { status: "idle" | "pending" | "saving" | "saved" | 
  * Save an existing record by itself `delay` ms after the last change. Changes made while the page is still settling
  * (defaults filled in on load) don't count; saves never overlap. `save` throws to report a problem.
  */
-export function useAutoSave({ enabled, value, save, delay = 1200 }: { enabled: boolean; value: unknown; save: () => Promise<void>; delay?: number }) {
+export function useAutoSave({ enabled, value, save, delay = 1200, force = false }: { enabled: boolean; value: unknown; save: () => Promise<void>; delay?: number; force?: boolean }) {
   const [state, setState] = React.useState<AutoSaveState>({ status: "idle" });
   const json = JSON.stringify(value);
   const baseline = React.useRef(json);
@@ -200,6 +203,7 @@ export function useAutoSave({ enabled, value, save, delay = 1200 }: { enabled: b
   const saveRef = React.useRef(save);
   saveRef.current = save;
   const online = useOnline();
+  const [forceTick, setForceTick] = React.useState(0);
 
   React.useEffect(() => {
     const t = setTimeout(() => (settled.current = true), 1500);
@@ -231,7 +235,17 @@ export function useAutoSave({ enabled, value, save, delay = 1200 }: { enabled: b
       });
     }, delay);
     return () => clearTimeout(t);
-  }, [json, enabled, delay, online]);
+  }, [json, enabled, delay, online, forceTick]);
+
+  // `force` (changes restored after a refresh): once the page has settled, save them even though nothing changed since
+  React.useEffect(() => {
+    if (!enabled || !force) return;
+    const t = setTimeout(() => {
+      baseline.current = "";
+      setForceTick((x) => x + 1);
+    }, 1700);
+    return () => clearTimeout(t);
+  }, [enabled, force]);
 
   return state;
 }
