@@ -19,7 +19,7 @@ const TRUST = [
 
 export default async function HomePage() {
   const api = await publicApi();
-  const [classes, brands, locations] = await Promise.all([api.fleet({}), api.brands(), api.locations()]);
+  const [classes, brands, locations, site] = await Promise.all([api.fleet({}), api.brands(), api.locations(), api.siteChrome().catch(() => null)]);
 
   const priced = classes.map((c) => ({ ...c, image: resolveVehicleImage(c.name, c.imageKey), cat: categoryOf(c.name), from: "fromDaily" in c && c.fromDaily ? Number(c.fromDaily) : null }));
   const lowest = priced.reduce<number | null>((m, c) => (c.from != null && (m == null || c.from < m) ? c.from : m), null);
@@ -67,6 +67,13 @@ export default async function HomePage() {
           <BookingWidget variant="bar" />
         </div>
       </section>
+
+      {/* Settings > Website Design V3 > Home Page Body */}
+      {site?.homePageBody.trim() ? (
+        <Container className="mt-12">
+          <div className="space-y-4 text-[17px] leading-relaxed [&_a]:text-primary [&_a]:underline" dangerouslySetInnerHTML={{ __html: site.homePageBody }} />
+        </Container>
+      ) : null}
 
       {/* ── Trust strip ─────────────────────────────────────────────────── */}
       <Container className="mt-12">

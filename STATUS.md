@@ -70,7 +70,7 @@ The RentCentric menus, vehicle page and customer page were re-read on Oct 20. No
 | Rates Calendar (Nov 14) | Settings > Rates | ✅ RatesCalendar.aspx: Location, Begin / End Date (up to 62 days), Display Master Rates / Adjusted Rates → daily price per vehicle type × rate × day (adjusted shows blocks, Values Update and utilization) |
 | Overbooking Control (Nov 14) | Settings > Rates | ✅ CapacityControl.aspx: locations × vehicle types, From / To, Overbook By units or % of fleet; online search keeps the type bookable with no free car while an allowance applies |
 | Email Template (Nov 14) | Settings > Email Marketing | ✅ EmailTemplatesMain.aspx: Subject, From (Name), From (Email), Email; the Email Template select on Send Marketing Email fills the form |
-| Settings not needed (Nov 14) | Settings index | Marked "Not needed" with the reason: Point Of Sale (not switched on in RentCentric), Website Design V3, Add/Edit Webpages, Widget/Rotator (RentCentric's hosted site — replaced by mrrentacar.com), Claims Management V2 and Renew Rental Agreements (crash in RentCentric itself). Still to build: Pay Now Discounts (none set up in RentCentric), Partner Login Setup, Reservation Import |
+| Settings: every page built (Nov 20, client request) | Settings index | No "Not needed" left — each built as in RentCentric (read Nov 20, nothing saved there): **Website Design V3** (admins only: colours, skins, background image, logo, width kept; Home Page Body shown on the home page; Header / Footer HTML on every page; Stylesheet; Google Analytics code on every page; Google Conversion code on the booking confirmation), **Add/Edit Webpages** (Title, External Link Address, Target, Link / Webpage, Is Active, Delete, Print, Export — active ones listed in the website footer; a Webpage opens at /pages/…), **Widget/Rotator Setup** (links, targets and embed code; new /widget booking form and /rotator vehicle carousel without the site header so other websites can frame them), **Claims Management V2** (list with Search options; Add / Edit Claim with the same fields: internal / insurance claim #, dates, status, repair location, renter, unit, date of loss, claim type, insurer, state of incident, vehicle location (body shop), repair estimate / status, demand sent, deductible amount / paid, loss of use, diminished value, adjuster; Claims permissions; new pick lists Claim Types and Status of Repair), **Point Of Sale** (Merchandise Items: item #, description, unit price, quantity, memo, taxable, search options; Orders: PO #, date, pay method, location, company, customer, vehicle, memo, item lines with tax %, Amount / Sales Tax / Total Sale / Payment / Balance), **Renew Rental Agreements** (RentCentric's page crashes; built from its name ReOpenAgreements: closed agreements with Re-open, permission Allow ReOpen Rentals) |
 | Rate (i) per-booking rate | Rate Details dialog | ✅ |
 | Add/Edit Other Charges (4 lines) | options grid | ✅ |
 | Quote view and actions | `/admin/quotes/[id]` | ✅ |
@@ -216,7 +216,7 @@ RentCentric's Settings menu, item by item.
 | Vehicle Import | ✅ makes / models created when new |
 | Model Import | ✅ (Make, Model) |
 | Copy Location Setup | ✅ insurances, misc charges, taxes (apply-to rules re-pointed), rates with prices, payment methods, rental forms, vehicle types, hours — only what the destination lacks; the other RentCentric items are shared by all locations here |
-| Renew Rental Agreements | ⏸ RentCentric's own page is broken (server compile error) |
+| Renew Rental Agreements | ✅ Nov 20 — closed agreements + Re-open (RentCentric's own page is broken) |
 
 ### Payment Settings
 
@@ -263,7 +263,7 @@ RentCentric's Settings menu, item by item.
 | Tour Setup | Manage Tours, Customer Tours | ⏸ not in use in RentCentric |
 | Equipment Setup | Equipment Inventory | ✅ |
 | Claims | Claims Management | ✅ every claim on rentals and vehicles (status / date / claim # filters) |
-| Claims | Claims Management V2 | ⏸ no V2 claims in RentCentric |
+| Claims | Claims Management V2 | ✅ Nov 20 (no V2 claims in RentCentric to import) |
 | Claims | Status Of Repair | ⏸ empty in RentCentric |
 | Claims | Claim Types | ⏸ empty in RentCentric (claims use Renter / 3rd Party / Other) |
 | Financial / Commission | Accounting | ⏸ GL Account Codes all empty in RentCentric (no accounting export used) |
@@ -278,14 +278,14 @@ RentCentric's Settings menu, item by item.
 | Website & Email | Promotions/Specials | ✅ RentCentric's 9 codes copied (locations + vehicle types); a valid code on an online booking becomes its discount (dates, minimum days, location, vehicle type, one-time use checked). Promo Code report built |
 | Website & Email | Rental Policies | ✅ RentCentric's Master Policies copied (same text for every location); shown on the online booking's last step above "I accept the rental policy"; editable with a preview (`/admin/settings/rental-policies`). New route: restart the server once |
 | Website & Email | Configuration, Style & Format, Add/Edit Webpages | ⬜ (our public site replaces these) |
-| Website & Email | Online Reservation (incl. V3, mobile), I-Frame Widget, I-Frame Rotator | ⬜ (our public site replaces these) |
+| Website & Email | Online Reservation (incl. V3, mobile), I-Frame Widget, I-Frame Rotator | ✅ public site + /widget and /rotator (Nov 20) |
 | Website & Email | Merchandise Items, Orders | ⏸ not in use in RentCentric |
 | Email Marketing | Send Marketing Email | ✅ RentCentric's 7 "Select Email" groups (all customers, birthdays in a day/month range, new customers, by location, confirmed reservations, on rent, closed rentals), From Name / Email, Text or Html, Subject, attachment (5 MB), "Allow Customer To Unsubscribe" (signed link → `/unsubscribe`, ticks the customer's "Unsubscribed from email marketing"); shows the recipient count first; unsubscribed / no-email customers left out; 2,000 per send 🔑 SMTP. New routes: restart the server once |
 | Email Marketing | Email Template | ⏸ none in RentCentric (the template list is empty) |
 | Tasks & Messages | | ✅ My Tasks / Add Task / Tasks List (Email Task needs SMTP) |
 | SMS Notification | Notifications Setup, Notification Users, SMS Providers | ✅ `/admin/settings/sms-notifications`: New Reservation message (RentCentric's keywords, click to insert, Enable) texted to the Notification Users (name, mobile, provider, location, Res. Message / Real-Time Dashboard, Active, Send SMS test) on every new reservation (online or staff); RentCentric's 69 carrier gateways. Off in RentCentric (no messages set) 🔑 SMTP. Real-time dashboard message and its times are saved but not sent on a schedule yet |
 | Self Service & Car Share | Rental Setup, Welcome Email, Registration Email, Welcome SMS | ✅ Built Nov 20 (see section 1 table) — blank in RentCentric, so nothing to copy over |
-| Point Of Sale | Merchandise Items, Orders | ⏸ not in use (as Merchandise above) |
+| Point Of Sale | Merchandise Items, Orders | ✅ Nov 20 (none in RentCentric to import) |
 | Paperless Counter, Counter Agent Pro, Mobile Scanner | | ⬜ (hardware / integrations phase) |
 
 ## 8. Reports
@@ -325,7 +325,7 @@ Not built yet:
 
 - Which staff earn by the "coquitlam" commission structure (RentCentric's user list couldn't be read; tick it on each user in Settings › Users).
 
-- Not in use in RentCentric (left out unless wanted): Tours, Claims Management V2, Status Of Repair, Claim Types, Merchandise Items / Orders, Email Templates, Repair Order program.
+- Not in use in RentCentric (left out unless wanted): Tours, Email Templates, Repair Order program. (Claims Management V2, Status Of Repair, Claim Types and Merchandise Items / Orders were built Nov 20.)
 
 - Yield pricing (Rate Values Update, Rate Blocking, Rate Utilization, Rates Calendar, Overbooking Control): not used in RentCentric today — needed?
 

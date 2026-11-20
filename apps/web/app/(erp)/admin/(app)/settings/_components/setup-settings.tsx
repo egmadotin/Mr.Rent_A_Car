@@ -50,7 +50,7 @@ function DeleteButton({ label, disabled, onDelete }: { label: string; disabled?:
 
 // ── Pick lists ───────────────────────────────────────────────────────────────
 
-export type LookupKind = "VEHICLE_CATEGORY" | "VEHICLE_BODY" | "FUEL_TYPE" | "ENGINE_BRAND" | "ENGINE_TYPE" | "VEHICLE_OPTION" | "COMPANY_TYPE" | "CUSTOMER_REGION" | "DISCOUNT_REASON" | "RENTAL_REASON" | "PAYMENT_DETAIL" | "DAMAGE_LOCATION" | "DAMAGE_CONDITION" | "VEHICLE_GROUP" | "TITLE_LOCATION" | "REGISTERED_OWNER" | "SIPP_CODE";
+export type LookupKind = "VEHICLE_CATEGORY" | "VEHICLE_BODY" | "FUEL_TYPE" | "ENGINE_BRAND" | "ENGINE_TYPE" | "VEHICLE_OPTION" | "COMPANY_TYPE" | "CUSTOMER_REGION" | "DISCOUNT_REASON" | "RENTAL_REASON" | "PAYMENT_DETAIL" | "DAMAGE_LOCATION" | "DAMAGE_CONDITION" | "VEHICLE_GROUP" | "TITLE_LOCATION" | "REGISTERED_OWNER" | "SIPP_CODE" | "CLAIM_TYPE" | "REPAIR_STATUS";
 
 /** One simple name list (Categories, Body Types, Fuel Types, Company Type, Customer Areas/Regions, …). */
 export function PickList({ kind, noun }: { kind: LookupKind; noun: string }) {

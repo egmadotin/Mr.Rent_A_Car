@@ -13,7 +13,7 @@ import { BUILTIN_PAYMENT_METHODS, paymentMethodInput } from "../../lib/payment-m
 const optStr = z.string().trim().max(4000).optional().nullable().transform((v) => v || null);
 const optInt = z.preprocess((v) => (v === "" || v == null ? null : Number(v)), z.number().int().min(0).nullable());
 const req = (label: string) => z.string({ required_error: `${label} is required` }).trim().min(1, `${label} is required`);
-const kind = z.enum(["VEHICLE_CATEGORY", "VEHICLE_BODY", "FUEL_TYPE", "ENGINE_BRAND", "ENGINE_TYPE", "VEHICLE_OPTION", "COMPANY_TYPE", "CUSTOMER_REGION", "DISCOUNT_REASON", "RENTAL_REASON", "PAYMENT_DETAIL", "DAMAGE_LOCATION", "DAMAGE_CONDITION", "VEHICLE_GROUP", "TITLE_LOCATION", "REGISTERED_OWNER", "SIPP_CODE"]);
+const kind = z.enum(["VEHICLE_CATEGORY", "VEHICLE_BODY", "FUEL_TYPE", "ENGINE_BRAND", "ENGINE_TYPE", "VEHICLE_OPTION", "COMPANY_TYPE", "CUSTOMER_REGION", "DISCOUNT_REASON", "RENTAL_REASON", "PAYMENT_DETAIL", "DAMAGE_LOCATION", "DAMAGE_CONDITION", "VEHICLE_GROUP", "TITLE_LOCATION", "REGISTERED_OWNER", "SIPP_CODE", "CLAIM_TYPE", "REPAIR_STATUS"]);
 const time = z.string().regex(/^\d{2}:\d{2}$/, "Use hh:mm").optional().nullable().or(z.literal("")).transform((v) => v || null);
 
 const inUse = (what: string) => new TRPCError({ code: "CONFLICT", message: `This ${what} is in use, so it can't be deleted. Make it inactive instead.` });

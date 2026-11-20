@@ -3,13 +3,18 @@ import { CheckIcon } from "lucide-react";
 import { Button } from "@mrac/ui/components/button";
 import { money } from "@mrac/ui/lib/format";
 import { BookingSteps } from "../steps";
+import { InjectHtml } from "../../_components/site-custom";
+import { publicApi } from "../../_lib/api";
 
 export const metadata = { title: "Reservation requested", robots: { index: false } };
 
 export default async function ConfirmedPage({ searchParams }: { searchParams: Promise<{ n?: string; total?: string }> }) {
   const { n, total } = await searchParams;
+  // Settings > Website Design V3 > Google Conversion Code: runs when a booking is made
+  const site = await (await publicApi()).siteChrome().catch(() => null);
   return (
     <div className="mx-auto w-full max-w-2xl space-y-8 px-4 py-10">
+      {site?.conversionCode ? <InjectHtml html={site.conversionCode} /> : null}
       <BookingSteps current={4} />
       <div className="space-y-5 rounded-sheet border bg-card p-8 text-center sm:p-12">
         <span className="mx-auto grid size-14 place-items-center rounded-pill bg-green-tint text-racing">

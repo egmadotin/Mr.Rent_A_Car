@@ -21,6 +21,8 @@ const LISTS: Record<string, { kind: LookupKind; title: string; noun: string; sec
   "title-locations": { kind: "TITLE_LOCATION", title: "Title Locations", noun: "Title location", section: "Vehicle Setup", description: "Choices for Title Location on Ownership Information." },
   "registered-owners": { kind: "REGISTERED_OWNER", title: "Registered Owners", noun: "Registered owner", section: "Vehicle Setup", description: "Choices for Registered Owner on Ownership Information." },
   "sipp-codes": { kind: "SIPP_CODE", title: "SIPP Codes", noun: "SIPP code", section: "Vehicle Setup", description: "ACRISS / SIPP car codes (CCAR, FVAR …)." },
+  "claim-types": { kind: "CLAIM_TYPE", title: "Claim Types", noun: "Claim type", section: "Claims Management", description: "Claim Type choices on Claims Management V2." },
+  "repair-statuses": { kind: "REPAIR_STATUS", title: "Status of Repair", noun: "Status", section: "Claims Management", description: "Status of Repair choices on Claims Management V2." },
   "payment-details": { kind: "PAYMENT_DETAIL", title: "Payment Details", noun: "Detail", section: "Payment Settings", description: "Detail choices on Add/Edit Other Charges." },
 };
 

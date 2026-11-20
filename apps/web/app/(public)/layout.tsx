@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { fontVariables } from "../_fonts/fonts";
 import { Providers } from "./_components/providers";
 import { SiteFooter, SiteHeader } from "./_components/site-chrome";
+import { InjectHtml } from "./_components/site-custom";
+import { publicApi } from "./_lib/api";
 import "./public.css";
 
 export const metadata: Metadata = {
@@ -9,8 +11,12 @@ export const metadata: Metadata = {
   description: "Locally owned car rental in Metro Vancouver and Calgary since 1996. Economy to Signature, all-in prices, taxes in.",
 };
 
-/** Root layout for the public marketing/booking site. Separate <html> from the ERP. */
-export default function PublicRootLayout({ children }: { children: React.ReactNode }) {
+/**
+ * Root layout for the public marketing/booking site. Separate <html> from the ERP. Settings > Website Design V3 adds its
+ * stylesheet, header / footer HTML and analytics code here; Add/Edit Webpages adds footer links.
+ */
+export default async function PublicRootLayout({ children }: { children: React.ReactNode }) {
+  const site = await (await publicApi()).siteChrome().catch(() => null);
   return (
     <html lang="en" data-brand="public" className={fontVariables} suppressHydrationWarning>
       <body className="flex min-h-dvh flex-col bg-background font-sans text-foreground">
@@ -21,9 +27,13 @@ export default function PublicRootLayout({ children }: { children: React.ReactNo
           >
             Skip to content
           </a>
+          {site?.stylesheet ? <style dangerouslySetInnerHTML={{ __html: site.stylesheet }} /> : null}
           <SiteHeader />
+          {site?.headerHtml ? <div className="site-header-html" dangerouslySetInnerHTML={{ __html: site.headerHtml }} /> : null}
           <main id="main" className="flex-1">{children}</main>
-          <SiteFooter />
+          {site?.footerHtml ? <div className="site-footer-html" dangerouslySetInnerHTML={{ __html: site.footerHtml }} /> : null}
+          <SiteFooter links={site?.links ?? []} />
+          {site?.analyticsCode ? <InjectHtml html={site.analyticsCode} /> : null}
         </Providers>
       </body>
     </html>

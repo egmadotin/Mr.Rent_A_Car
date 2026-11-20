@@ -223,6 +223,9 @@ model Location {
   commissionStructures CommissionStructure[]
   reservationEmail     ReservationEmailSetup?
   selfServiceSetup     SelfServiceSetup?
+  insuranceClaims      InsuranceClaim[]
+  posItems             PosItem[]
+  posOrders            PosOrder[]
   offsiteLocations     OffsiteLocation[]
   smsNotificationUsers SmsNotificationUser[]
 }
@@ -259,6 +262,8 @@ enum LookupKind {
   TITLE_LOCATION // Vehicle Setup > Title Locations: Ownership Information "Title Location" choices
   REGISTERED_OWNER // Vehicle Setup > Registered Owners: Ownership Information "Registered Owner" choices
   SIPP_CODE // Vehicle Setup > SIPP Codes (ACRISS car codes: CCAR, FVAR …)
+  CLAIM_TYPE // Claims Management V2 > Claim Type choices
+  REPAIR_STATUS // Claims Management V2 > Status of Repair choices
 }
 
 model Lookup {
@@ -557,6 +562,8 @@ model Vehicle {
   claims           Claim[]
 
   @@index([vehicleTypeId, rentalLocationId, status])
+  insuranceClaims          InsuranceClaim[]
+  posOrders                PosOrder[]
 }
 
 model VehicleOption {
@@ -897,6 +904,9 @@ model Company {
   payments     Payment[]
   billSplits   BillSplit[]
   vehiclesSold VehicleOwnership[] @relation("VehicleOwnershipSeller")
+  claimsInsured         InsuranceClaim[] @relation("ClaimInsurer")
+  claimsRepairing       InsuranceClaim[] @relation("ClaimRepairShop")
+  posOrders             PosOrder[]
 }
 
 enum InsuranceType {
@@ -1817,6 +1827,141 @@ model SelfServiceSetup {
   welcomeSms        String   @default("")
   updatedById       String?
   updatedAt         DateTime @updatedAt
+}
+
+/// Settings > Website & Email Setup > Website Design V3 (WebCustomerWebsiteDesign.aspx) and Widget/Rotator Setup (WidgetSetup.aspx). One row ("default").
+model WebsiteDesign {
+  id                 String   @id @default("default")
+  backgroundColor    String?
+  textColor          String?
+  displaySkin        String   @default("Default")
+  calendarSkin       String   @default("Default")
+  backgroundImageKey String?
+  logoKey            String?
+  compactWidth       Int      @default(0)
+  homePageBody       String   @default("")
+  headerHtml         String   @default("")
+  footerHtml         String   @default("")
+  stylesheet         String   @default("")
+  analyticsCode      String   @default("")
+  conversionCode     String   @default("")
+  /// Widget/Rotator Setup: where the booking widget / vehicle rotator open the booking page (_blank | _self | _parent)
+  widgetTarget       String   @default("_parent")
+  rotatorTarget      String   @default("_blank")
+  updatedById        String?
+  updatedAt          DateTime @updatedAt
+}
+
+/// Settings > Website & Email Setup > Add/Edit Webpages (WebPagesMain.aspx): links and pages on the public website.
+model WebPage {
+  id        String   @id @default(cuid())
+  /// LINK (an external link address) | PAGE (a page with its own content)
+  type      String   @default("LINK")
+  /// _blank | _parent | _search | _self | _top
+  target    String   @default("_parent")
+  url       String?
+  title     String
+  content   String   @default("")
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Settings > Claims Management > Claims Management V2 (ClaimsMainV2.aspx / ClaimsV2Modify.aspx): insurance claims with repair, adjuster and recovery details.
+model InsuranceClaim {
+  id                  String    @id @default(cuid())
+  number              Int       @unique @default(autoincrement())
+  internalClaimNumber String?
+  claimNumber         String?
+  claimDate           DateTime?
+  /// OPEN | CLOSED | PENDING
+  status              String    @default("OPEN")
+  closeDate           DateTime?
+  repairLocationId    String?
+  repairLocation      Location? @relation(fields: [repairLocationId], references: [id], onDelete: SetNull)
+  renterName          String?
+  vehicleId           String?
+  vehicle             Vehicle?  @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  rentalNumber        String?
+  dateOfLoss          DateTime?
+  claimType           String?
+  insuranceCompanyId  String?
+  insuranceCompany    Company?  @relation("ClaimInsurer", fields: [insuranceCompanyId], references: [id], onDelete: SetNull)
+  stateOfIncident     String?
+  /// "Vehicle Location.": the body shop / company where the vehicle is
+  vehicleLocationId   String?
+  vehicleLocation     Company?  @relation("ClaimRepairShop", fields: [vehicleLocationId], references: [id], onDelete: SetNull)
+  repairEstimate      Decimal?  @db.Decimal(10, 2)
+  statusOfRepair      String?
+  demandSent          Boolean   @default(false)
+  deductibleAmount    Decimal?  @db.Decimal(10, 2)
+  deductiblePaid      Decimal?  @db.Decimal(10, 2)
+  lossOfUse           Decimal?  @db.Decimal(10, 2)
+  diminishedValue     Decimal?  @db.Decimal(10, 2)
+  adjusterName        String?
+  adjusterPhone       String?
+  adjusterEmail       String?
+  createdById         String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+}
+
+/// Settings > Point Of Sale > Merchandise Items (ItemsSearchAddNew.aspx / ItemsModify.aspx).
+model PosItem {
+  id          String         @id @default(cuid())
+  itemNumber  String?
+  description String
+  unitPrice   Decimal        @db.Decimal(10, 2)
+  quantity    Int            @default(0)
+  memo        String?
+  taxable     Boolean        @default(true)
+  locationId  String?
+  location    Location?      @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  enteredById String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  orderLines  PosOrderLine[]
+}
+
+/// Settings > Point Of Sale > Orders (OrdersSearchAddNew.aspx / OrdersModify.aspx): merchandise sold to clients.
+model PosOrder {
+  id           String         @id @default(cuid())
+  number       Int            @unique @default(autoincrement())
+  poNumber     String?
+  enteredAt    DateTime       @default(now())
+  /// a payment method value ("CASH", "VISA", "OTHER:Cheque")
+  payMethod    String?
+  companyId    String?
+  company      Company?       @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  customerName String?
+  vehicleId    String?
+  vehicle      Vehicle?       @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  memo         String?
+  locationId   String
+  location     Location       @relation(fields: [locationId], references: [id])
+  amount       Decimal        @default(0) @db.Decimal(10, 2)
+  salesTax     Decimal        @default(0) @db.Decimal(10, 2)
+  totalSale    Decimal        @default(0) @db.Decimal(10, 2)
+  payment      Decimal        @default(0) @db.Decimal(10, 2)
+  enteredById  String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  lines        PosOrderLine[]
+}
+
+model PosOrderLine {
+  id          String   @id @default(cuid())
+  orderId     String
+  order       PosOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  itemId      String?
+  item        PosItem? @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  description String
+  unitPrice   Decimal  @db.Decimal(10, 2)
+  quantity    Int
+  taxPercent  Decimal  @default(0) @db.Decimal(6, 3)
+  amount      Decimal  @db.Decimal(10, 2)
+  taxAmount   Decimal  @db.Decimal(10, 2)
 }
 
 /// Every email the system sends (agreements, invoices, confirmations, quotes), for the record.
