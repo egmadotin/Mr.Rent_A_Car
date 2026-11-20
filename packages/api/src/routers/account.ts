@@ -7,6 +7,7 @@ import { consumeToken, issueToken, siteUrl } from "../lib/customer-account";
 import { sendMail } from "../lib/mailer";
 import { rentalTotals } from "../lib/totals";
 import { methodLabel } from "../lib/payment-methods";
+import { sendSelfServiceEmail } from "./staff/self-service";
 
 const myCustomer = (db: Db, userId: string) => db.customer.findUnique({ where: { userId }, select: { id: true } });
 
@@ -74,6 +75,8 @@ export const accountRouter = router({
       } catch {
         emailed = false; // email not set up yet: the account works; it links to past bookings once verified
       }
+      // Settings > Self Service & Car Share SetUp > Self Service Registration Email (when one is written)
+      await sendSelfServiceEmail(ctx.prisma, "registration", u.id);
       return { ok: true, emailed };
     }),
 
@@ -87,6 +90,8 @@ export const accountRouter = router({
     if (!userId) throw new TRPCError({ code: "BAD_REQUEST", message: "This link has expired or was already used." });
     await ctx.prisma.user.update({ where: { id: userId }, data: { emailVerified: true } });
     await linkCustomer(ctx.prisma, userId);
+    // Settings > Self Service & Car Share SetUp > Self Service Welcome Email (when one is written)
+    await sendSelfServiceEmail(ctx.prisma, "welcome", userId);
     return { ok: true };
   }),
 

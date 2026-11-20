@@ -31,6 +31,7 @@ export async function sendMail(
     from?: string;
     /** extra blind copy (Settings > Reservation Email's "To Email"), besides Email Setup's */
     bcc?: string;
+    replyTo?: string;
   },
 ) {
   const log = (status: "SENT" | "FAILED", error?: string) =>
@@ -43,7 +44,7 @@ export async function sendMail(
     throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Email isn't set up yet — an admin can add the SMTP account in Settings > Email Setup." });
   }
   try {
-    await m.transport.sendMail({ from: msg.from ?? m.from, to: msg.to, bcc: [m.bcc, msg.bcc].filter(Boolean).join(", ") || undefined, subject: msg.subject, html: msg.html, attachments: msg.attachments });
+    await m.transport.sendMail({ from: msg.from ?? m.from, to: msg.to, bcc: [m.bcc, msg.bcc].filter(Boolean).join(", ") || undefined, subject: msg.subject, html: msg.html, replyTo: msg.replyTo, attachments: msg.attachments });
     await log("SENT");
   } catch (e) {
     await log("FAILED", (e as Error).message);

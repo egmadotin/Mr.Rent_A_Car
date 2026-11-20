@@ -222,6 +222,7 @@ model Location {
   paymentMethods       LocationPaymentMethod[]
   commissionStructures CommissionStructure[]
   reservationEmail     ReservationEmailSetup?
+  selfServiceSetup     SelfServiceSetup?
   offsiteLocations     OffsiteLocation[]
   smsNotificationUsers SmsNotificationUser[]
 }
@@ -1802,6 +1803,20 @@ model ReservationEmailSetup {
   body                    String   @default("")
   identityVerificationUrl String?
   updatedAt               DateTime @updatedAt
+}
+
+/// Settings > Self Service & Car Share SetUp (SelfServiceSetup / WelcomeEmailSetup / RegistrationEmailSetup / WelcomeSMSSetup.aspx), per location.
+model SelfServiceSetup {
+  locationId        String   @id
+  location          Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  /// Rental Setup: registration form tick boxes, rental management tick boxes and advanced numbers ({ driversLicense: true, minReservationHours: 2, ... })
+  rental            Json     @default("{}")
+  /// { fromName, format, fromEmail, replyTo, subject, body }
+  welcomeEmail      Json?
+  registrationEmail Json?
+  welcomeSms        String   @default("")
+  updatedById       String?
+  updatedAt         DateTime @updatedAt
 }
 
 /// Every email the system sends (agreements, invoices, confirmations, quotes), for the record.

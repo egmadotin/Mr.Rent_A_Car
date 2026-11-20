@@ -16,6 +16,7 @@ import { numberSeriesRouter } from "./routers/staff/number-series";
 import { rateControlsRouter } from "./routers/staff/rate-controls";
 import { payNowRouter } from "./routers/staff/pay-now";
 import { rateSetsRouter } from "./routers/staff/rate-sets";
+import { selfServiceRouter } from "./routers/staff/self-service";
 import { templateRouter } from "./routers/staff/template";
 import { emailRouter } from "./routers/staff/email";
 import { usersRouter } from "./routers/staff/users";
@@ -43,6 +44,7 @@ export const staffRouter = router({
   rateControls: rateControlsRouter,
   payNow: payNowRouter,
   rateSets: rateSetsRouter,
+  selfService: selfServiceRouter,
   template: templateRouter,
   email: emailRouter,
   users: usersRouter,

@@ -8,7 +8,7 @@ import { getFile } from "./storage";
 import { BUSINESS_TZ } from "./tz";
 
 /** ##LogoImage## (an <img src>): the location's uploaded logo inline, so it shows in emails too; else the site logo. */
-async function logoField(logoKey: string | null | undefined) {
+export async function logoField(logoKey: string | null | undefined) {
   const f = logoKey ? await getFile(logoKey) : null;
   return { LogoImage: f ? `data:${f.contentType};base64,${Buffer.from(f.data).toString("base64")}` : "/legacy/logo.webp" };
 }

@@ -8,7 +8,8 @@
     "./server": "./src/server.ts",
     "./vehicle-status": "./src/lib/vehicle-status.ts",
     "./storage": "./src/lib/storage.ts",
-    "./vehicle-ownership-fields": "./src/lib/vehicle-ownership-fields.ts"
+    "./vehicle-ownership-fields": "./src/lib/vehicle-ownership-fields.ts",
+    "./self-service": "./src/lib/self-service.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
