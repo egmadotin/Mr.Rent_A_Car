@@ -2,8 +2,9 @@ import * as React from "react";
 import { cn } from "../lib/utils";
 
 function Table({ className, ...props }: React.ComponentProps<"table">) {
+  // rounded-[inherit]: inside a Card the header / row backgrounds follow the card's rounded corners (overflow clips them)
   return (
-    <div data-slot="table-container" className="relative w-full overflow-x-auto">
+    <div data-slot="table-container" className="relative w-full overflow-x-auto rounded-[inherit]">
       <table data-slot="table" className={cn("w-full caption-bottom text-sm", className)} {...props} />
     </div>
   );

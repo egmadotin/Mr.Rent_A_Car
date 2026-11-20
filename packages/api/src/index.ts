@@ -17,7 +17,6 @@ import { rateControlsRouter } from "./routers/staff/rate-controls";
 import { payNowRouter } from "./routers/staff/pay-now";
 import { rateSetsRouter } from "./routers/staff/rate-sets";
 import { selfServiceRouter } from "./routers/staff/self-service";
-import { websiteRouter } from "./routers/staff/website";
 import { claimsV2Router } from "./routers/staff/claims-v2";
 import { posRouter } from "./routers/staff/pos";
 import { renewRouter } from "./routers/staff/renew";
@@ -49,7 +48,6 @@ export const staffRouter = router({
   payNow: payNowRouter,
   rateSets: rateSetsRouter,
   selfService: selfServiceRouter,
-  website: websiteRouter,
   claimsV2: claimsV2Router,
   pos: posRouter,
   renew: renewRouter,

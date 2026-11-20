@@ -146,8 +146,7 @@ export function SiteHeader() {
 
 const FOOTER_LOCATIONS = ["Vancouver Airport (YVR)", "Richmond", "Burnaby", "Surrey", "Calgary Airport (YYC)"];
 
-/** `links`: Settings > Add/Edit Webpages (active links and pages), listed under Company. */
-export function SiteFooter({ links = [] }: { links?: { title: string; href: string; target: string }[] }) {
+export function SiteFooter() {
   const year = new Date().getFullYear();
   return (
     <footer className="mt-24 border-t bg-card">
@@ -190,13 +189,6 @@ export function SiteFooter({ links = [] }: { links?: { title: string; href: stri
                 Cars for sale <ArrowUpRightIcon className="size-3.5" />
               </a>
             </li>
-            {links.map((l) => (
-              <li key={`${l.href}|${l.title}`}>
-                <a href={l.href} target={l.target === "_search" ? "_blank" : l.target} rel={l.target === "_blank" ? "noopener" : undefined} className="text-[15px] text-muted-foreground transition-colors hover:text-foreground">
-                  {l.title}
-                </a>
-              </li>
-            ))}
           </FooterCol>
         </div>
 

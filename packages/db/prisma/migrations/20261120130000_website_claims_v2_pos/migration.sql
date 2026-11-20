@@ -1,46 +1,6 @@
--- Website Design V3, Widget/Rotator, Add/Edit Webpages, Claims Management V2, Point Of Sale
+-- Claims Management V2, Point Of Sale
 ALTER TYPE "LookupKind" ADD VALUE 'CLAIM_TYPE';
 ALTER TYPE "LookupKind" ADD VALUE 'REPAIR_STATUS';
-
--- CreateTable
-CREATE TABLE "WebsiteDesign" (
-    "id" TEXT NOT NULL DEFAULT 'default',
-    "backgroundColor" TEXT,
-    "textColor" TEXT,
-    "displaySkin" TEXT NOT NULL DEFAULT 'Default',
-    "calendarSkin" TEXT NOT NULL DEFAULT 'Default',
-    "backgroundImageKey" TEXT,
-    "logoKey" TEXT,
-    "compactWidth" INTEGER NOT NULL DEFAULT 0,
-    "homePageBody" TEXT NOT NULL DEFAULT '',
-    "headerHtml" TEXT NOT NULL DEFAULT '',
-    "footerHtml" TEXT NOT NULL DEFAULT '',
-    "stylesheet" TEXT NOT NULL DEFAULT '',
-    "analyticsCode" TEXT NOT NULL DEFAULT '',
-    "conversionCode" TEXT NOT NULL DEFAULT '',
-    "widgetTarget" TEXT NOT NULL DEFAULT '_parent',
-    "rotatorTarget" TEXT NOT NULL DEFAULT '_blank',
-    "updatedById" TEXT,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "WebsiteDesign_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "WebPage" (
-    "id" TEXT NOT NULL,
-    "type" TEXT NOT NULL DEFAULT 'LINK',
-    "target" TEXT NOT NULL DEFAULT '_parent',
-    "url" TEXT,
-    "title" TEXT NOT NULL,
-    "content" TEXT NOT NULL DEFAULT '',
-    "isActive" BOOLEAN NOT NULL DEFAULT true,
-    "sortOrder" INTEGER NOT NULL DEFAULT 0,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "WebPage_pkey" PRIMARY KEY ("id")
-);
 
 -- CreateTable
 CREATE TABLE "InsuranceClaim" (

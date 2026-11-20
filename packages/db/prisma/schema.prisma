@@ -1829,45 +1829,6 @@ model SelfServiceSetup {
   updatedAt         DateTime @updatedAt
 }
 
-/// Settings > Website & Email Setup > Website Design V3 (WebCustomerWebsiteDesign.aspx) and Widget/Rotator Setup (WidgetSetup.aspx). One row ("default").
-model WebsiteDesign {
-  id                 String   @id @default("default")
-  backgroundColor    String?
-  textColor          String?
-  displaySkin        String   @default("Default")
-  calendarSkin       String   @default("Default")
-  backgroundImageKey String?
-  logoKey            String?
-  compactWidth       Int      @default(0)
-  homePageBody       String   @default("")
-  headerHtml         String   @default("")
-  footerHtml         String   @default("")
-  stylesheet         String   @default("")
-  analyticsCode      String   @default("")
-  conversionCode     String   @default("")
-  /// Widget/Rotator Setup: where the booking widget / vehicle rotator open the booking page (_blank | _self | _parent)
-  widgetTarget       String   @default("_parent")
-  rotatorTarget      String   @default("_blank")
-  updatedById        String?
-  updatedAt          DateTime @updatedAt
-}
-
-/// Settings > Website & Email Setup > Add/Edit Webpages (WebPagesMain.aspx): links and pages on the public website.
-model WebPage {
-  id        String   @id @default(cuid())
-  /// LINK (an external link address) | PAGE (a page with its own content)
-  type      String   @default("LINK")
-  /// _blank | _parent | _search | _self | _top
-  target    String   @default("_parent")
-  url       String?
-  title     String
-  content   String   @default("")
-  isActive  Boolean  @default(true)
-  sortOrder Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
 /// Settings > Claims Management > Claims Management V2 (ClaimsMainV2.aspx / ClaimsV2Modify.aspx): insurance claims with repair, adjuster and recovery details.
 model InsuranceClaim {
   id                  String    @id @default(cuid())

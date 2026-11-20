@@ -49,7 +49,7 @@ export function RenewRentals() {
             <TableRow><TableHead>Rental #</TableHead><TableHead>Customer</TableHead><TableHead>Unit #</TableHead><TableHead>Location</TableHead><TableHead>Checked Out</TableHead><TableHead>Checked In</TableHead><TableHead className="text-right">Renew</TableHead></TableRow>
           </TableHeader>
           <TableBody>
-            <ListStatusRow colSpan={7} loading={q.isLoading} empty={!rows.length} emptyText="No closed rental agreements match." />
+            <ListStatusRow colSpan={7} loading={q.isLoading || !can.me} empty={!rows.length} emptyText="No closed rental agreements match." />
             {rows.map((r) => (
               <TableRow key={r.id}>
                 <TableCell><Link href={`/admin/rentals/${r.id}`} className="font-medium text-primary hover:underline">{r.raNumber}</Link></TableCell>
